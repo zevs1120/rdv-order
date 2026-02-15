@@ -402,9 +402,9 @@ export default function OrderPage() {
 
   return (
     <div className="stack">
-      <header>
+      <header className="order-header">
         <h1 className="order-title">{t("order.title", "新订单")}</h1>
-        <div className="row order-actions">
+        <div className="row order-actions" role="toolbar" aria-label={t("order.toolbar", "订单操作栏")}>
           <input
             className="order-search-input"
             value={keyword}
@@ -610,7 +610,7 @@ export default function OrderPage() {
         </div>
       ) : null}
 
-      <div className="panel row" style={{ justifyContent: "space-between" }}>
+      <div className="panel row order-submit-bar" style={{ justifyContent: "space-between" }}>
         <div>{t("order.total", "当前加购合计")}：₱{total}</div>
         <button onClick={submitOrder} disabled={loading}>{loading ? t("order.submitting", "提交中...") : t("order.submit", "提交订单")}</button>
       </div>

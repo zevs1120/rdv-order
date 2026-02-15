@@ -243,8 +243,24 @@ button:disabled {
 }
 
 .order-actions {
-  flex-wrap: wrap;
-  justify-content: flex-end;
+  flex-wrap: nowrap;
+  justify-content: flex-start;
+  overflow-x: auto;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: 2px;
+}
+
+.order-actions::-webkit-scrollbar {
+  display: none;
+}
+
+.order-header {
+  position: sticky;
+  top: calc(2px + env(safe-area-inset-top));
+  z-index: 24;
+  background: var(--bg);
+  padding: 4px 0;
 }
 
 .order-title {
@@ -252,8 +268,16 @@ button:disabled {
 }
 
 .order-search-input {
-  width: 140px;
-  min-width: 110px;
+  width: 132px;
+  min-width: 132px;
+}
+
+.order-submit-bar {
+  position: sticky;
+  bottom: calc(56px + env(safe-area-inset-bottom));
+  z-index: 26;
+  background: rgba(255, 250, 242, 0.96);
+  backdrop-filter: blur(4px);
 }
 
 .order-list {
