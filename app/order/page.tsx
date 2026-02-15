@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import BottomNav from "../components/bottom-nav";
 import { apiFetchJson, getStoredAuth } from "../../lib/client-api";
 import { useI18n } from "../components/i18n-provider";
-import { localizeMenuText } from "../../lib/menu-text";
+import { localizeMenuText, shortCategoryLabel } from "../../lib/menu-text";
 
 type ShiftKey = "breakfast" | "lunch" | "dinner" | "cocktail";
 type CustomDishMode = "temporary" | "permanent";
@@ -497,7 +497,7 @@ export default function OrderPage() {
                 className={selectedCategory === category ? "category-btn active" : "category-btn"}
                 onClick={() => setSelectedCategory(category)}
               >
-                {localizeMenuText(category, lang)}
+                {shortCategoryLabel(category, lang)}
               </button>
             ))}
           </aside>

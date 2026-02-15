@@ -34,3 +34,23 @@ export function localizeMenuText(text: string | null | undefined, lang: Lang) {
   return enToZh.get(value.toLowerCase()) || value;
 }
 
+export function shortCategoryLabel(text: string | null | undefined, lang: Lang) {
+  const localized = localizeMenuText(text, lang).trim();
+  if (!localized) return "";
+
+  if (lang === "zh") {
+    return localized;
+  }
+
+  const compact = localized
+    .replace(/\s+(food|foods|cuisine|dishes|menu|specials)$/i, "")
+    .replace(/\s*\/\s*.*/, "")
+    .trim();
+
+  if (compact.length <= 11) {
+    return compact;
+  }
+
+  const first = compact.split(/\s+/)[0];
+  return first || compact;
+}

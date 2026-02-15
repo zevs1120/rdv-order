@@ -144,7 +144,7 @@ button:disabled {
 
 .order-layout {
   display: grid;
-  grid-template-columns: 86px 1fr;
+  grid-template-columns: 72px 1fr;
   gap: 8px;
 }
 
@@ -152,9 +152,16 @@ button:disabled {
   display: grid;
   gap: 6px;
   align-content: start;
-  max-height: min(66vh, 540px);
-  overflow: auto;
+  width: 72px;
+  min-width: 72px;
+  max-width: 72px;
+  max-height: min(72vh, 560px);
+  overflow-y: auto;
+  overflow-x: hidden;
   -webkit-overflow-scrolling: touch;
+  position: sticky;
+  top: calc(56px + env(safe-area-inset-top));
+  align-self: start;
 }
 
 .category-btn {
@@ -162,7 +169,14 @@ button:disabled {
   background: #fffdf8;
   color: var(--ink);
   text-align: left;
-  min-height: 44px;
+  min-height: 42px;
+  width: 100%;
+  padding: 8px 6px;
+  font-size: 12px;
+  line-height: 1.1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .category-btn.active {
@@ -255,13 +269,13 @@ button:disabled {
   position: fixed;
   left: 50%;
   transform: translateX(-50%);
-  bottom: calc(8px + env(safe-area-inset-bottom));
-  width: min(560px, calc(100vw - 16px));
+  bottom: 0;
+  width: min(560px, 100vw);
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 6px;
-  padding: 6px;
-  border: 1px solid var(--line);
+  padding: 6px 8px calc(6px + env(safe-area-inset-bottom));
+  border-top: 1px solid var(--line);
   background: rgba(255, 250, 242, 0.98);
 }
 
@@ -365,7 +379,7 @@ button:disabled {
   position: fixed;
   left: 50%;
   transform: translateX(-50%);
-  bottom: calc(58px + env(safe-area-inset-bottom));
+  bottom: calc(54px + env(safe-area-inset-bottom));
   width: min(560px, calc(100vw - 16px));
   display: grid;
   grid-template-columns: 1fr;
@@ -424,7 +438,7 @@ a {
   }
 
   .order-layout {
-    grid-template-columns: 78px 1fr;
+    grid-template-columns: 64px 1fr;
   }
 
   .menu-grid {
@@ -433,6 +447,17 @@ a {
 
   .menu-create-form {
     max-width: none;
+  }
+
+  .category-sidebar {
+    width: 64px;
+    min-width: 64px;
+    max-width: 64px;
+  }
+
+  .category-btn {
+    font-size: 11px;
+    padding: 7px 5px;
   }
 
   .menu-simple-row {
