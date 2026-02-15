@@ -18,6 +18,12 @@ function delay(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+function backoffMs(attempt: number) {
+  const base = NETWORK_POLICY.backoffBaseMs * Math.max(1, attempt + 1);
+  const jitter = Math.floor(Math.random() * 60);
+  return base + jitter;
+}
+
 function isRetryableStatus(status: number) {
   return status === 408 || status === 429 || status >= 500;
 }
@@ -58,6 +64,10 @@ export async function apiFetchJson<T>(url: string, options: ApiFetchOptions = {}
   let lastError: Error | null = null;
 
   for (let attempt = 0; attempt <= retryCount; attempt += 1) {
+    if (typeof navigator !== "undefined" && navigator.onLine === false) {
+      throw new Error("设备离线，请检查网络后重试");
+    }
+
     const controller = new AbortController();
     const onAbort = () => controller.abort();
     externalSignal?.addEventListener("abort", onAbort, { once: true });
@@ -86,20 +96,20 @@ export async function apiFetchJson<T>(url: string, options: ApiFetchOptions = {}
       }
 
       if (attempt < retryCount && isRetryableStatus(response.status)) {
-        await delay(NETWORK_POLICY.backoffBaseMs * (attempt + 1));
+        await delay(backoffMs(attempt));
         continue;
       }
 
       throw new Error(readErrorMessage(data, `请求失败 (${response.status})`));
     } catch (err: any) {
       if (err?.name === "AbortError") {
-        lastError = new Error("请求超时，请检查网络");
+        lastError = new Error(`请求超时，请检查网络（${url}）`);
       } else {
         lastError = err instanceof Error ? err : new Error("网络请求失败");
       }
 
       if (attempt < retryCount) {
-        await delay(NETWORK_POLICY.backoffBaseMs * (attempt + 1));
+        await delay(backoffMs(attempt));
         continue;
       }
     } finally {
