@@ -27,6 +27,23 @@ type Payload = {
   };
 };
 
+type PrintHealth = {
+  provider: {
+    primary: "cloud" | "agent";
+    fallback: "cloud" | "agent" | null;
+  };
+  config: {
+    primary: { url: string; tokenSet: boolean; ready: boolean };
+    fallback: { url: string; tokenSet: boolean; ready: boolean } | null;
+    workerKeySet: boolean;
+    heartbeatKeySet: boolean;
+  };
+  queue: {
+    pending: number;
+    failed: number;
+  };
+};
+
 export default function ManageDevicesPage() {
   const router = useRouter();
   const { t } = useI18n();
@@ -34,6 +51,8 @@ export default function ManageDevicesPage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [updating, setUpdating] = useState("");
+  const [health, setHealth] = useState<PrintHealth | null>(null);
+  const [healthOpen, setHealthOpen] = useState(true);
 
   async function loadData() {
     setLoading(true);
@@ -44,8 +63,12 @@ export default function ManageDevicesPage() {
         router.replace("/");
         return;
       }
-      const body = await apiFetchJson<Payload>("/api/devices", { timeoutMs: 6000, retries: 1 });
+      const [body, healthBody] = await Promise.all([
+        apiFetchJson<Payload>("/api/devices", { timeoutMs: 6000, retries: 1 }),
+        apiFetchJson<PrintHealth>("/api/print/health", { timeoutMs: 6000, retries: 1 })
+      ]);
       setData(body);
+      setHealth(healthBody);
     } catch (err: any) {
       setError(err.message || "加载失败");
     } finally {
@@ -54,18 +77,30 @@ export default function ManageDevicesPage() {
   }
 
   async function markStatus(deviceCode: string, status: "online" | "offline" | "degraded") {
+    if (!data) return;
     setUpdating(deviceCode);
     setError("");
     try {
+      setData((prev) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          devices: prev.devices.map((item) =>
+            item.device_code === deviceCode ? { ...item, status } : item
+          )
+        };
+      });
       await apiFetchJson("/api/devices", {
         method: "PATCH",
         body: { deviceCode, status },
         timeoutMs: 6000,
         retries: 0
       });
-      await loadData();
+      const healthBody = await apiFetchJson<PrintHealth>("/api/print/health", { timeoutMs: 6000, retries: 1 });
+      setHealth(healthBody);
     } catch (err: any) {
       setError(err.message || "状态更新失败");
+      await loadData();
     } finally {
       setUpdating("");
     }
@@ -92,9 +127,9 @@ export default function ManageDevicesPage() {
 
   return (
     <div className="stack">
-      <header>
+      <header className="devices-header">
         <h1>{t("devices.title", "设备状态")}</h1>
-        <div className="row">
+        <div className="row devices-actions">
           <button className="secondary compact-btn" type="button" onClick={() => { void loadData(); }}>
             {t("common.refresh", "刷新")}
           </button>
@@ -105,6 +140,43 @@ export default function ManageDevicesPage() {
       </header>
 
       <ManageTabs />
+
+      <div className="panel stack">
+        <div className="row" style={{ justifyContent: "space-between" }}>
+          <strong>{t("devices.deployReadiness", "打印部署就绪")}</strong>
+          <button
+            type="button"
+            className="secondary compact-btn"
+            onClick={() => setHealthOpen((v) => !v)}
+          >
+            {healthOpen ? t("common.collapse", "收起") : t("common.expand", "展开")}
+          </button>
+        </div>
+        {healthOpen ? (
+          <div className="order-list">
+            <div className="row" style={{ justifyContent: "space-between" }}>
+              <span>Primary: {health?.provider.primary || "-"}</span>
+              <span className="tag">{health?.config.primary.ready ? t("devices.ready", "就绪") : t("devices.notReady", "未就绪")}</span>
+            </div>
+            <div className="row" style={{ justifyContent: "space-between" }}>
+              <span>Fallback: {health?.provider.fallback || "-"}</span>
+              <span className="tag">
+                {health?.provider.fallback
+                  ? (health?.config.fallback?.ready ? t("devices.ready", "就绪") : t("devices.notReady", "未就绪"))
+                  : t("devices.notSet", "未配置")}
+              </span>
+            </div>
+            <div className="row" style={{ justifyContent: "space-between" }}>
+              <span>PRINT_WORKER_KEY</span>
+              <span className="tag">{health?.config.workerKeySet ? t("devices.ready", "就绪") : t("devices.notSet", "未配置")}</span>
+            </div>
+            <div className="row" style={{ justifyContent: "space-between" }}>
+              <span>DEVICE_HEARTBEAT_KEY</span>
+              <span className="tag">{health?.config.heartbeatKeySet ? t("devices.ready", "就绪") : t("devices.notSet", "未配置")}</span>
+            </div>
+          </div>
+        ) : null}
+      </div>
 
       <div className="panel stack">
         <div className="row" style={{ justifyContent: "space-between" }}>
@@ -121,7 +193,13 @@ export default function ManageDevicesPage() {
           <div key={device.id} className="panel stack">
             <div className="row" style={{ justifyContent: "space-between" }}>
               <strong>{device.label}</strong>
-              <span className="tag">{device.status}</span>
+              <span className="tag">
+                {device.status === "online"
+                  ? t("devices.online", "在线")
+                  : device.status === "degraded"
+                    ? t("devices.degraded", "降级")
+                    : t("devices.offline", "离线")}
+              </span>
             </div>
             <div className="muted">{device.device_code} · {device.device_type}{device.is_backup ? " · backup" : ""}</div>
             <div className="muted">fail={device.fail_count} · lastSeen={device.last_seen_at ? new Date(device.last_seen_at).toLocaleString() : "-"}</div>

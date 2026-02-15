@@ -231,6 +231,24 @@ button:disabled {
   z-index: 21;
 }
 
+.devices-header {
+  position: sticky;
+  top: calc(2px + env(safe-area-inset-top));
+  z-index: 20;
+  background: var(--bg);
+  padding: 4px 0;
+}
+
+.devices-actions {
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.devices-actions::-webkit-scrollbar {
+  display: none;
+}
+
 .table-layout {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
