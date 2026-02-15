@@ -75,7 +75,6 @@ export default function TablesPage() {
         retries: 1
       });
       setOpeningTable(null);
-      await loadTables();
       enterMenu(body.session.tableNo, body.session.guestCount);
     } catch (err: any) {
       setError(err.message || "开台失败");
@@ -107,7 +106,6 @@ export default function TablesPage() {
       });
       setMergeMode(false);
       setMergeSelection([]);
-      await loadTables();
       enterMenu(body.session.tableNo, body.session.guestCount);
     } catch (err: any) {
       setError(err.message || "拼桌失败");
@@ -117,6 +115,7 @@ export default function TablesPage() {
   }
 
   function onTableClick(table: TableItem) {
+    if (submitting) return;
     if (table.status === "open") {
       enterMenu(table.tableNo, table.guestCount || 1);
       return;
@@ -140,9 +139,9 @@ export default function TablesPage() {
 
   return (
     <div className="stack">
-      <header>
+      <header className="tables-header">
         <h1>{t("tables.title", "请选择桌号")}</h1>
-        <div className="row">
+        <div className="row tables-actions">
           <button
             className={mergeMode ? "" : "secondary"}
             type="button"
@@ -150,10 +149,13 @@ export default function TablesPage() {
               setMergeMode((v) => !v);
               setMergeSelection([]);
             }}
+            disabled={submitting || Boolean(openingTable)}
           >
             {t("tables.merge", "拼桌")}
           </button>
-          <button className="secondary" onClick={loadTables} type="button">{t("common.refresh", "刷新")}</button>
+          <button className="secondary" onClick={loadTables} type="button" disabled={submitting}>
+            {t("common.refresh", "刷新")}
+          </button>
           <button
             className="secondary"
             onClick={() => {
@@ -161,6 +163,7 @@ export default function TablesPage() {
               router.replace("/");
             }}
             type="button"
+            disabled={submitting}
           >
             {t("common.logout", "退出")}
           </button>
@@ -168,7 +171,7 @@ export default function TablesPage() {
       </header>
 
       {openingTable ? (
-        <div className="panel stack">
+        <div className="panel stack tables-open-panel">
           <h3 style={{ margin: 0 }}>{t("tables.opening", "开台：")}{openingTable.tableNo}</h3>
           <label className="stack">
             {t("tables.guestCount", "用餐人数")}
@@ -190,7 +193,7 @@ export default function TablesPage() {
       <div className="bar-banner">{t("tables.bar", "吧台（BAR）")}</div>
 
       {mergeMode ? (
-        <div className="panel stack">
+        <div className="panel stack tables-merge-panel">
           <div className="muted">{t("tables.mergeModeHint", "拼桌模式：选择两张空闲桌，确认后合并为一个桌号。")}</div>
           <div className="row" style={{ justifyContent: "space-between", flexWrap: "wrap" }}>
             <div>{t("tables.selected", "已选择")}：{mergeSelection.join(" + ") || t("tables.noneSelected", "未选择")}</div>

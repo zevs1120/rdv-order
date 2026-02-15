@@ -201,6 +201,36 @@ button:disabled {
   padding: 9px;
 }
 
+.tables-header {
+  position: sticky;
+  top: calc(2px + env(safe-area-inset-top));
+  z-index: 20;
+  background: var(--bg);
+  padding: 4px 0;
+}
+
+.tables-actions {
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.tables-actions::-webkit-scrollbar {
+  display: none;
+}
+
+.tables-open-panel {
+  position: sticky;
+  top: calc(64px + env(safe-area-inset-top));
+  z-index: 22;
+}
+
+.tables-merge-panel {
+  position: sticky;
+  top: calc(64px + env(safe-area-inset-top));
+  z-index: 21;
+}
+
 .table-layout {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
