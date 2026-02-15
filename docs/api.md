@@ -15,7 +15,7 @@
 
 ## Menu
 
-### `GET /api/menu?shift=breakfast|lunch|dinner|cocktail`
+### `GET /api/menu?shift=breakfast|lunch|dinner|cocktail|package`
 
 返回当前班次菜单。
 
@@ -137,7 +137,7 @@
 
 执行结账确认：
 
-- 订单状态更新为 `paid`
+- 订单状态更新为 `submitted -> paid -> closed`
 - 当前桌台自动关台（恢复绿色）
 
 ### `POST /api/tables/close`
@@ -172,11 +172,30 @@
 
 请求头：`Authorization: Bearer <jwt>`（必须 manager）
 
-返回已结账（`paid`）收入汇总与按天统计，用于“当天/昨天/过去一周/过去一月/过去三月/过去一年/自定时间”筛选。
+返回已结账（`paid`/`closed`）收入汇总与按天统计，用于“当天/昨天/过去一周/过去一月/过去三月/过去一年/自定时间”筛选。
 
 ## Print
 
 ### `POST /api/print/dispatch`
+
+请求头（任选其一）：
+
+- `X-Print-Worker-Key: <PRINT_WORKER_KEY>`（调度器调用）
+- 或经理权限 JWT（手动触发）
+
+请求：
+
+```json
+{
+  "limit": 10
+}
+```
+
+### `GET /api/print/health`
+
+请求头：`Authorization: Bearer <jwt>`（必须 manager）
+
+返回打印部署就绪状态（主/备通道配置、队列积压、关键密钥是否已配置）。
 
 触发打印任务消费（调度 `print_jobs` 队列）。
 

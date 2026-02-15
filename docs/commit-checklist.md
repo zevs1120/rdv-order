@@ -6,6 +6,7 @@
 - 确认 `db/seed.sql` 不包含生产真实账号与 PIN。
 - 执行 `npm install`（首次）。
 - 执行 `npm run build`，确保可构建。
+- 如改动打印链路，执行 `npm run check:print-env`。
 - 如修改 DB schema，同时更新 `db/schema.sql` 与说明文档。
 - 如修改菜单模型，同时提供对应 `db/migrations/*.sql` 升级脚本。
 - 如新增 API，同时更新 `/Users/qiao/Downloads/rdv-order/docs/api.md`。
@@ -20,3 +21,4 @@
 
 - 在 GitHub Desktop 确认改动文件清单无异常。
 - 推送后在部署平台校验环境变量完整。
+- 上线后用经理账号检查 `/api/print/health` 返回为就绪状态。
