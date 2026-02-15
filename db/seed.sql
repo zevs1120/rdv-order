@@ -1,8 +1,7 @@
--- Replace pin_salt and pin_hash with values from scripts/gen-pin.js
 INSERT INTO users (username, role, pin_salt, pin_hash)
 VALUES
-  ('waiter1', 'waiter', 'REPLACE_SALT', 'REPLACE_HASH'),
-  ('manager1', 'manager', 'REPLACE_SALT', 'REPLACE_HASH');
+  ('mercy', 'waiter', 'c54576a716b413db', '24918ad92b19d6597b0fcd32271ba9b9d02d86a0348e3505a932fbe6af8fef55'),
+  ('manager1', 'manager', 'c54576a716b413db', '24918ad92b19d6597b0fcd32271ba9b9d02d86a0348e3505a932fbe6af8fef55');
 
 INSERT INTO menu_items (name, price, category, sort_order)
 VALUES

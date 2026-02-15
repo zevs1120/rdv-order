@@ -1,12 +1,27 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 export default function LoginPage() {
   const [username, setUsername] = useState("");
   const [pin, setPin] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [checkingSession, setCheckingSession] = useState(true);
+
+  useEffect(() => {
+    const token = localStorage.getItem("rdv_token");
+    const role = localStorage.getItem("rdv_role");
+    if (token && role === "manager") {
+      window.location.href = "/summary";
+      return;
+    }
+    if (token && role === "waiter") {
+      window.location.href = "/order";
+      return;
+    }
+    setCheckingSession(false);
+  }, []);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -44,6 +59,9 @@ export default function LoginPage() {
         <div className="muted">稳定 / 简单 / 低成本</div>
       </header>
       <div className="card">
+        {checkingSession ? (
+          <div className="muted">正在检查登录状态...</div>
+        ) : (
         <form className="stack" onSubmit={onSubmit}>
           <label className="stack">
             账号
@@ -56,6 +74,7 @@ export default function LoginPage() {
           {error && <div className="muted">{error}</div>}
           <button type="submit" disabled={loading}>{loading ? "登录中..." : "登录"}</button>
         </form>
+        )}
       </div>
       <div className="muted">没有网络时请使用手写单</div>
     </div>
