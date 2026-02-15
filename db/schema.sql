@@ -14,6 +14,9 @@ CREATE TABLE menu_items (
   name TEXT NOT NULL,
   price INT NOT NULL,
   category TEXT,
+  description TEXT,
+  menu_group TEXT NOT NULL CHECK (menu_group IN ('breakfast', 'lunch_dinner', 'cocktail')),
+  item_type TEXT NOT NULL DEFAULT 'single' CHECK (item_type IN ('single', 'set')),
   is_active BOOLEAN NOT NULL DEFAULT true,
   sort_order INT NOT NULL DEFAULT 0
 );
@@ -50,3 +53,16 @@ CREATE TABLE shifts (
   end_time TIMESTAMPTZ,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+CREATE TABLE table_sessions (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  table_no TEXT NOT NULL,
+  guest_count INT NOT NULL CHECK (guest_count > 0),
+  opened_by UUID REFERENCES users(id),
+  opened_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  closed_at TIMESTAMPTZ
+);
+
+CREATE UNIQUE INDEX table_sessions_open_unique_idx
+  ON table_sessions(table_no)
+  WHERE closed_at IS NULL;

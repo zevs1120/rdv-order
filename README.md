@@ -2,59 +2,33 @@
 
 面向酒店/餐厅服务员的手机点餐系统（MVP）。
 
-## 项目目标
+## 当前能力
 
-- 服务员手机 H5 点餐
-- 后厨自动出单（通过云打印或店内打印代理）
-- 管理端查看班次/每日汇总
-- 系统优先保证稳定、简单、低成本
+- 服务员登录（账号 + PIN）
+- 图形化选桌（先开台再点餐）
+- 三班次菜单：早餐 / 午餐 / 晚餐
+- 鸡尾酒酒单（独立菜单）
+- 左侧分类栏 + 右侧菜品列表
+- 已点餐品与自动总价
+- 结账确认并自动关台
+- 手动关台（无未结订单时）
+- 拼桌（选两张空桌合并，例如 `A1+A2`）
+- 经理菜单后台（新增、编辑、上下架、套餐配置）
+- 班次/每日汇总
 
-## MVP 范围
+## 关键页面
 
-- 登录：账号 + PIN
-- 下单：桌号、菜品、数量
-- 自动打印：先写库，再进入打印队列
-- 汇总：订单数、总金额、菜品数量
-- 菜单：固定配置（当前通过 SQL seed）
+- 登录页：`/`
+- 服务员选桌：`/tables`
+- 服务员点单：`/order`
+- 经理汇总：`/summary`
+- 经理菜单后台：`/admin/menu`
 
-## 技术栈
+## 菜单分组规则
 
-- 前端：Next.js 14 (App Router)
-- 后端：Next.js Route Handlers（可部署到 Vercel）
-- 数据库：PostgreSQL（Supabase/Neon 均可）
-- 鉴权：JWT (`jose`)
-
-## 关键业务流程
-
-1. 服务员登录，拿到 JWT。
-2. 服务员选择桌号和菜品提交订单。
-3. 服务端事务写入 `orders` + `order_items` + `print_jobs`。
-4. 后续由打印集成消费 `print_jobs`。
-5. 经理通过时间区间查看汇总。
-
-## API 总览
-
-- `POST /api/login`
-- `GET /api/menu`
-- `POST /api/orders`
-- `GET /api/orders?mine=1`
-- `GET /api/summary?from=ISO&to=ISO`
-
-详细请求/响应见 `/Users/qiao/Downloads/rdv-order/docs/api.md`。
-
-## 数据库
-
-- Schema: `/Users/qiao/Downloads/rdv-order/db/schema.sql`
-- Seed: `/Users/qiao/Downloads/rdv-order/db/seed.sql`
-
-包含核心表：
-
-- `users`
-- `menu_items`
-- `orders`
-- `order_items`
-- `print_jobs`
-- `shifts`
+- 早餐：`menu_group=breakfast`
+- 午餐与晚餐：`menu_group=lunch_dinner`
+- 鸡尾酒：`menu_group=cocktail`
 
 ## 本地启动
 
@@ -70,43 +44,49 @@ npm install
 cp .env.example .env.local
 ```
 
-3. 初始化数据库
+填写：
+
+- `DATABASE_URL`
+- `JWT_SECRET`
+- `PRINT_PROVIDER`
+
+3. 新库初始化
 
 ```sql
 \i db/schema.sql
 \i db/seed.sql
 ```
 
-4. 生成 PIN hash（替换 seed 中占位值）
+4. 旧库迁移
 
-```bash
-node scripts/gen-pin.js 1234
+```sql
+\i db/migrations/001_menu_group_and_admin.sql
+\i db/migrations/002_table_sessions.sql
+\i db/migrations/003_table_session_tables.sql
 ```
 
-5. 启动开发服务
+5. 启动
 
 ```bash
 npm run dev
 ```
 
-## Vercel 部署要点
+## 生产部署（Vercel）
 
-- 前端与 API 同项目部署
-- Postgres 为外部服务
-- 必备环境变量：
-  - `DATABASE_URL`
-  - `JWT_SECRET`
-  - `PRINT_PROVIDER`
-- 如果使用云打印，还需设置厂商 API 密钥
+至少设置这些环境变量到 Production：
 
-## 进一步开发建议
+- `DATABASE_URL`
+- `JWT_SECRET`
+- `PRINT_PROVIDER`
 
-- 增加打印任务消费器（重试 + 死信处理）
-- 增加幂等键，避免重复提交/重复打印
-- 增加经理端班次定义与自动归档
+设置后 Redeploy。
 
-## 关联文档
+## 账号（seed）
 
-- `/Users/qiao/Downloads/rdv-order/docs/architecture.md`
-- `/Users/qiao/Downloads/rdv-order/docs/api.md`
-- `/Users/qiao/Downloads/rdv-order/docs/commit-checklist.md`
+- 服务员：`mercy / admin`
+- 经理：`manager1 / admin`
+
+## 文档
+
+- API：`/Users/qiao/Downloads/rdv-order/docs/api.md`
+- 架构：`/Users/qiao/Downloads/rdv-order/docs/architecture.md`

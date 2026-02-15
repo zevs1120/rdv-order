@@ -17,7 +17,7 @@ export default function LoginPage() {
       return;
     }
     if (token && role === "waiter") {
-      window.location.href = "/order";
+      window.location.href = "/tables";
       return;
     }
     setCheckingSession(false);
@@ -43,7 +43,7 @@ export default function LoginPage() {
       if (data.role === "manager") {
         window.location.href = "/summary";
       } else {
-        window.location.href = "/order";
+        window.location.href = "/tables";
       }
     } catch (err: any) {
       setError(err.message || "登录失败");

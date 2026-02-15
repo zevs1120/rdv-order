@@ -18,6 +18,14 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "缺少桌号或菜品" }, { status: 400 });
     }
 
+    const session = await pool.query(
+      `SELECT id FROM table_sessions WHERE table_no = $1 AND closed_at IS NULL LIMIT 1`,
+      [body.tableNo]
+    );
+    if (session.rows.length === 0) {
+      return NextResponse.json({ error: "该桌未开台，请先开台" }, { status: 400 });
+    }
+
     const client = await pool.connect();
     try {
       await client.query("BEGIN");

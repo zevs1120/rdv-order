@@ -7,6 +7,7 @@
 - 执行 `npm install`（首次）。
 - 执行 `npm run build`，确保可构建。
 - 如修改 DB schema，同时更新 `db/schema.sql` 与说明文档。
+- 如修改菜单模型，同时提供对应 `db/migrations/*.sql` 升级脚本。
 - 如新增 API，同时更新 `/Users/qiao/Downloads/rdv-order/docs/api.md`。
 
 ## 提交建议

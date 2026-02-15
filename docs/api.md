@@ -1,45 +1,27 @@
 # API Reference
 
-## `POST /api/login`
+## Auth
+
+### `POST /api/login`
 
 请求：
 
 ```json
 {
-  "username": "waiter1",
-  "pin": "1234"
+  "username": "mercy",
+  "pin": "admin"
 }
 ```
 
-成功响应：
+## Menu
 
-```json
-{
-  "token": "<jwt>",
-  "role": "waiter"
-}
-```
+### `GET /api/menu?shift=breakfast|lunch|dinner|cocktail`
 
-失败状态：`400`, `401`
+返回当前班次菜单。
 
-## `GET /api/menu`
+## Orders
 
-成功响应：
-
-```json
-{
-  "items": [
-    {
-      "id": "uuid",
-      "name": "宫保鸡丁",
-      "price": 38,
-      "category": "热菜"
-    }
-  ]
-}
-```
-
-## `POST /api/orders`
+### `POST /api/orders`
 
 请求头：`Authorization: Bearer <jwt>`
 
@@ -47,60 +29,103 @@
 
 ```json
 {
-  "tableNo": "A12",
-  "items": [
-    { "menuItemId": "uuid", "qty": 2 }
-  ]
+  "tableNo": "A1",
+  "guestCount": 4,
+  "shift": "lunch",
+  "items": [{ "menuItemId": "uuid", "qty": 2 }]
 }
 ```
 
-成功响应：
+说明：桌台必须是已开台状态。
 
-```json
-{
-  "orderId": "uuid"
-}
-```
+## Tables
 
-失败状态：`400`, `401`, `403`, `500`
-
-## `GET /api/orders?mine=1`
+### `GET /api/tables`
 
 请求头：`Authorization: Bearer <jwt>`
 
-响应：
+返回图形化桌台数据，含开台状态（红/绿）与拼桌显示。
+
+### `POST /api/tables`
+
+请求头：`Authorization: Bearer <jwt>`
+
+普通开台：
 
 ```json
 {
-  "orders": [
-    {
-      "id": "uuid",
-      "table_no": "A12",
-      "status": "submitted",
-      "created_at": "2026-02-15T10:00:00.000Z"
-    }
-  ]
+  "tableNo": "A1",
+  "guestCount": 4
 }
 ```
 
-## `GET /api/summary?from=ISO&to=ISO`
+### `POST /api/tables/merge`
+
+请求头：`Authorization: Bearer <jwt>`
+
+拼桌开台：
+
+```json
+{
+  "primaryTable": "A1",
+  "secondaryTable": "A2",
+  "guestCount": 8
+}
+```
+
+成功后桌号会变成 `A1+A2`，`A2` 在选桌页消失。
+
+### `POST /api/tables/unmerge`
+
+请求头：`Authorization: Bearer <jwt>`
+
+取消拼桌（仅当该拼桌还没有订单）：
+
+```json
+{
+  "tableNo": "A1+A2"
+}
+```
+
+### `GET /api/tables/bill?tableNo=A1%2BA2`
+
+请求头：`Authorization: Bearer <jwt>`
+
+返回该桌当前账单明细与总价。
+
+### `POST /api/tables/checkout`
+
+请求头：`Authorization: Bearer <jwt>`
+
+请求：
+
+```json
+{
+  "tableNo": "A1+A2"
+}
+```
+
+执行结账确认：
+
+- 订单状态更新为 `paid`
+- 当前桌台自动关台（恢复绿色）
+
+### `POST /api/tables/close`
+
+请求头：`Authorization: Bearer <jwt>`
+
+手动关台（不结账）：
+
+```json
+{
+  "tableNo": "A1"
+}
+```
+
+限制：如果该桌还有 `submitted` 未结订单，会返回冲突并提示先结账。
+
+## Summary
+
+### `GET /api/summary?from=ISO&to=ISO`
 
 请求头：`Authorization: Bearer <jwt>`（必须 manager）
-
-成功响应：
-
-```json
-{
-  "orderCount": 12,
-  "totalAmount": 1268,
-  "items": [
-    {
-      "menu_item_id": "uuid",
-      "name": "宫保鸡丁",
-      "qty": 14
-    }
-  ]
-}
-```
-
-失败状态：`400`, `401`, `403`, `500`

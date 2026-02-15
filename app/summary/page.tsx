@@ -34,6 +34,7 @@ export default function SummaryPage() {
       <header>
         <h1>班次 / 每日汇总</h1>
         <div className="row">
+          <button className="secondary" onClick={() => { window.location.href = "/admin/menu"; }}>菜单后台</button>
           <button className="secondary" onClick={() => { localStorage.clear(); window.location.href = "/"; }}>退出</button>
         </div>
       </header>
@@ -53,11 +54,11 @@ export default function SummaryPage() {
         <div className="card stack">
           <div className="row">
             <div className="tag">订单数: {data.orderCount}</div>
-            <div className="tag">总金额: ￥{data.totalAmount}</div>
+            <div className="tag">总金额: ₱{data.totalAmount}</div>
           </div>
           <div className="order-list">
             {data.items.map((item: any) => (
-              <div key={item.menuItemId} className="row" style={{ justifyContent: "space-between" }}>
+              <div key={item.menu_item_id || item.menuItemId} className="row" style={{ justifyContent: "space-between" }}>
                 <div>{item.name}</div>
                 <div>{item.qty}</div>
               </div>
