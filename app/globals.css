@@ -116,6 +116,11 @@ button.secondary {
   color: var(--ink);
 }
 
+button.danger-outline {
+  border-color: #c49a9a;
+  color: #7a2020;
+}
+
 button:disabled {
   opacity: 0.65;
   cursor: default;

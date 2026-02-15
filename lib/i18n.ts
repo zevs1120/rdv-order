@@ -154,6 +154,10 @@ const zh: Dictionary = {
   "devices.online": "在线",
   "devices.degraded": "降级",
   "devices.offline": "离线",
+  "devices.retryPrint": "重试打印",
+  "devices.markOnline": "设为在线",
+  "devices.markDegraded": "设为降级",
+  "devices.markOffline": "设为离线",
   "rbac.title": "权限设置",
   "rbac.section": "权限说明",
   "rbac.hint": "开关即时生效，所有修改会写入审计日志。"
@@ -311,6 +315,10 @@ const en: Dictionary = {
   "devices.online": "Online",
   "devices.degraded": "Degraded",
   "devices.offline": "Offline",
+  "devices.retryPrint": "Retry Print",
+  "devices.markOnline": "Set Online",
+  "devices.markDegraded": "Set Degraded",
+  "devices.markOffline": "Set Offline",
   "rbac.title": "RBAC",
   "rbac.section": "Permission Notes",
   "rbac.hint": "Changes take effect immediately and are logged in audit logs."

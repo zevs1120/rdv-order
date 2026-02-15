@@ -69,11 +69,30 @@ export default function LoginPage() {
         <form className="stack" onSubmit={onSubmit}>
           <label className="stack">
             {t("login.username", "账号")}
-            <input value={username} onChange={(e) => setUsername(e.target.value)} placeholder={t("login.placeholder.user", "服务员账号")} />
+            <input
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              placeholder={t("login.placeholder.user", "服务员账号")}
+              autoCapitalize="none"
+              autoCorrect="off"
+              autoComplete="username"
+              spellCheck={false}
+              enterKeyHint="next"
+            />
           </label>
           <label className="stack">
             {t("login.pin", "PIN 码")}
-            <input value={pin} onChange={(e) => setPin(e.target.value)} placeholder={t("login.placeholder.pin", "4-6 位")} type="password" />
+            <input
+              value={pin}
+              onChange={(e) => setPin(e.target.value)}
+              placeholder={t("login.placeholder.pin", "4-6 位")}
+              type="password"
+              autoCapitalize="none"
+              autoCorrect="off"
+              autoComplete="current-password"
+              spellCheck={false}
+              enterKeyHint="go"
+            />
           </label>
           {error && <div className="muted">{error}</div>}
           <button type="submit" disabled={loading}>

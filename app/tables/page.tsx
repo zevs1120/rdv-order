@@ -143,7 +143,7 @@ export default function TablesPage() {
         <h1>{t("tables.title", "请选择桌号")}</h1>
         <div className="row tables-actions">
           <button
-            className={mergeMode ? "" : "secondary"}
+            className={mergeMode ? "compact-btn" : "secondary compact-btn"}
             type="button"
             onClick={() => {
               setMergeMode((v) => !v);
@@ -153,11 +153,11 @@ export default function TablesPage() {
           >
             {t("tables.merge", "拼桌")}
           </button>
-          <button className="secondary" onClick={loadTables} type="button" disabled={submitting}>
+          <button className="secondary compact-btn" onClick={loadTables} type="button" disabled={submitting}>
             {t("common.refresh", "刷新")}
           </button>
           <button
-            className="secondary"
+            className="secondary compact-btn danger-outline"
             onClick={() => {
               localStorage.clear();
               router.replace("/");

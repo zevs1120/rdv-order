@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import BottomNav from "../components/bottom-nav";
 import { apiFetchJson, getStoredAuth } from "../../lib/client-api";
@@ -95,6 +95,7 @@ export default function OrderPage() {
   const menuRequestRef = useRef(0);
   const isMergedTable = tableNo.includes("+");
   const canRunAction = useActionGuard();
+  const deferredKeyword = useDeferredValue(keyword);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -169,13 +170,13 @@ export default function OrderPage() {
   }, [menu, selectedCategory]);
 
   const filteredMenu = useMemo(() => {
-    const key = keyword.trim().toLowerCase();
+    const key = deferredKeyword.trim().toLowerCase();
     if (!key) return menu;
     return menu.filter((item) => {
       const target = `${item.name} ${item.category || ""}`.toLowerCase();
       return target.includes(key);
     });
-  }, [menu, keyword]);
+  }, [menu, deferredKeyword]);
 
   const categories = useMemo(
     () => Array.from(new Set(filteredMenu.map((item) => item.category || "Uncategorized"))),

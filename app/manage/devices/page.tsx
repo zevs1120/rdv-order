@@ -134,7 +134,7 @@ export default function ManageDevicesPage() {
             {t("common.refresh", "刷新")}
           </button>
           <button className="compact-btn" type="button" onClick={() => { void retryPrintJobs(); }}>
-            重试打印
+            {t("devices.retryPrint", "重试打印")}
           </button>
         </div>
       </header>
@@ -211,7 +211,7 @@ export default function ManageDevicesPage() {
                 onClick={() => { void markStatus(device.device_code, "online"); }}
                 disabled={updating === device.device_code}
               >
-                Online
+                {t("devices.markOnline", "设为在线")}
               </button>
               <button
                 type="button"
@@ -219,7 +219,7 @@ export default function ManageDevicesPage() {
                 onClick={() => { void markStatus(device.device_code, "degraded"); }}
                 disabled={updating === device.device_code}
               >
-                Degraded
+                {t("devices.markDegraded", "设为降级")}
               </button>
               <button
                 type="button"
@@ -227,7 +227,7 @@ export default function ManageDevicesPage() {
                 onClick={() => { void markStatus(device.device_code, "offline"); }}
                 disabled={updating === device.device_code}
               >
-                Offline
+                {t("devices.markOffline", "设为离线")}
               </button>
             </div>
           </div>
