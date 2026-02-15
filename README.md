@@ -97,6 +97,12 @@ cp .env.example .env.local
 npm run dev
 ```
 
+打印配置本地自检：
+
+```bash
+npm run check:print-env
+```
+
 ## 生产部署（Vercel）
 
 至少设置这些环境变量到 Production：
@@ -128,3 +134,4 @@ npm run dev
 
 - API：`/Users/qiao/Downloads/rdv-order/docs/api.md`
 - 架构：`/Users/qiao/Downloads/rdv-order/docs/architecture.md`
+- 打印部署：`/Users/qiao/Downloads/rdv-order/docs/printer-deploy.md`

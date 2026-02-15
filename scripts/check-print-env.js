@@ -1,0 +1,59 @@
+function parseProvider(raw, fallback) {
+  const v = String(raw || "").toLowerCase();
+  if (v === "cloud" || v === "agent") return v;
+  return fallback;
+}
+
+function checkProvider(provider) {
+  if (provider === "cloud") {
+    return {
+      provider,
+      url: Boolean(process.env.PRINT_CLOUD_URL),
+      token: Boolean(process.env.PRINT_CLOUD_API_KEY)
+    };
+  }
+  return {
+    provider,
+    url: Boolean(process.env.PRINT_AGENT_URL),
+    token: Boolean(process.env.PRINT_AGENT_TOKEN)
+  };
+}
+
+function run() {
+  const primary = parseProvider(process.env.PRINT_PROVIDER, "cloud");
+  const fallbackRaw = process.env.PRINT_FALLBACK_PROVIDER;
+  const fallback = fallbackRaw ? parseProvider(fallbackRaw, primary) : null;
+
+  const primaryStatus = checkProvider(primary);
+  const fallbackStatus = fallback && fallback !== primary ? checkProvider(fallback) : null;
+  const workerKey = Boolean(process.env.PRINT_WORKER_KEY);
+  const heartbeatKey = Boolean(process.env.DEVICE_HEARTBEAT_KEY);
+
+  const problems = [];
+  if (!primaryStatus.url || !primaryStatus.token) {
+    problems.push(`primary provider ${primaryStatus.provider} config incomplete`);
+  }
+  if (fallbackStatus && (!fallbackStatus.url || !fallbackStatus.token)) {
+    problems.push(`fallback provider ${fallbackStatus.provider} config incomplete`);
+  }
+  if (!workerKey) {
+    problems.push("PRINT_WORKER_KEY is not set");
+  }
+
+  const output = {
+    primary: primaryStatus,
+    fallback: fallbackStatus,
+    workerKey,
+    heartbeatKey,
+    ok: problems.length === 0,
+    problems
+  };
+  console.log(JSON.stringify(output, null, 2));
+
+  if (problems.length > 0) {
+    process.exitCode = 1;
+  }
+}
+
+run();
+

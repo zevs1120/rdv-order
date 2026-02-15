@@ -5,7 +5,8 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start"
+    "start": "next start",
+    "check:print-env": "node scripts/check-print-env.js"
   },
   "dependencies": {
     "jose": "^5.9.4",
