@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
 import { pool } from "../../../lib/db";
-import { requireAuth } from "../../../lib/api-auth";
+import { requirePermission } from "../../../lib/permissions";
 
 export async function GET(req: Request) {
   try {
-    await requireAuth(req, ["manager"]);
+    await requirePermission(req, "report.finance");
     const url = new URL(req.url);
     const from = url.searchParams.get("from");
     const to = url.searchParams.get("to");
@@ -24,7 +24,8 @@ export async function GET(req: Request) {
        JOIN menu_items mi ON mi.id = oi.menu_item_id
        WHERE o.created_at >= $1
          AND o.created_at <= $2
-         AND o.status = 'paid'`,
+         AND o.status IN ('paid', 'closed')
+         AND o.cancelled_at IS NULL`,
       [rangeFrom.toISOString(), rangeTo.toISOString()]
     );
 
@@ -34,7 +35,8 @@ export async function GET(req: Request) {
        JOIN order_items oi ON o.id = oi.order_id
        JOIN menu_items mi ON mi.id = oi.menu_item_id
        WHERE o.created_at >= $1 AND o.created_at <= $2
-         AND o.status = 'paid'
+         AND o.status IN ('paid', 'closed')
+         AND o.cancelled_at IS NULL
        GROUP BY mi.id, mi.name
        ORDER BY qty DESC`,
       [rangeFrom.toISOString(), rangeTo.toISOString()]

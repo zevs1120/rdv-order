@@ -4,17 +4,31 @@ type Pair = { zh: string; en: string };
 
 const pairs: Pair[] = [
   { zh: "早餐", en: "Breakfast" },
-  { zh: "热菜", en: "Hot Dish" },
-  { zh: "主食", en: "Staple" },
+  { zh: "套餐", en: "Package" },
   { zh: "鸡尾酒", en: "Cocktail" },
+  { zh: "经典鸡尾酒", en: "Classic Cocktails" },
+  { zh: "菲律宾菜", en: "Filipino Food" },
+  { zh: "中式菜", en: "Chinese Food" },
+  { zh: "开胃菜", en: "Appetizer" },
+  { zh: "意面", en: "Pasta" },
+  { zh: "米饭", en: "Rice" },
+  { zh: "三明治", en: "Sandwiches" },
+  { zh: "火锅", en: "Hotpot" },
+  { zh: "日落烧烤", en: "Sunset BBQ" },
+  { zh: "啤酒", en: "Beer" },
+  { zh: "软饮", en: "Soft Drinks" },
+  { zh: "罐装果汁", en: "Canned Juices" },
+  { zh: "特调饮品", en: "Special Drinks" },
+  { zh: "奶昔", en: "Shakes" },
+  { zh: "咖啡", en: "Coffee" },
+  { zh: "马尼拉远航特调", en: "Signature - Galleon Echoes" },
+  { zh: "海岛遐想特调", en: "Signature - Island Reverie" },
   { zh: "临时菜", en: "Temporary" },
   { zh: "早餐套餐 A", en: "Breakfast Set A" },
   { zh: "早餐套餐 B", en: "Breakfast Set B" },
-  { zh: "宫保鸡丁", en: "Kung Pao Chicken" },
-  { zh: "鱼香肉丝", en: "Fish-Fragrant Pork" },
-  { zh: "米饭", en: "Steamed Rice" },
-  { zh: "经典莫吉托", en: "Classic Mojito" },
-  { zh: "阿佩罗橙光", en: "Aperol Orange Glow" }
+  { zh: "套餐 A", en: "Package A" },
+  { zh: "套餐 B", en: "Package B" },
+  { zh: "经典莫吉托", en: "Mojito" }
 ];
 
 const zhToEn = new Map<string, string>();

@@ -8,7 +8,7 @@ import ManageTabs from "../../components/manage-tabs";
 import BottomNav from "../../components/bottom-nav";
 import { localizeMenuText } from "../../../lib/menu-text";
 
-type MenuGroup = "breakfast" | "lunch_dinner" | "cocktail";
+type MenuGroup = "breakfast" | "lunch_dinner" | "cocktail" | "set_menu";
 type ItemType = "single" | "set";
 
 type MenuItem = {
@@ -21,18 +21,21 @@ type MenuItem = {
   item_type: ItemType;
   is_active: boolean;
   sort_order: number;
+  allergens?: string[];
 };
 
 const GROUP_OPTIONS: Array<{ value: MenuGroup; labelZh: string; labelEn: string }> = [
   { value: "breakfast", labelZh: "早餐", labelEn: "Breakfast" },
   { value: "lunch_dinner", labelZh: "午晚餐", labelEn: "Lunch/Dinner" },
-  { value: "cocktail", labelZh: "鸡尾酒", labelEn: "Cocktail" }
+  { value: "cocktail", labelZh: "鸡尾酒", labelEn: "Cocktail" },
+  { value: "set_menu", labelZh: "套餐", labelEn: "Package" }
 ];
 
 const DEFAULT_CATEGORY_OPTIONS: Record<MenuGroup, string[]> = {
   breakfast: ["Breakfast Set", "Eggs", "Bread", "Coffee", "Juice"],
   lunch_dinner: ["Filipino Food", "Soup", "Salad", "Pasta", "Rice", "Dessert"],
-  cocktail: ["Classic", "Signature", "Mocktail", "Beer", "Wine", "Spirits"]
+  cocktail: ["Classic", "Signature", "Mocktail", "Beer", "Wine", "Spirits"],
+  set_menu: ["套餐"]
 };
 
 const SORT_OPTIONS = [0, 10, 20, 30, 40, 50, 100, 200, 500, 999];
@@ -46,13 +49,14 @@ export default function MenuAdminPage() {
   const { t, lang } = useI18n();
   const [items, setItems] = useState<MenuItem[]>([]);
   const [showCreateForm, setShowCreateForm] = useState(false);
+  const [showAllItems, setShowAllItems] = useState(true);
   const [query, setQuery] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [savingBatch, setSavingBatch] = useState(false);
   const [deletingId, setDeletingId] = useState("");
   const [savingNew, setSavingNew] = useState(false);
-  const [baseline, setBaseline] = useState<Record<string, { name: string; price: number }>>({});
+  const [baseline, setBaseline] = useState<Record<string, { name: string; price: number; allergens: string[] }>>({});
 
   const [form, setForm] = useState({
     name: "",
@@ -60,6 +64,7 @@ export default function MenuAdminPage() {
     menuGroup: "lunch_dinner" as MenuGroup,
     itemType: "single" as ItemType,
     category: getDefaultCategory("lunch_dinner"),
+    allergens: "",
     sortOrder: "0"
   });
 
@@ -73,11 +78,12 @@ export default function MenuAdminPage() {
       });
       const nextItems = body.items || [];
       setItems(nextItems);
-      const nextBaseline: Record<string, { name: string; price: number }> = {};
+      const nextBaseline: Record<string, { name: string; price: number; allergens: string[] }> = {};
       for (const item of nextItems) {
         nextBaseline[item.id] = {
           name: item.name,
-          price: item.price
+          price: item.price,
+          allergens: Array.isArray(item.allergens) ? item.allergens : []
         };
       }
       setBaseline(nextBaseline);
@@ -125,6 +131,7 @@ export default function MenuAdminPage() {
           description: null,
           menuGroup: form.menuGroup,
           itemType: form.itemType,
+          allergens: form.allergens.split(",").map((v) => v.trim()).filter(Boolean),
           sortOrder: Number(form.sortOrder)
         },
         timeoutMs: 7000,
@@ -137,6 +144,7 @@ export default function MenuAdminPage() {
         menuGroup: form.menuGroup,
         itemType: "single",
         category: getDefaultCategory(form.menuGroup),
+        allergens: "",
         sortOrder: "0"
       });
       await loadItems();
@@ -150,7 +158,8 @@ export default function MenuAdminPage() {
   function isDirty(item: MenuItem) {
     const base = baseline[item.id];
     if (!base) return true;
-    return base.name !== item.name || base.price !== item.price;
+    const allergens = Array.isArray(item.allergens) ? item.allergens : [];
+    return base.name !== item.name || base.price !== item.price || base.allergens.join(",") !== allergens.join(",");
   }
 
   async function saveAllChanges() {
@@ -166,6 +175,7 @@ export default function MenuAdminPage() {
           body: {
             name: item.name,
             price: item.price,
+            allergens: item.allergens || [],
             isActive: true
           },
           timeoutMs: 7000,
@@ -202,6 +212,13 @@ export default function MenuAdminPage() {
     } finally {
       setDeletingId("");
     }
+  }
+
+  async function editAllergens(item: MenuItem) {
+    const value = window.prompt("过敏原（用英文逗号分隔）", (item.allergens || []).join(", "));
+    if (value === null) return;
+    const allergens = value.split(",").map((v) => v.trim()).filter(Boolean);
+    setItems((prev) => prev.map((row) => row.id === item.id ? { ...row, allergens } : row));
   }
 
   useEffect(() => {
@@ -249,7 +266,7 @@ export default function MenuAdminPage() {
             className="secondary compact-btn"
             onClick={() => setShowCreateForm((v) => !v)}
           >
-            {showCreateForm ? (lang === "en" ? "Hide" : "收起") : (lang === "en" ? "Open" : "打开")}
+            {showCreateForm ? t("common.collapse", "收起") : t("common.expand", "展开")}
           </button>
         </div>
 
@@ -319,9 +336,19 @@ export default function MenuAdminPage() {
             </select>
           </label>
 
+          <label className="stack">
+            <span>过敏原（逗号分隔）</span>
+            <input
+              placeholder="eg. peanut, shellfish, dairy"
+              value={form.allergens}
+              onChange={(e) => setForm((prev) => ({ ...prev, allergens: e.target.value }))}
+            />
+          </label>
+
           <button type="button" onClick={() => { void createItem(); }} disabled={savingNew}>
             {savingNew ? t("admin.saving", "保存中...") : t("admin.create", "新增")}
           </button>
+          <div className="muted">{t("admin.allergenHint", "过敏原标记：新增时在输入框填写，已存在菜品可在下方点“过敏原”修改。")}</div>
         </div>
         ) : null}
       </div>
@@ -329,15 +356,25 @@ export default function MenuAdminPage() {
       <div className="panel stack">
         <div className="row" style={{ justifyContent: "space-between" }}>
           <h3 style={{ margin: 0 }}>{t("admin.allItems", "全部菜品")}</h3>
-          <input
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder={t("common.search", "搜索")}
-            style={{ maxWidth: 220 }}
-          />
+          <div className="row">
+            <input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder={t("common.search", "搜索")}
+              style={{ maxWidth: 220 }}
+            />
+            <button
+              type="button"
+              className="secondary compact-btn"
+              onClick={() => setShowAllItems((v) => !v)}
+            >
+              {showAllItems ? t("common.collapse", "收起") : t("common.expand", "展开")}
+            </button>
+          </div>
         </div>
         {loading ? <div className="muted">{t("common.loading", "加载中...")}</div> : null}
         {error ? <div className="muted">{error}</div> : null}
+        {showAllItems ? (
         <div className="menu-simple-list">
           {filteredItems.map((item) => (
             <div key={item.id} className="menu-simple-row">
@@ -349,23 +386,36 @@ export default function MenuAdminPage() {
                 {localizeMenuText(item.name, lang) !== item.name ? (
                   <div className="muted">{localizeMenuText(item.name, lang)}</div>
                 ) : null}
+                {Array.isArray(item.allergens) && item.allergens.length > 0 ? (
+                  <div className="muted">过敏原：{item.allergens.join(", ")}</div>
+                ) : null}
               </div>
               <input
                 className="menu-simple-price"
                 value={String(item.price)}
                 onChange={(e) => setItems((prev) => prev.map((it) => it.id === item.id ? { ...it, price: Number(e.target.value || 0) } : it))}
               />
-              <button
-                type="button"
-                className="secondary compact-btn"
-                onClick={() => { void deleteItem(item.id); }}
-                disabled={deletingId === item.id}
-              >
-                {deletingId === item.id ? (lang === "en" ? "Deleting..." : "删除中...") : (lang === "en" ? "Delete" : "删除")}
-              </button>
+              <div className="row" style={{ justifyContent: "flex-end", flexWrap: "wrap" }}>
+                <button
+                  type="button"
+                  className="secondary compact-btn"
+                  onClick={() => { void editAllergens(item); }}
+                >
+                  过敏原
+                </button>
+                <button
+                  type="button"
+                  className="secondary compact-btn"
+                  onClick={() => { void deleteItem(item.id); }}
+                  disabled={deletingId === item.id}
+                >
+                  {deletingId === item.id ? (lang === "en" ? "Deleting..." : "删除中...") : (lang === "en" ? "Delete" : "删除")}
+                </button>
+              </div>
             </div>
           ))}
         </div>
+        ) : null}
       </div>
 
       <div className="menu-save-bar">

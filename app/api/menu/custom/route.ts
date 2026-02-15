@@ -1,20 +1,22 @@
 import { NextResponse } from "next/server";
 import { pool } from "../../../../lib/db";
-import { requireAuth } from "../../../../lib/api-auth";
+import { requirePermission } from "../../../../lib/permissions";
+import { writeAuditLogSafe } from "../../../../lib/audit";
 
-type ShiftKey = "breakfast" | "lunch" | "dinner" | "cocktail";
+type ShiftKey = "breakfast" | "lunch" | "dinner" | "cocktail" | "package";
 type Mode = "temporary" | "permanent";
 
-const SHIFT_MAP: Record<ShiftKey, "breakfast" | "lunch_dinner" | "cocktail"> = {
+const SHIFT_MAP: Record<ShiftKey, "breakfast" | "lunch_dinner" | "cocktail" | "set_menu"> = {
   breakfast: "breakfast",
   lunch: "lunch_dinner",
   dinner: "lunch_dinner",
-  cocktail: "cocktail"
+  cocktail: "cocktail",
+  package: "set_menu"
 };
 
 export async function POST(req: Request) {
   try {
-    const auth = await requireAuth(req, ["waiter", "manager"]);
+    const auth = await requirePermission(req, "order.create");
     const body = await req.json().catch(() => null);
     const name = String(body?.name || "").trim();
     const price = Number(body?.price);
@@ -32,8 +34,8 @@ export async function POST(req: Request) {
     if (!SHIFT_MAP[shift]) {
       return NextResponse.json({ error: "班次无效" }, { status: 400 });
     }
-    if (mode === "permanent" && auth.role !== "manager") {
-      return NextResponse.json({ error: "仅经理可新增永久菜" }, { status: 403 });
+    if (mode === "permanent") {
+      await requirePermission(req, "menu.manage");
     }
 
     const menuGroup = SHIFT_MAP[shift];
@@ -53,6 +55,15 @@ export async function POST(req: Request) {
       ]
     );
 
+    await writeAuditLogSafe({
+      actorUserId: auth.userId,
+      action: mode === "permanent" ? "menu.custom_permanent" : "menu.custom_temporary",
+      entityType: "menu_item",
+      entityId: rows[0].id,
+      detail: { name, price, category, shift, mode },
+      req
+    });
+
     return NextResponse.json({ item: rows[0] }, { status: 201 });
   } catch (err: any) {
     if (err.message === "UNAUTHORIZED") return NextResponse.json({ error: "未登录" }, { status: 401 });
@@ -60,4 +71,3 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "新增菜失败" }, { status: 500 });
   }
 }
-

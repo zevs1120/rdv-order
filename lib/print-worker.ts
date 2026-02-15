@@ -92,4 +92,3 @@ export async function runPrintWorker(limit = 6): Promise<PrintWorkerResult> {
 
   return { picked: jobs.length, printed, failed };
 }
-

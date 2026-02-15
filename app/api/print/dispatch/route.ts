@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { runPrintWorker } from "../../../../lib/print-worker";
-import { requireAuth } from "../../../../lib/api-auth";
+import { requirePermission } from "../../../../lib/permissions";
 
 function isWorkerAuthorized(req: Request) {
   const expected = process.env.PRINT_WORKER_KEY;
@@ -12,7 +12,7 @@ function isWorkerAuthorized(req: Request) {
 export async function POST(req: Request) {
   try {
     if (!isWorkerAuthorized(req)) {
-      await requireAuth(req, ["manager"]);
+      await requirePermission(req, "device.manage");
     }
 
     const body = await req.json().catch(() => ({}));
@@ -29,4 +29,3 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "打印任务执行失败" }, { status: 500 });
   }
 }
-

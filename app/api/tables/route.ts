@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { pool } from "../../../lib/db";
-import { requireAuth } from "../../../lib/api-auth";
+import { requirePermission } from "../../../lib/permissions";
+import { writeAuditLogSafe } from "../../../lib/audit";
 import { lockBaseTables } from "../../../lib/table-lock";
 
 const TABLE_LAYOUT = [
@@ -132,7 +133,7 @@ async function getUsedBaseTables(client: Awaited<ReturnType<typeof pool.connect>
 
 export async function GET(req: Request) {
   try {
-    await requireAuth(req, ["waiter", "manager"]);
+    await requirePermission(req, "order.create");
     const rows = await getOpenSessionRows();
     const tables = buildTables(rows);
 
@@ -149,7 +150,7 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
   try {
-    const auth = await requireAuth(req, ["waiter", "manager"]);
+    const auth = await requirePermission(req, "order.create");
     const body = await req.json().catch(() => null);
     const tableNo = String(body?.tableNo || "").trim();
     const guestCount = Number(body?.guestCount);
@@ -183,6 +184,14 @@ export async function POST(req: Request) {
       );
 
       await client.query("COMMIT");
+      await writeAuditLogSafe({
+        actorUserId: auth.userId,
+        action: "table.open",
+        entityType: "table_session",
+        entityId: created.rows[0].id,
+        detail: { tableNo: created.rows[0].table_no, guestCount: created.rows[0].guest_count },
+        req
+      });
       return NextResponse.json({
         session: {
           id: created.rows[0].id,

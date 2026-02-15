@@ -1,26 +1,26 @@
 import { NextResponse } from "next/server";
 import { pool } from "../../../../lib/db";
-import { requireAuth } from "../../../../lib/api-auth";
+import { requirePermission } from "../../../../lib/permissions";
 
-const ALLOWED_GROUPS = ["breakfast", "lunch_dinner", "cocktail"] as const;
+const ALLOWED_GROUPS = ["breakfast", "lunch_dinner", "cocktail", "set_menu"] as const;
 const ALLOWED_ITEM_TYPES = ["single", "set"] as const;
 
 export async function GET(req: Request) {
   try {
-    await requireAuth(req, ["manager"]);
+    await requirePermission(req, "menu.manage");
 
     const url = new URL(req.url);
     const menuGroup = (url.searchParams.get("menuGroup") || "").trim();
 
     const values: string[] = [];
-    let where = "WHERE is_temporary = false";
+    let where = "WHERE is_temporary = false AND is_active = true AND COALESCE(category, '') NOT IN ('热菜', '主食', '饮品', 'Hot Dish', 'Staple', 'Drink', 'Drinks')";
     if (menuGroup && ALLOWED_GROUPS.includes(menuGroup as (typeof ALLOWED_GROUPS)[number])) {
       where += " AND menu_group = $1";
       values.push(menuGroup);
     }
 
     const { rows } = await pool.query(
-      `SELECT id, name, price, category, description, menu_group, item_type, is_active, sort_order
+      `SELECT id, name, price, category, description, menu_group, item_type, is_active, sort_order, allergens, available_shifts
        FROM menu_items
        ${where}
        ORDER BY menu_group ASC, sort_order ASC, name ASC`,
@@ -41,7 +41,7 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
   try {
-    await requireAuth(req, ["manager"]);
+    await requirePermission(req, "menu.manage");
 
     const body = await req.json().catch(() => null);
     if (!body?.name || typeof body?.price !== "number" || !body?.menuGroup) {
@@ -57,10 +57,26 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "菜品类型无效" }, { status: 400 });
     }
 
+    const allergens = Array.isArray(body.allergens)
+      ? body.allergens.map((v: unknown) => String(v || "").trim()).filter(Boolean)
+      : [];
+    const availableShifts = Array.isArray(body.availableShifts)
+      ? body.availableShifts.map((v: unknown) => String(v || "").trim()).filter(Boolean)
+      : (
+        body.menuGroup === "breakfast"
+          ? ["breakfast"]
+          : body.menuGroup === "cocktail"
+            ? ["cocktail"]
+            : body.menuGroup === "set_menu"
+              ? ["package"]
+            : ["lunch", "dinner"]
+      );
+
     const { rows } = await pool.query(
-      `INSERT INTO menu_items (name, price, category, description, menu_group, item_type, is_active, is_temporary, sort_order)
-       VALUES ($1, $2, $3, $4, $5, $6, true, false, $7)
-       RETURNING id, name, price, category, description, menu_group, item_type, is_active, sort_order`,
+      `INSERT INTO menu_items
+       (name, price, category, description, menu_group, item_type, is_active, is_temporary, sort_order, allergens, available_shifts)
+       VALUES ($1, $2, $3, $4, $5, $6, true, false, $7, $8::text[], $9::text[])
+       RETURNING id, name, price, category, description, menu_group, item_type, is_active, sort_order, allergens, available_shifts`,
       [
         body.name,
         body.price,
@@ -68,7 +84,9 @@ export async function POST(req: Request) {
         body.description || null,
         body.menuGroup,
         itemType,
-        typeof body.sortOrder === "number" ? body.sortOrder : 0
+        typeof body.sortOrder === "number" ? body.sortOrder : 0,
+        allergens,
+        availableShifts
       ]
     );
 

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { pool } from "../../../../lib/db";
-import { requireAuth } from "../../../../lib/api-auth";
+import { requirePermission } from "../../../../lib/permissions";
+import { writeAuditLogSafe } from "../../../../lib/audit";
 import { lockBaseTables } from "../../../../lib/table-lock";
 
 const TABLES = ["A1", "A2", "A3", "B1", "B2", "B3", "C1", "C2", "C3", "C4", "C5"];
@@ -18,7 +19,7 @@ async function getUsedTables(client: Awaited<ReturnType<typeof pool.connect>>) {
 
 export async function POST(req: Request) {
   try {
-    const auth = await requireAuth(req, ["waiter", "manager"]);
+    const auth = await requirePermission(req, "order.create");
     const body = await req.json().catch(() => null);
 
     const primaryTable = String(body?.primaryTable || "").trim();
@@ -57,6 +58,14 @@ export async function POST(req: Request) {
       );
 
       await client.query("COMMIT");
+      await writeAuditLogSafe({
+        actorUserId: auth.userId,
+        action: "table.merge",
+        entityType: "table_session",
+        entityId: created.rows[0].id,
+        detail: { primaryTable, secondaryTable, mergedName, guestCount },
+        req
+      });
       return NextResponse.json({
         session: {
           id: created.rows[0].id,

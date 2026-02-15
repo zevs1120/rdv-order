@@ -1,15 +1,16 @@
 import { NextResponse } from "next/server";
 import { pool } from "../../../../../lib/db";
-import { requireAuth } from "../../../../../lib/api-auth";
+import { requirePermission } from "../../../../../lib/permissions";
+import { writeAuditLogSafe } from "../../../../../lib/audit";
 
-const ALLOWED_GROUPS = ["breakfast", "lunch_dinner", "cocktail"] as const;
+const ALLOWED_GROUPS = ["breakfast", "lunch_dinner", "cocktail", "set_menu"] as const;
 const ALLOWED_ITEM_TYPES = ["single", "set"] as const;
 
 type Params = { params: Promise<{ id: string }> };
 
 export async function PATCH(req: Request, { params }: Params) {
   try {
-    await requireAuth(req, ["manager"]);
+    const auth = await requirePermission(req, "menu.manage");
 
     const { id } = await params;
     const body = await req.json().catch(() => null);
@@ -25,6 +26,20 @@ export async function PATCH(req: Request, { params }: Params) {
       return NextResponse.json({ error: "菜品类型无效" }, { status: 400 });
     }
 
+    const allergens = Array.isArray(body.allergens)
+      ? body.allergens.map((v: unknown) => String(v || "").trim()).filter(Boolean)
+      : null;
+    const availableShifts = Array.isArray(body.availableShifts)
+      ? body.availableShifts.map((v: unknown) => String(v || "").trim()).filter(Boolean)
+      : null;
+
+    const before = await pool.query<{ name: string; price: number }>(
+      `SELECT name, price
+       FROM menu_items
+       WHERE id = $1`,
+      [id]
+    );
+
     const { rows } = await pool.query(
       `UPDATE menu_items
        SET name = COALESCE($2, name),
@@ -34,10 +49,12 @@ export async function PATCH(req: Request, { params }: Params) {
            menu_group = COALESCE($6, menu_group),
            item_type = COALESCE($7, item_type),
            is_active = COALESCE($8, is_active),
-           sort_order = COALESCE($9, sort_order)
+           sort_order = COALESCE($9, sort_order),
+           allergens = COALESCE($10::text[], allergens),
+           available_shifts = COALESCE($11::text[], available_shifts)
        WHERE id = $1
          AND is_temporary = false
-       RETURNING id, name, price, category, description, menu_group, item_type, is_active, sort_order`,
+       RETURNING id, name, price, category, description, menu_group, item_type, is_active, sort_order, allergens, available_shifts`,
       [
         id,
         body.name ?? null,
@@ -47,12 +64,29 @@ export async function PATCH(req: Request, { params }: Params) {
         body.menuGroup ?? null,
         body.itemType ?? null,
         typeof body.isActive === "boolean" ? body.isActive : null,
-        typeof body.sortOrder === "number" ? body.sortOrder : null
+        typeof body.sortOrder === "number" ? body.sortOrder : null,
+        allergens,
+        availableShifts
       ]
     );
 
     if (rows.length === 0) {
       return NextResponse.json({ error: "菜品不存在" }, { status: 404 });
+    }
+
+    const prev = before.rows[0];
+    if (prev && (prev.price !== rows[0].price || prev.name !== rows[0].name)) {
+      await writeAuditLogSafe({
+        actorUserId: auth.userId,
+        action: "menu.update_price",
+        entityType: "menu_item",
+        entityId: rows[0].id,
+        detail: {
+          before: { name: prev.name, price: prev.price },
+          after: { name: rows[0].name, price: rows[0].price }
+        },
+        req
+      });
     }
 
     return NextResponse.json({ item: rows[0] });
@@ -69,7 +103,7 @@ export async function PATCH(req: Request, { params }: Params) {
 
 export async function DELETE(req: Request, { params }: Params) {
   try {
-    await requireAuth(req, ["manager"]);
+    const auth = await requirePermission(req, "menu.manage");
     const { id } = await params;
     if (!id) {
       return NextResponse.json({ error: "参数错误" }, { status: 400 });
@@ -95,6 +129,14 @@ export async function DELETE(req: Request, { params }: Params) {
     if (rows.length === 0) {
       return NextResponse.json({ error: "菜品不存在" }, { status: 404 });
     }
+
+    await writeAuditLogSafe({
+      actorUserId: auth.userId,
+      action: "menu.delete",
+      entityType: "menu_item",
+      entityId: rows[0].id,
+      req
+    });
 
     return NextResponse.json({ deleted: true, id: rows[0].id });
   } catch (err: any) {

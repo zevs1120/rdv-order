@@ -1,7 +1,10 @@
+import { pool } from "./db";
+
 export type PrintProvider = "cloud" | "agent";
 
 type DispatchResult = {
   provider: PrintProvider;
+  slot: "primary" | "backup";
   remoteJobId?: string;
 };
 
@@ -17,6 +20,13 @@ export class PrintDispatchError extends Error {
 function getProvider(): PrintProvider {
   const raw = (process.env.PRINT_PROVIDER || "cloud").toLowerCase();
   return raw === "agent" ? "agent" : "cloud";
+}
+
+function getFallbackProvider(primary: PrintProvider): PrintProvider | null {
+  const raw = (process.env.PRINT_FALLBACK_PROVIDER || "").toLowerCase();
+  const parsed: PrintProvider | null = raw === "cloud" ? "cloud" : raw === "agent" ? "agent" : null;
+  if (!parsed || parsed === primary) return null;
+  return parsed;
 }
 
 async function postJsonWithTimeout(
@@ -71,6 +81,7 @@ async function dispatchToCloud(orderId: string): Promise<DispatchResult> {
 
   return {
     provider: "cloud",
+    slot: "primary",
     remoteJobId: typeof result.data?.jobId === "string" ? result.data.jobId : undefined
   };
 }
@@ -97,14 +108,76 @@ async function dispatchToAgent(orderId: string): Promise<DispatchResult> {
 
   return {
     provider: "agent",
+    slot: "primary",
     remoteJobId: typeof result.data?.jobId === "string" ? result.data.jobId : undefined
   };
 }
 
-export async function dispatchPrintJob(orderId: string): Promise<DispatchResult> {
-  const provider = getProvider();
-  if (provider === "agent") {
-    return dispatchToAgent(orderId);
+async function markDeviceSuccess(slot: "primary" | "backup") {
+  const deviceCode = slot === "primary" ? "printer-primary" : "printer-backup";
+  try {
+    await pool.query(
+      `INSERT INTO device_status (device_code, device_type, label, status, is_backup, fail_count, last_seen_at, updated_at, last_error)
+       VALUES ($1, 'printer', $2, 'online', $3, 0, now(), now(), NULL)
+       ON CONFLICT (device_code) DO UPDATE
+       SET status = 'online',
+           fail_count = 0,
+           last_seen_at = now(),
+           updated_at = now(),
+           last_error = NULL`,
+      [deviceCode, slot === "primary" ? "Primary Printer" : "Backup Printer", slot === "backup"]
+    );
+  } catch {
+    // Ignore device status write errors to avoid blocking print flow.
   }
-  return dispatchToCloud(orderId);
+}
+
+async function markDeviceFailure(slot: "primary" | "backup", message: string) {
+  const deviceCode = slot === "primary" ? "printer-primary" : "printer-backup";
+  try {
+    await pool.query(
+      `INSERT INTO device_status (device_code, device_type, label, status, is_backup, fail_count, last_seen_at, updated_at, last_error)
+       VALUES ($1, 'printer', $2, 'degraded', $3, 1, now(), now(), $4)
+       ON CONFLICT (device_code) DO UPDATE
+       SET fail_count = device_status.fail_count + 1,
+           status = CASE WHEN device_status.fail_count + 1 >= 3 THEN 'offline' ELSE 'degraded' END,
+           last_seen_at = now(),
+           updated_at = now(),
+           last_error = $4`,
+      [deviceCode, slot === "primary" ? "Primary Printer" : "Backup Printer", slot === "backup", message.slice(0, 500)]
+    );
+  } catch {
+    // Ignore device status write errors to keep print retries running.
+  }
+}
+
+async function dispatchWithTracking(
+  provider: PrintProvider,
+  orderId: string,
+  slot: "primary" | "backup"
+): Promise<DispatchResult> {
+  try {
+    const result = provider === "agent" ? await dispatchToAgent(orderId) : await dispatchToCloud(orderId);
+    await markDeviceSuccess(slot);
+    return { ...result, slot };
+  } catch (err: any) {
+    const msg = err instanceof Error ? err.message : "打印失败";
+    await markDeviceFailure(slot, msg);
+    throw err;
+  }
+}
+
+export async function dispatchPrintJob(orderId: string): Promise<DispatchResult> {
+  const primary = getProvider();
+  const fallback = getFallbackProvider(primary);
+
+  try {
+    return await dispatchWithTracking(primary, orderId, "primary");
+  } catch (err: any) {
+    const retryable = err instanceof PrintDispatchError ? err.retryable : true;
+    if (!retryable || !fallback) {
+      throw err;
+    }
+    return dispatchWithTracking(fallback, orderId, "backup");
+  }
 }

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { pool } from "../../../../lib/db";
-import { requireAuth } from "../../../../lib/api-auth";
+import { requirePermission } from "../../../../lib/permissions";
+import { writeAuditLogSafe } from "../../../../lib/audit";
 import { lockSessionName } from "../../../../lib/table-lock";
 
 type SessionRow = {
@@ -12,7 +13,7 @@ type SessionRow = {
 
 export async function POST(req: Request) {
   try {
-    await requireAuth(req, ["waiter", "manager"]);
+    const auth = await requirePermission(req, "order.create");
     const body = await req.json().catch(() => null);
     const tableNo = String(body?.tableNo || "").trim();
 
@@ -58,7 +59,7 @@ export async function POST(req: Request) {
          FROM orders
          WHERE table_no = $1
            AND created_at >= $2
-           AND status IN ('submitted', 'paid')`,
+           AND status IN ('submitted', 'paid', 'closed')`,
         [s.table_no, s.opened_at]
       );
 
@@ -84,6 +85,14 @@ export async function POST(req: Request) {
       );
 
       await client.query("COMMIT");
+      await writeAuditLogSafe({
+        actorUserId: auth.userId,
+        action: "table.unmerge",
+        entityType: "table_session",
+        entityId: s.id,
+        detail: { tableNo: s.table_no, primary, secondary },
+        req
+      });
 
       return NextResponse.json({
         message: "取消拼桌成功",

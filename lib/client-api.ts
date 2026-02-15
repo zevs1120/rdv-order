@@ -7,6 +7,13 @@ type ApiFetchOptions = Omit<RequestInit, "body"> & {
   useAuth?: boolean;
 };
 
+export const NETWORK_POLICY = {
+  timeoutMs: 5500,
+  retriesGet: 2,
+  retriesWrite: 1,
+  backoffBaseMs: 220
+} as const;
+
 function delay(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -34,8 +41,8 @@ export function getStoredAuth() {
 
 export async function apiFetchJson<T>(url: string, options: ApiFetchOptions = {}): Promise<T> {
   const {
-    timeoutMs = 6000,
-    retries = 1,
+    timeoutMs = NETWORK_POLICY.timeoutMs,
+    retries,
     useAuth = true,
     headers,
     body,
@@ -43,9 +50,14 @@ export async function apiFetchJson<T>(url: string, options: ApiFetchOptions = {}
     ...rest
   } = options;
 
+  const method = String(rest.method || "GET").toUpperCase();
+  const retryCount = typeof retries === "number"
+    ? Math.max(0, retries)
+    : (method === "GET" ? NETWORK_POLICY.retriesGet : NETWORK_POLICY.retriesWrite);
+
   let lastError: Error | null = null;
 
-  for (let attempt = 0; attempt <= retries; attempt += 1) {
+  for (let attempt = 0; attempt <= retryCount; attempt += 1) {
     const controller = new AbortController();
     const onAbort = () => controller.abort();
     externalSignal?.addEventListener("abort", onAbort, { once: true });
@@ -73,8 +85,8 @@ export async function apiFetchJson<T>(url: string, options: ApiFetchOptions = {}
         return data as T;
       }
 
-      if (attempt < retries && isRetryableStatus(response.status)) {
-        await delay(250 * (attempt + 1));
+      if (attempt < retryCount && isRetryableStatus(response.status)) {
+        await delay(NETWORK_POLICY.backoffBaseMs * (attempt + 1));
         continue;
       }
 
@@ -86,8 +98,8 @@ export async function apiFetchJson<T>(url: string, options: ApiFetchOptions = {}
         lastError = err instanceof Error ? err : new Error("网络请求失败");
       }
 
-      if (attempt < retries) {
-        await delay(250 * (attempt + 1));
+      if (attempt < retryCount) {
+        await delay(NETWORK_POLICY.backoffBaseMs * (attempt + 1));
         continue;
       }
     } finally {

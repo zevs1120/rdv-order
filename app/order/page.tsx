@@ -6,8 +6,9 @@ import BottomNav from "../components/bottom-nav";
 import { apiFetchJson, getStoredAuth } from "../../lib/client-api";
 import { useI18n } from "../components/i18n-provider";
 import { localizeMenuText, shortCategoryLabel } from "../../lib/menu-text";
+import { useActionGuard } from "../../lib/use-action-guard";
 
-type ShiftKey = "breakfast" | "lunch" | "dinner" | "cocktail";
+type ShiftKey = "breakfast" | "lunch" | "dinner" | "cocktail" | "package";
 type CustomDishMode = "temporary" | "permanent";
 type UserRole = "waiter" | "manager" | "";
 
@@ -17,7 +18,8 @@ type MenuItem = {
   price: number;
   category: string | null;
   description: string | null;
-  menu_group: "breakfast" | "lunch_dinner" | "cocktail";
+  allergens?: string[];
+  menu_group: "breakfast" | "lunch_dinner" | "cocktail" | "set_menu";
   item_type: "single" | "set";
   qty?: number;
 };
@@ -29,13 +31,32 @@ type BillItem = {
   amount: number;
 };
 
+type BillOrder = {
+  id: string;
+  status: string;
+  created_at: string;
+  item_amount: number;
+  charge_amount: number;
+  total_amount: number;
+  items: BillItem[];
+  charges: Array<{
+    id: string;
+    charge_type: "discount" | "service_fee";
+    amount: number;
+    mode: "amount" | "percent";
+    value: number;
+    note: string | null;
+  }>;
+};
+
 type CartItem = MenuItem & { qty: number };
 
 const SHIFT_OPTIONS: Array<{ key: ShiftKey; label: string }> = [
   { key: "breakfast", label: "早餐" },
   { key: "lunch", label: "午餐" },
   { key: "dinner", label: "晚餐" },
-  { key: "cocktail", label: "鸡尾酒" }
+  { key: "cocktail", label: "鸡尾酒" },
+  { key: "package", label: "套餐" }
 ];
 
 export default function OrderPage() {
@@ -48,6 +69,7 @@ export default function OrderPage() {
   const [menu, setMenu] = useState<MenuItem[]>([]);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [menuLoading, setMenuLoading] = useState(false);
   const [shift, setShift] = useState<ShiftKey>("lunch");
   const [keyword, setKeyword] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("");
@@ -56,6 +78,7 @@ export default function OrderPage() {
   const [showBill, setShowBill] = useState(false);
   const [billLoading, setBillLoading] = useState(false);
   const [billItems, setBillItems] = useState<BillItem[]>([]);
+  const [billOrders, setBillOrders] = useState<BillOrder[]>([]);
   const [billTotal, setBillTotal] = useState(0);
   const [billQty, setBillQty] = useState(0);
   const [showAddDish, setShowAddDish] = useState(false);
@@ -71,6 +94,7 @@ export default function OrderPage() {
   const menuCacheRef = useRef<Partial<Record<ShiftKey, MenuItem[]>>>({});
   const menuRequestRef = useRef(0);
   const isMergedTable = tableNo.includes("+");
+  const canRunAction = useActionGuard();
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -103,6 +127,7 @@ export default function OrderPage() {
     const controller = new AbortController();
     const requestId = menuRequestRef.current + 1;
     menuRequestRef.current = requestId;
+    setMenuLoading(true);
 
     apiFetchJson<{ items: MenuItem[] }>(`/api/menu?shift=${shift}`, {
       useAuth: false,
@@ -122,6 +147,11 @@ export default function OrderPage() {
           setMenu([]);
         }
         setError(err.message || "菜单加载失败");
+      })
+      .finally(() => {
+        if (requestId === menuRequestRef.current) {
+          setMenuLoading(false);
+        }
       });
 
     return () => controller.abort();
@@ -171,6 +201,7 @@ export default function OrderPage() {
       if (value === "breakfast") return "Breakfast";
       if (value === "lunch") return "Lunch";
       if (value === "dinner") return "Dinner";
+      if (value === "package") return "Package";
       return "Cocktail";
     }
     return option.label;
@@ -180,11 +211,12 @@ export default function OrderPage() {
     if (!tableNo) return;
     setBillLoading(true);
     try {
-      const body = await apiFetchJson<{ items: BillItem[]; totalAmount: number; totalQty: number }>(
+      const body = await apiFetchJson<{ items: BillItem[]; orders?: BillOrder[]; totalAmount: number; totalQty: number }>(
         `/api/tables/bill?tableNo=${encodeURIComponent(tableNo)}`,
         { timeoutMs: 6000, retries: 1 }
       );
       setBillItems(body.items || []);
+      setBillOrders(body.orders || []);
       setBillTotal(body.totalAmount || 0);
       setBillQty(body.totalQty || 0);
     } catch (err: any) {
@@ -195,6 +227,7 @@ export default function OrderPage() {
   }
 
   async function createCustomDish() {
+    if (!canRunAction()) return;
     setError("");
     if (!addDishForm.name.trim() || !addDishForm.price.trim()) {
       setError("请填写菜名和价格");
@@ -252,6 +285,7 @@ export default function OrderPage() {
   }
 
   async function submitOrder() {
+    if (!canRunAction()) return;
     setError("");
     if (!tableNo) {
       setError("桌号缺失，请重新选桌");
@@ -296,6 +330,7 @@ export default function OrderPage() {
   }
 
   async function checkout() {
+    if (!canRunAction()) return;
     const confirmed = window.confirm(`确认结账并关台吗？\n桌号：${tableNo}`);
     if (!confirmed) return;
 
@@ -319,6 +354,7 @@ export default function OrderPage() {
   }
 
   async function unmergeTable() {
+    if (!canRunAction()) return;
     if (!isMergedTable) return;
     const confirmed = window.confirm(`确认取消拼桌吗？\n当前桌号：${tableNo}`);
     if (!confirmed) return;
@@ -342,6 +378,7 @@ export default function OrderPage() {
   }
 
   async function closeTable() {
+    if (!canRunAction()) return;
     const confirmed = window.confirm(`确认关台吗？\n桌号：${tableNo}`);
     if (!confirmed) return;
 
@@ -382,6 +419,15 @@ export default function OrderPage() {
           </button>
           <button className="secondary compact-btn" type="button" onClick={() => setShowAddDish((v) => !v)}>
             {t("order.addDish", "新增菜")}
+          </button>
+          <button
+            className="secondary compact-btn"
+            type="button"
+            onClick={() => {
+              router.push(`/manage/orders?tableNo=${encodeURIComponent(tableNo)}`);
+            }}
+          >
+            {t("orders.title", "订单操作")}
           </button>
           {isMergedTable ? <button className="secondary compact-btn" type="button" onClick={unmergeTable}>{t("order.unmerge", "取消拼桌")}</button> : null}
           <button className="secondary compact-btn" type="button" onClick={checkout}>{t("order.checkout", "结账")}</button>
@@ -460,6 +506,24 @@ export default function OrderPage() {
               ))}
             </div>
           ) : null}
+          {!billLoading && billOrders.length > 0 ? (
+            <div className="order-detail-list">
+              {billOrders.map((order) => (
+                <div key={order.id} className="stack" style={{ gap: 4 }}>
+                  <div className="row" style={{ justifyContent: "space-between" }}>
+                    <strong>#{order.id.slice(0, 8)}</strong>
+                    <span className="tag">{order.status}</span>
+                  </div>
+                  <div className="muted">{new Date(order.created_at).toLocaleString()}</div>
+                  <div className="row" style={{ justifyContent: "space-between" }}>
+                    <span>₱{order.item_amount}</span>
+                    <span>{order.charge_amount >= 0 ? "+" : ""}{order.charge_amount}</span>
+                    <strong>₱{order.total_amount}</strong>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : null}
           <div className="row" style={{ justifyContent: "space-between" }}>
             <strong>{t("order.billQty", "总数量")}：{billQty}</strong>
             <strong>{t("order.billAmount", "总金额")}：₱{billTotal}</strong>
@@ -503,6 +567,13 @@ export default function OrderPage() {
           </aside>
           <div className="menu-content">
             <div className="menu-grid">
+              {menuLoading ? (
+                <>
+                  <div className="skeleton skeleton-card" />
+                  <div className="skeleton skeleton-card" />
+                  <div className="skeleton skeleton-card" />
+                </>
+              ) : null}
               {visibleItems.map((item) => (
                 <div key={item.id} className="menu-item stack">
                   <div>
@@ -510,6 +581,9 @@ export default function OrderPage() {
                     {item.item_type === "set" ? "（Set）" : ""}
                   </div>
                   <div className="muted">₱{item.price}</div>
+                  {Array.isArray(item.allergens) && item.allergens.length > 0 ? (
+                    <div className="muted">{t("order.allergens", "过敏原")}: {item.allergens.join(", ")}</div>
+                  ) : null}
                   {item.description ? <div className="muted">{item.description}</div> : null}
                   <div className="row">
                     <button
@@ -524,7 +598,7 @@ export default function OrderPage() {
                   </div>
                 </div>
               ))}
-              {visibleItems.length === 0 ? <div className="muted">{t("order.categoryEmpty", "该分类暂无菜品")}</div> : null}
+              {!menuLoading && visibleItems.length === 0 ? <div className="muted">{t("order.categoryEmpty", "该分类暂无菜品")}</div> : null}
             </div>
           </div>
         </div>

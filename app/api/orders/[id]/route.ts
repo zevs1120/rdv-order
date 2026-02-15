@@ -1,14 +1,16 @@
 import { NextResponse } from "next/server";
 import { pool } from "../../../../lib/db";
-import { requireAuth } from "../../../../lib/api-auth";
+import { requirePermission } from "../../../../lib/permissions";
+import { writeAuditLogSafe } from "../../../../lib/audit";
 
 type Params = { params: Promise<{ id: string }> };
+const UUID_V4_LIKE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 export async function DELETE(req: Request, { params }: Params) {
   try {
-    await requireAuth(req, ["manager"]);
+    const auth = await requirePermission(req, "order.delete");
     const { id } = await params;
-    if (!id) {
+    if (!id || !UUID_V4_LIKE.test(id)) {
       return NextResponse.json({ error: "缺少订单 ID" }, { status: 400 });
     }
 
@@ -23,6 +25,14 @@ export async function DELETE(req: Request, { params }: Params) {
       return NextResponse.json({ error: "订单不存在" }, { status: 404 });
     }
 
+    await writeAuditLogSafe({
+      actorUserId: auth.userId,
+      action: "order.delete",
+      entityType: "order",
+      entityId: rows[0].id,
+      req
+    });
+
     return NextResponse.json({ deleted: true, id: rows[0].id });
   } catch (err: any) {
     if (err.message === "UNAUTHORIZED") return NextResponse.json({ error: "未登录" }, { status: 401 });
@@ -30,4 +40,3 @@ export async function DELETE(req: Request, { params }: Params) {
     return NextResponse.json({ error: "删除订单失败" }, { status: 500 });
   }
 }
-

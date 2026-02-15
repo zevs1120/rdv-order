@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { pool } from "../../../../lib/db";
-import { requireAuth } from "../../../../lib/api-auth";
+import { requirePermission } from "../../../../lib/permissions";
+import { writeAuditLogSafe } from "../../../../lib/audit";
 import { lockSessionName } from "../../../../lib/table-lock";
 
 type SessionRow = {
@@ -11,7 +12,7 @@ type SessionRow = {
 
 export async function POST(req: Request) {
   try {
-    await requireAuth(req, ["waiter", "manager"]);
+    const auth = await requirePermission(req, "order.create");
     const body = await req.json().catch(() => null);
     const tableNo = String(body?.tableNo || "").trim();
 
@@ -40,16 +41,16 @@ export async function POST(req: Request) {
 
       const s = session.rows[0];
 
-      const unpaid = await client.query<{ count: string }>(
+      const unclosed = await client.query<{ count: string }>(
         `SELECT COUNT(*)::text AS count
          FROM orders
          WHERE table_no = $1
            AND created_at >= $2
-           AND status = 'submitted'`,
+           AND status <> 'closed'`,
         [s.table_no, s.opened_at]
       );
 
-      if (Number(unpaid.rows[0]?.count || 0) > 0) {
+      if (Number(unclosed.rows[0]?.count || 0) > 0) {
         await client.query("ROLLBACK");
         return NextResponse.json({ error: "当前桌台有未结订单，请先结账" }, { status: 409 });
       }
@@ -62,6 +63,14 @@ export async function POST(req: Request) {
       );
 
       await client.query("COMMIT");
+      await writeAuditLogSafe({
+        actorUserId: auth.userId,
+        action: "table.close",
+        entityType: "table_session",
+        entityId: s.id,
+        detail: { tableNo: s.table_no },
+        req
+      });
       return NextResponse.json({ closed: true, tableNo: s.table_no });
     } catch (err) {
       await client.query("ROLLBACK");

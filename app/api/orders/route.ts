@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { pool } from "../../../lib/db";
-import { requireAuth } from "../../../lib/api-auth";
 import { runPrintWorker } from "../../../lib/print-worker";
+import { requirePermission } from "../../../lib/permissions";
+import { writeAuditLogSafe } from "../../../lib/audit";
 
 type OrderItemInput = {
   menuItemId: string;
@@ -55,7 +56,7 @@ async function validateMenuItems(itemIds: string[]) {
 
 export async function POST(req: Request) {
   try {
-    const auth = await requireAuth(req, ["waiter", "manager"]);
+    const auth = await requirePermission(req, "order.create");
     const body = (await req.json().catch(() => null)) as OrderBody | null;
     const tableNo = String(body?.tableNo || "").trim();
     if (!tableNo) {
@@ -130,6 +131,12 @@ export async function POST(req: Request) {
         );
 
         await client.query(
+          `INSERT INTO order_events (order_id, event_type, payload, created_by)
+           VALUES ($1, 'created', jsonb_build_object('itemCount', $2::int), $3)`,
+          [createdOrderId, items.length, auth.userId]
+        );
+
+        await client.query(
           `INSERT INTO print_jobs (order_id, status, retry_count)
            VALUES ($1, 'pending', 0)
            ON CONFLICT (order_id) DO UPDATE
@@ -151,6 +158,14 @@ export async function POST(req: Request) {
 
       await client.query("COMMIT");
       void runPrintWorker(1).catch(() => undefined);
+      await writeAuditLogSafe({
+        actorUserId: auth.userId,
+        action: deduped ? "order.submit_deduped" : "order.submit",
+        entityType: "order",
+        entityId: createdOrderId,
+        detail: { tableNo, itemCount: items.length, deduped },
+        req
+      });
       return NextResponse.json({ orderId: createdOrderId, deduped });
     } catch (err) {
       await client.query("ROLLBACK");
@@ -174,7 +189,7 @@ export async function POST(req: Request) {
 
 export async function GET(req: Request) {
   try {
-    const auth = await requireAuth(req, ["waiter", "manager"]);
+    const auth = await requirePermission(req, "report.orders");
     const url = new URL(req.url);
     const mine = url.searchParams.get("mine") === "1";
 

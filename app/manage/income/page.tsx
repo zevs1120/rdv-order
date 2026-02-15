@@ -6,52 +6,13 @@ import BottomNav from "../../components/bottom-nav";
 import ManageTabs from "../../components/manage-tabs";
 import { apiFetchJson, getStoredAuth } from "../../../lib/client-api";
 import { useI18n } from "../../components/i18n-provider";
-
-type PresetKey = "today" | "yesterday" | "week" | "month" | "3months" | "year";
+import { type PresetKey, rangeByPreset, toDateInput } from "../../../lib/date-range";
 
 type IncomeDay = {
   day: string;
   order_count: number;
   amount: number;
 };
-
-function startOfDay(date: Date) {
-  const d = new Date(date);
-  d.setHours(0, 0, 0, 0);
-  return d;
-}
-
-function endOfDay(date: Date) {
-  const d = new Date(date);
-  d.setHours(23, 59, 59, 999);
-  return d;
-}
-
-function rangeByPreset(preset: PresetKey) {
-  const now = new Date();
-  if (preset === "today") {
-    return { from: startOfDay(now), to: endOfDay(now) };
-  }
-  if (preset === "yesterday") {
-    const y = new Date(now);
-    y.setDate(y.getDate() - 1);
-    return { from: startOfDay(y), to: endOfDay(y) };
-  }
-
-  const from = startOfDay(now);
-  if (preset === "week") from.setDate(from.getDate() - 6);
-  if (preset === "month") from.setMonth(from.getMonth() - 1);
-  if (preset === "3months") from.setMonth(from.getMonth() - 3);
-  if (preset === "year") from.setFullYear(from.getFullYear() - 1);
-  return { from, to: endOfDay(now) };
-}
-
-function toDateInput(d: Date) {
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`;
-}
 
 export default function ManageIncomePage() {
   const router = useRouter();

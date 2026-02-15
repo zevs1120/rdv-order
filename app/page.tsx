@@ -60,7 +60,11 @@ export default function LoginPage() {
       </header>
       <div className="card">
         {checkingSession ? (
-          <div className="muted">{t("common.loading", "加载中...")}</div>
+          <div className="stack">
+            <div className="skeleton skeleton-row" />
+            <div className="skeleton skeleton-row" />
+            <div className="skeleton skeleton-card" />
+          </div>
         ) : (
         <form className="stack" onSubmit={onSubmit}>
           <label className="stack">

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import BottomNav from "../components/bottom-nav";
 import { apiFetchJson, getStoredAuth } from "../../lib/client-api";
 import { useI18n } from "../components/i18n-provider";
+import { useActionGuard } from "../../lib/use-action-guard";
 
 type TableItem = {
   tableNo: string;
@@ -20,6 +21,7 @@ export default function TablesPage() {
   const router = useRouter();
   const { t } = useI18n();
   const [tables, setTables] = useState<TableItem[]>([]);
+  const [loadingTables, setLoadingTables] = useState(false);
   const [error, setError] = useState("");
   const [openingTable, setOpeningTable] = useState<TableItem | null>(null);
   const [guestCount, setGuestCount] = useState(2);
@@ -28,6 +30,7 @@ export default function TablesPage() {
   const [mergeMode, setMergeMode] = useState(false);
   const [mergeSelection, setMergeSelection] = useState<string[]>([]);
   const [mergeGuestCount, setMergeGuestCount] = useState(4);
+  const canRunAction = useActionGuard();
 
   useEffect(() => {
     const { token, role } = getStoredAuth();
@@ -39,12 +42,15 @@ export default function TablesPage() {
   }, [router]);
 
   async function loadTables() {
+    setLoadingTables(true);
     setError("");
     try {
       const body = await apiFetchJson<{ tables: TableItem[] }>("/api/tables", { timeoutMs: 5000, retries: 1 });
       setTables(body.tables || []);
     } catch (err: any) {
       setError(err.message || "加载桌台失败");
+    } finally {
+      setLoadingTables(false);
     }
   }
 
@@ -57,6 +63,7 @@ export default function TablesPage() {
   }
 
   async function openTable() {
+    if (!canRunAction()) return;
     if (!openingTable) return;
     setSubmitting(true);
     setError("");
@@ -78,6 +85,7 @@ export default function TablesPage() {
   }
 
   async function confirmMerge() {
+    if (!canRunAction()) return;
     if (mergeSelection.length !== 2) {
       setError("请先选择两张桌子");
       return;
@@ -201,28 +209,39 @@ export default function TablesPage() {
       ) : null}
 
       <div className="panel table-layout">
-        {columns.map((items, idx) => (
-          <div key={idx} className="table-column">
-            {items.map((table) => {
-              const selected = mergeSelection.includes(table.baseTables[0]);
-              return (
-                <button
-                  key={table.tableNo}
-                  type="button"
-                  className={`${table.status === "open" ? "table-btn open" : "table-btn idle"}${selected ? " selected" : ""}`}
-                  onClick={() => onTableClick(table)}
-                >
-                  <div className="table-name">{table.tableNo}</div>
-                  <div className="table-meta">
-                    {table.status === "open"
-                      ? `${t("tables.opened", "已开台")} · ${table.guestCount || "?"}人`
-                      : t("tables.idle", "空闲")}
-                  </div>
-                </button>
-              );
-            })}
-          </div>
-        ))}
+        {loadingTables ? (
+          <>
+            <div className="skeleton skeleton-card" />
+            <div className="skeleton skeleton-card" />
+            <div className="skeleton skeleton-card" />
+            <div className="skeleton skeleton-card" />
+            <div className="skeleton skeleton-card" />
+            <div className="skeleton skeleton-card" />
+          </>
+        ) : (
+          columns.map((items, idx) => (
+            <div key={idx} className="table-column">
+              {items.map((table) => {
+                const selected = mergeSelection.includes(table.baseTables[0]);
+                return (
+                  <button
+                    key={table.tableNo}
+                    type="button"
+                    className={`${table.status === "open" ? "table-btn open" : "table-btn idle"}${selected ? " selected" : ""}`}
+                    onClick={() => onTableClick(table)}
+                  >
+                    <div className="table-name">{table.tableNo}</div>
+                    <div className="table-meta">
+                      {table.status === "open"
+                        ? `${t("tables.opened", "已开台")} · ${table.guestCount || "?"}人`
+                        : t("tables.idle", "空闲")}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          ))
+        )}
       </div>
 
       {error ? <div className="muted">{error}</div> : null}
