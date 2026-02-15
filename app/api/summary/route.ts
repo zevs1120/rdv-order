@@ -1,18 +1,10 @@
 import { NextResponse } from "next/server";
 import { pool } from "../../../lib/db";
-import { getBearerToken, verifyToken } from "../../../lib/auth";
-
-async function requireManager(req: Request) {
-  const token = getBearerToken(req);
-  if (!token) throw new Error("UNAUTHORIZED");
-  const payload = await verifyToken(token);
-  if (payload.role !== "manager") throw new Error("FORBIDDEN");
-  return payload;
-}
+import { requireAuth } from "../../../lib/api-auth";
 
 export async function GET(req: Request) {
   try {
-    await requireManager(req);
+    await requireAuth(req, ["manager"]);
     const url = new URL(req.url);
     const from = url.searchParams.get("from");
     const to = url.searchParams.get("to");
@@ -30,7 +22,9 @@ export async function GET(req: Request) {
        FROM orders o
        JOIN order_items oi ON o.id = oi.order_id
        JOIN menu_items mi ON mi.id = oi.menu_item_id
-       WHERE o.created_at >= $1 AND o.created_at <= $2`,
+       WHERE o.created_at >= $1
+         AND o.created_at <= $2
+         AND o.status = 'paid'`,
       [rangeFrom.toISOString(), rangeTo.toISOString()]
     );
 
@@ -40,6 +34,7 @@ export async function GET(req: Request) {
        JOIN order_items oi ON o.id = oi.order_id
        JOIN menu_items mi ON mi.id = oi.menu_item_id
        WHERE o.created_at >= $1 AND o.created_at <= $2
+         AND o.status = 'paid'
        GROUP BY mi.id, mi.name
        ORDER BY qty DESC`,
       [rangeFrom.toISOString(), rangeTo.toISOString()]

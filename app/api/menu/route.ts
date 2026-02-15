@@ -17,6 +17,7 @@ export async function GET(req: Request) {
     `SELECT id, name, price, category, description, menu_group, item_type
      FROM menu_items
      WHERE is_active = true
+       AND is_temporary = false
        AND menu_group = $1
      ORDER BY sort_order ASC, name ASC`,
     [mapped]

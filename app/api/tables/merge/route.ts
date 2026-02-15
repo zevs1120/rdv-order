@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { pool } from "../../../../lib/db";
 import { requireAuth } from "../../../../lib/api-auth";
+import { lockBaseTables } from "../../../../lib/table-lock";
 
 const TABLES = ["A1", "A2", "A3", "B1", "B2", "B3", "C1", "C2", "C3", "C4", "C5"];
 const TABLE_SET = new Set(TABLES);
@@ -34,6 +35,7 @@ export async function POST(req: Request) {
     const client = await pool.connect();
     try {
       await client.query("BEGIN");
+      await lockBaseTables(client, [primaryTable, secondaryTable]);
       const used = await getUsedTables(client);
       if (used.has(primaryTable) || used.has(secondaryTable)) {
         await client.query("ROLLBACK");

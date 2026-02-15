@@ -8,7 +8,7 @@
 
 ```json
 {
-  "username": "mercy",
+  "username": "Mercy",
   "pin": "admin"
 }
 ```
@@ -19,11 +19,34 @@
 
 返回当前班次菜单。
 
+### `POST /api/menu/custom`
+
+请求头：`Authorization: Bearer <jwt>`
+
+请求：
+
+```json
+{
+  "name": "Seasonal Fish",
+  "price": 420,
+  "category": "Special",
+  "description": "off menu",
+  "shift": "dinner",
+  "mode": "temporary"
+}
+```
+
+说明：
+
+- `mode=temporary`：创建临时菜（仅本次点单使用，不进入公开菜单）
+- `mode=permanent`：创建永久菜（仅经理允许）
+
 ## Orders
 
 ### `POST /api/orders`
 
 请求头：`Authorization: Bearer <jwt>`
+可选请求头：`X-Idempotency-Key: <8-80位字母数字_-组合>`（弱网重试防重复下单）
 
 请求：
 
@@ -37,6 +60,13 @@
 ```
 
 说明：桌台必须是已开台状态。
+说明：如同一服务员重复提交相同 `X-Idempotency-Key`，接口会返回已有订单，不重复创建。
+
+### `DELETE /api/orders/{id}`
+
+请求头：`Authorization: Bearer <jwt>`（必须 manager）
+
+删除任意订单（用于经理纠错）。
 
 ## Tables
 
@@ -129,3 +159,34 @@
 ### `GET /api/summary?from=ISO&to=ISO`
 
 请求头：`Authorization: Bearer <jwt>`（必须 manager）
+
+## Manage
+
+### `GET /api/manage/orders?from=ISO&to=ISO`
+
+请求头：`Authorization: Bearer <jwt>`（waiter / manager）
+
+返回指定时间范围订单列表（每单金额、菜品数量、状态、时间、明细 items）。
+
+### `GET /api/manage/income?from=ISO&to=ISO`
+
+请求头：`Authorization: Bearer <jwt>`（必须 manager）
+
+返回已结账（`paid`）收入汇总与按天统计，用于“当天/昨天/过去一周/过去一月/过去三月/过去一年/自定时间”筛选。
+
+## Print
+
+### `POST /api/print/dispatch`
+
+触发打印任务消费（调度 `print_jobs` 队列）。
+
+- 方式 1：经理身份调用（`Authorization: Bearer <jwt>`）
+- 方式 2：Worker Key 调用（请求头 `X-Print-Worker-Key`）
+
+请求体（可选）：
+
+```json
+{
+  "limit": 6
+}
+```

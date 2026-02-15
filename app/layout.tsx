@@ -1,6 +1,8 @@
 import "./globals.css";
 import type { ReactNode } from "react";
 import type { Viewport } from "next";
+import I18nProvider from "./components/i18n-provider";
+import LanguageSwitch from "./components/language-switch";
 
 export const metadata = {
   title: "RDV 点餐",
@@ -18,9 +20,12 @@ export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="zh-CN">
       <body>
-        <main>
-          {children}
-        </main>
+        <I18nProvider>
+          <LanguageSwitch />
+          <main>
+            {children}
+          </main>
+        </I18nProvider>
       </body>
     </html>
   );

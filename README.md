@@ -5,6 +5,7 @@
 ## 当前能力
 
 - 服务员登录（账号 + PIN）
+- 全局中英文切换
 - 图形化选桌（先开台再点餐）
 - 三班次菜单：早餐 / 午餐 / 晚餐
 - 鸡尾酒酒单（独立菜单）
@@ -15,6 +16,8 @@
 - 拼桌（选两张空桌合并，例如 `A1+A2`）
 - 经理菜单后台（新增、编辑、上下架、套餐配置）
 - 班次/每日汇总
+- 弱网稳定性重构：下单幂等、防重复、打印队列异步消费
+- 经理菜单管理（列表式全量编辑）
 
 ## 关键页面
 
@@ -49,6 +52,9 @@ cp .env.example .env.local
 - `DATABASE_URL`
 - `JWT_SECRET`
 - `PRINT_PROVIDER`
+- `PRINT_CLOUD_URL` + `PRINT_CLOUD_API_KEY`（云打印）
+- 或 `PRINT_AGENT_URL` + `PRINT_AGENT_TOKEN`（店内打印代理）
+- `PRINT_WORKER_KEY`（可选，给调度器调用 `/api/print/dispatch`）
 
 3. 新库初始化
 
@@ -63,6 +69,8 @@ cp .env.example .env.local
 \i db/migrations/001_menu_group_and_admin.sql
 \i db/migrations/002_table_sessions.sql
 \i db/migrations/003_table_session_tables.sql
+\i db/migrations/004_stability_hardening.sql
+\i db/migrations/005_menu_temporary_items.sql
 ```
 
 5. 启动
@@ -78,13 +86,23 @@ npm run dev
 - `DATABASE_URL`
 - `JWT_SECRET`
 - `PRINT_PROVIDER`
+- `PRINT_CLOUD_URL` + `PRINT_CLOUD_API_KEY`（或 `PRINT_AGENT_URL` + `PRINT_AGENT_TOKEN`）
+- `PRINT_WORKER_KEY`（建议）
 
 设置后 Redeploy。
 
 ## 账号（seed）
 
-- 服务员：`mercy / admin`
-- 经理：`manager1 / admin`
+- 经理：`Mercy / admin`
+- 经理：`Leo / admin`
+- 服务员：`Maria / 12345`
+- 服务员：`Joy / 12345`
+- 服务员：`Dani / 12345`
+
+## 角色权限
+
+- waiter：点餐、查看当天订单与订单明细
+- manager：含 waiter 权限 + 删除任意订单 + 菜单管理 + 收入统计
 
 ## 文档
 

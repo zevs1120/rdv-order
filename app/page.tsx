@@ -1,8 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { apiFetchJson, getStoredAuth } from "../lib/client-api";
+import { useI18n } from "./components/i18n-provider";
 
 export default function LoginPage() {
+  const router = useRouter();
+  const { t } = useI18n();
   const [username, setUsername] = useState("");
   const [pin, setPin] = useState("");
   const [error, setError] = useState("");
@@ -10,40 +15,35 @@ export default function LoginPage() {
   const [checkingSession, setCheckingSession] = useState(true);
 
   useEffect(() => {
-    const token = localStorage.getItem("rdv_token");
-    const role = localStorage.getItem("rdv_role");
+    const { token, role } = getStoredAuth();
     if (token && role === "manager") {
-      window.location.href = "/summary";
+      router.replace("/manage/orders");
       return;
     }
     if (token && role === "waiter") {
-      window.location.href = "/tables";
+      router.replace("/tables");
       return;
     }
     setCheckingSession(false);
-  }, []);
+  }, [router]);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError("");
     setLoading(true);
     try {
-      const res = await fetch("/api/login", {
+      const data = await apiFetchJson<{ token: string; role: "waiter" | "manager" }>("/api/login", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username, pin })
+        body: { username, pin },
+        useAuth: false,
+        retries: 0
       });
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        throw new Error(data?.error || "登录失败");
-      }
-      const data = await res.json();
       localStorage.setItem("rdv_token", data.token);
       localStorage.setItem("rdv_role", data.role);
       if (data.role === "manager") {
-        window.location.href = "/summary";
+        router.replace("/manage/orders");
       } else {
-        window.location.href = "/tables";
+        router.replace("/tables");
       }
     } catch (err: any) {
       setError(err.message || "登录失败");
@@ -55,28 +55,30 @@ export default function LoginPage() {
   return (
     <div className="stack">
       <header>
-        <h1>RDV 点餐系统</h1>
-        <div className="muted">稳定 / 简单 / 低成本</div>
+        <h1>{t("login.title", "RDV 点餐系统")}</h1>
+        <div className="muted">{t("login.subtitle", "稳定 / 简单 / 低成本")}</div>
       </header>
       <div className="card">
         {checkingSession ? (
-          <div className="muted">正在检查登录状态...</div>
+          <div className="muted">{t("common.loading", "加载中...")}</div>
         ) : (
         <form className="stack" onSubmit={onSubmit}>
           <label className="stack">
-            账号
-            <input value={username} onChange={(e) => setUsername(e.target.value)} placeholder="服务员账号" />
+            {t("login.username", "账号")}
+            <input value={username} onChange={(e) => setUsername(e.target.value)} placeholder={t("login.placeholder.user", "服务员账号")} />
           </label>
           <label className="stack">
-            PIN 码
-            <input value={pin} onChange={(e) => setPin(e.target.value)} placeholder="4-6 位" type="password" />
+            {t("login.pin", "PIN 码")}
+            <input value={pin} onChange={(e) => setPin(e.target.value)} placeholder={t("login.placeholder.pin", "4-6 位")} type="password" />
           </label>
           {error && <div className="muted">{error}</div>}
-          <button type="submit" disabled={loading}>{loading ? "登录中..." : "登录"}</button>
+          <button type="submit" disabled={loading}>
+            {loading ? t("login.submitting", "登录中...") : t("login.submit", "登录")}
+          </button>
         </form>
         )}
       </div>
-      <div className="muted">没有网络时请使用手写单</div>
+      <div className="muted">{t("login.offlineNote", "没有网络时请使用手写单")}</div>
     </div>
   );
 }

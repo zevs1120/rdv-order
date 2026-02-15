@@ -13,9 +13,9 @@ export async function GET(req: Request) {
     const menuGroup = (url.searchParams.get("menuGroup") || "").trim();
 
     const values: string[] = [];
-    let where = "";
+    let where = "WHERE is_temporary = false";
     if (menuGroup && ALLOWED_GROUPS.includes(menuGroup as (typeof ALLOWED_GROUPS)[number])) {
-      where = "WHERE menu_group = $1";
+      where += " AND menu_group = $1";
       values.push(menuGroup);
     }
 
@@ -58,8 +58,8 @@ export async function POST(req: Request) {
     }
 
     const { rows } = await pool.query(
-      `INSERT INTO menu_items (name, price, category, description, menu_group, item_type, is_active, sort_order)
-       VALUES ($1, $2, $3, $4, $5, $6, true, $7)
+      `INSERT INTO menu_items (name, price, category, description, menu_group, item_type, is_active, is_temporary, sort_order)
+       VALUES ($1, $2, $3, $4, $5, $6, true, false, $7)
        RETURNING id, name, price, category, description, menu_group, item_type, is_active, sort_order`,
       [
         body.name,

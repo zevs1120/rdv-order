@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { pool } from "../../../../lib/db";
 import { requireAuth } from "../../../../lib/api-auth";
+import { lockSessionName } from "../../../../lib/table-lock";
 
 type SessionRow = {
   id: string;
@@ -22,12 +23,14 @@ export async function POST(req: Request) {
     const client = await pool.connect();
     try {
       await client.query("BEGIN");
+      await lockSessionName(client, tableNo);
 
       const session = await client.query<SessionRow>(
         `SELECT id, table_no, opened_at, guest_count
          FROM table_sessions
          WHERE table_no = $1 AND closed_at IS NULL
-         LIMIT 1`,
+         LIMIT 1
+         FOR UPDATE`,
         [tableNo]
       );
 

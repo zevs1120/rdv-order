@@ -1,6 +1,19 @@
 const fs = require("fs");
 const { Client } = require("pg");
 
+function normalizeConnectionString(raw) {
+  try {
+    const url = new URL(raw);
+    const sslmode = (url.searchParams.get("sslmode") || "").toLowerCase();
+    if (sslmode === "require" && !url.searchParams.has("uselibpqcompat")) {
+      url.searchParams.set("uselibpqcompat", "true");
+    }
+    return url.toString();
+  } catch {
+    return raw;
+  }
+}
+
 async function main() {
   const migrationPath = process.argv[2];
   if (!migrationPath) {
@@ -9,7 +22,7 @@ async function main() {
   }
 
   const client = new Client({
-    connectionString: process.env.DATABASE_URL,
+    connectionString: normalizeConnectionString(process.env.DATABASE_URL),
     ssl: { rejectUnauthorized: false }
   });
 

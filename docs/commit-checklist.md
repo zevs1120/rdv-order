@@ -9,6 +9,7 @@
 - 如修改 DB schema，同时更新 `db/schema.sql` 与说明文档。
 - 如修改菜单模型，同时提供对应 `db/migrations/*.sql` 升级脚本。
 - 如新增 API，同时更新 `/Users/qiao/Downloads/rdv-order/docs/api.md`。
+- 如改动下单/桌台流程，验证并发与弱网重试场景（避免重复下单/重复开台）。
 
 ## 提交建议
 

@@ -1,6 +1,10 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+import BottomNav from "../components/bottom-nav";
+import { apiFetchJson, getStoredAuth } from "../../lib/client-api";
+import { useI18n } from "../components/i18n-provider";
 
 type TableItem = {
   tableNo: string;
@@ -13,6 +17,8 @@ type TableItem = {
 const GUEST_OPTIONS = [1, 2, 3, 4, 5, 6, 8, 10, 12];
 
 export default function TablesPage() {
+  const router = useRouter();
+  const { t } = useI18n();
   const [tables, setTables] = useState<TableItem[]>([]);
   const [error, setError] = useState("");
   const [openingTable, setOpeningTable] = useState<TableItem | null>(null);
@@ -24,26 +30,18 @@ export default function TablesPage() {
   const [mergeGuestCount, setMergeGuestCount] = useState(4);
 
   useEffect(() => {
-    const token = localStorage.getItem("rdv_token");
-    const role = localStorage.getItem("rdv_role");
-    if (!token || role !== "waiter") {
-      window.location.href = "/";
+    const { token, role } = getStoredAuth();
+    if (!token || (role !== "waiter" && role !== "manager")) {
+      router.replace("/");
       return;
     }
-    loadTables();
-  }, []);
+    void loadTables();
+  }, [router]);
 
   async function loadTables() {
     setError("");
     try {
-      const token = localStorage.getItem("rdv_token");
-      const res = await fetch("/api/tables", {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      const body = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        throw new Error(body?.error || "加载桌台失败");
-      }
+      const body = await apiFetchJson<{ tables: TableItem[] }>("/api/tables", { timeoutMs: 5000, retries: 1 });
       setTables(body.tables || []);
     } catch (err: any) {
       setError(err.message || "加载桌台失败");
@@ -55,7 +53,7 @@ export default function TablesPage() {
   }, [tables]);
 
   function enterMenu(tableNo: string, guests: number) {
-    window.location.href = `/order?tableNo=${encodeURIComponent(tableNo)}&guests=${guests}`;
+    router.push(`/order?tableNo=${encodeURIComponent(tableNo)}&guests=${guests}`);
   }
 
   async function openTable() {
@@ -63,19 +61,12 @@ export default function TablesPage() {
     setSubmitting(true);
     setError("");
     try {
-      const token = localStorage.getItem("rdv_token");
-      const res = await fetch("/api/tables", {
+      const body = await apiFetchJson<{ session: { tableNo: string; guestCount: number } }>("/api/tables", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`
-        },
-        body: JSON.stringify({ tableNo: openingTable.tableNo, guestCount })
+        body: { tableNo: openingTable.tableNo, guestCount },
+        timeoutMs: 7000,
+        retries: 1
       });
-      const body = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        throw new Error(body?.error || "开台失败");
-      }
       setOpeningTable(null);
       await loadTables();
       enterMenu(body.session.tableNo, body.session.guestCount);
@@ -95,24 +86,17 @@ export default function TablesPage() {
     setSubmitting(true);
     setError("");
     try {
-      const token = localStorage.getItem("rdv_token");
       const [primary, secondary] = mergeSelection;
-      const res = await fetch("/api/tables/merge", {
+      const body = await apiFetchJson<{ session: { tableNo: string; guestCount: number } }>("/api/tables/merge", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`
-        },
-        body: JSON.stringify({
+        body: {
           primaryTable: primary,
           secondaryTable: secondary,
           guestCount: mergeGuestCount
-        })
+        },
+        timeoutMs: 7000,
+        retries: 1
       });
-      const body = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        throw new Error(body?.error || "拼桌失败");
-      }
       setMergeMode(false);
       setMergeSelection([]);
       await loadTables();
@@ -149,7 +133,7 @@ export default function TablesPage() {
   return (
     <div className="stack">
       <header>
-        <h1>请选择桌号</h1>
+        <h1>{t("tables.title", "请选择桌号")}</h1>
         <div className="row">
           <button
             className={mergeMode ? "" : "secondary"}
@@ -159,29 +143,49 @@ export default function TablesPage() {
               setMergeSelection([]);
             }}
           >
-            拼桌
+            {t("tables.merge", "拼桌")}
           </button>
-          <button className="secondary" onClick={loadTables} type="button">刷新</button>
+          <button className="secondary" onClick={loadTables} type="button">{t("common.refresh", "刷新")}</button>
           <button
             className="secondary"
             onClick={() => {
               localStorage.clear();
-              window.location.href = "/";
+              router.replace("/");
             }}
             type="button"
           >
-            退出
+            {t("common.logout", "退出")}
           </button>
         </div>
       </header>
 
-      <div className="card bar-banner">吧台（BAR）</div>
+      {openingTable ? (
+        <div className="panel stack">
+          <h3 style={{ margin: 0 }}>{t("tables.opening", "开台：")}{openingTable.tableNo}</h3>
+          <label className="stack">
+            {t("tables.guestCount", "用餐人数")}
+            <select value={guestCount} onChange={(e) => setGuestCount(Number(e.target.value))}>
+              {GUEST_OPTIONS.map((count) => (
+                <option key={count} value={count}>{count} 人</option>
+              ))}
+            </select>
+          </label>
+          <div className="row">
+            <button className="secondary" type="button" onClick={() => setOpeningTable(null)}>{t("common.cancel", "取消")}</button>
+            <button type="button" onClick={openTable} disabled={submitting}>
+              {submitting ? t("tables.openingNow", "开台中...") : t("tables.confirmOpen", "确认开台")}
+            </button>
+          </div>
+        </div>
+      ) : null}
+
+      <div className="bar-banner">{t("tables.bar", "吧台（BAR）")}</div>
 
       {mergeMode ? (
-        <div className="card stack">
-          <div className="muted">拼桌模式：选择两张绿色桌台，确认后合并成一个桌号（例如 A1+A2）。</div>
+        <div className="panel stack">
+          <div className="muted">{t("tables.mergeModeHint", "拼桌模式：选择两张空闲桌，确认后合并为一个桌号。")}</div>
           <div className="row" style={{ justifyContent: "space-between", flexWrap: "wrap" }}>
-            <div>已选择：{mergeSelection.join(" + ") || "未选择"}</div>
+            <div>{t("tables.selected", "已选择")}：{mergeSelection.join(" + ") || t("tables.noneSelected", "未选择")}</div>
             <div className="row">
               <select value={mergeGuestCount} onChange={(e) => setMergeGuestCount(Number(e.target.value))}>
                 {GUEST_OPTIONS.map((count) => (
@@ -189,14 +193,14 @@ export default function TablesPage() {
                 ))}
               </select>
               <button type="button" onClick={confirmMerge} disabled={submitting || mergeSelection.length !== 2}>
-                {submitting ? "处理中..." : "确认拼桌"}
+                {submitting ? t("tables.mergeProcessing", "处理中...") : t("tables.mergeConfirm", "确认拼桌")}
               </button>
             </div>
           </div>
         </div>
       ) : null}
 
-      <div className="card table-layout">
+      <div className="panel table-layout">
         {columns.map((items, idx) => (
           <div key={idx} className="table-column">
             {items.map((table) => {
@@ -210,7 +214,9 @@ export default function TablesPage() {
                 >
                   <div className="table-name">{table.tableNo}</div>
                   <div className="table-meta">
-                    {table.status === "open" ? `已开台 · ${table.guestCount || "?"}人` : "空闲"}
+                    {table.status === "open"
+                      ? `${t("tables.opened", "已开台")} · ${table.guestCount || "?"}人`
+                      : t("tables.idle", "空闲")}
                   </div>
                 </button>
               );
@@ -221,23 +227,7 @@ export default function TablesPage() {
 
       {error ? <div className="muted">{error}</div> : null}
 
-      {openingTable ? (
-        <div className="card stack">
-          <h3 style={{ margin: 0 }}>开台：{openingTable.tableNo}</h3>
-          <label className="stack">
-            用餐人数
-            <select value={guestCount} onChange={(e) => setGuestCount(Number(e.target.value))}>
-              {GUEST_OPTIONS.map((count) => (
-                <option key={count} value={count}>{count} 人</option>
-              ))}
-            </select>
-          </label>
-          <div className="row">
-            <button className="secondary" type="button" onClick={() => setOpeningTable(null)}>取消</button>
-            <button type="button" onClick={openTable} disabled={submitting}>{submitting ? "开台中..." : "确认开台"}</button>
-          </div>
-        </div>
-      ) : null}
+      <BottomNav />
     </div>
   );
 }

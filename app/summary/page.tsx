@@ -1,8 +1,13 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { apiFetchJson } from "../../lib/client-api";
+import { useI18n } from "../components/i18n-provider";
 
 export default function SummaryPage() {
+  const router = useRouter();
+  const { t } = useI18n();
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
   const [data, setData] = useState<any>(null);
@@ -10,19 +15,14 @@ export default function SummaryPage() {
 
   async function loadSummary() {
     setError("");
-    const token = localStorage.getItem("rdv_token");
     const params = new URLSearchParams();
     if (from) params.set("from", from);
     if (to) params.set("to", to);
     try {
-      const res = await fetch(`/api/summary?${params.toString()}`, {
-        headers: { "Authorization": `Bearer ${token}` }
+      const body = await apiFetchJson(`/api/summary?${params.toString()}`, {
+        timeoutMs: 7000,
+        retries: 1
       });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err?.error || "加载失败");
-      }
-      const body = await res.json();
       setData(body);
     } catch (err: any) {
       setError(err.message || "加载失败");
@@ -32,22 +32,22 @@ export default function SummaryPage() {
   return (
     <div className="stack">
       <header>
-        <h1>班次 / 每日汇总</h1>
+        <h1>{t("manage.income", "汇总")}</h1>
         <div className="row">
-          <button className="secondary" onClick={() => { window.location.href = "/admin/menu"; }}>菜单后台</button>
-          <button className="secondary" onClick={() => { localStorage.clear(); window.location.href = "/"; }}>退出</button>
+          <button className="secondary" onClick={() => { router.push("/admin/menu"); }}>{t("manage.menu", "菜单后台")}</button>
+          <button className="secondary" onClick={() => { localStorage.clear(); router.replace("/"); }}>{t("common.logout", "退出")}</button>
         </div>
       </header>
       <div className="card stack">
         <label className="stack">
-          开始时间 (ISO)
+          Start (ISO)
           <input value={from} onChange={(e) => setFrom(e.target.value)} placeholder="2026-02-15T00:00:00+08:00" />
         </label>
         <label className="stack">
-          结束时间 (ISO)
+          End (ISO)
           <input value={to} onChange={(e) => setTo(e.target.value)} placeholder="2026-02-15T23:59:59+08:00" />
         </label>
-        <button onClick={loadSummary}>查询</button>
+        <button onClick={loadSummary}>{t("common.search", "查询")}</button>
       </div>
       {error && <div className="muted">{error}</div>}
       {data && (

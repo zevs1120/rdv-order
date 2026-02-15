@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { pool } from "../../../lib/db";
 import { requireAuth } from "../../../lib/api-auth";
+import { lockBaseTables } from "../../../lib/table-lock";
 
 const TABLE_LAYOUT = [
   { tableNo: "A1", column: 1, order: 1 },
@@ -119,8 +120,8 @@ function buildTables(rows: OpenSessionRow[]) {
   return tables;
 }
 
-async function getUsedBaseTables() {
-  const { rows } = await pool.query<{ table_no: string }>(
+async function getUsedBaseTables(client: Awaited<ReturnType<typeof pool.connect>>) {
+  const { rows } = await client.query<{ table_no: string }>(
     `SELECT DISTINCT tst.table_no
      FROM table_sessions ts
      JOIN table_session_tables tst ON tst.session_id = ts.id
@@ -157,14 +158,17 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "桌号或人数无效" }, { status: 400 });
     }
 
-    const used = await getUsedBaseTables();
-    if (used.has(tableNo)) {
-      return NextResponse.json({ error: "该桌已开台" }, { status: 409 });
-    }
-
     const client = await pool.connect();
     try {
       await client.query("BEGIN");
+      await lockBaseTables(client, [tableNo]);
+
+      const used = await getUsedBaseTables(client);
+      if (used.has(tableNo)) {
+        await client.query("ROLLBACK");
+        return NextResponse.json({ error: "该桌已开台" }, { status: 409 });
+      }
+
       const created = await client.query(
         `INSERT INTO table_sessions (table_no, guest_count, opened_by)
          VALUES ($1, $2, $3)

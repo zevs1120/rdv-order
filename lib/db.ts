@@ -2,6 +2,19 @@ import { Pool, type PoolClient, type QueryResult, type QueryResultRow } from "pg
 
 let cachedPool: Pool | null = null;
 
+function normalizeConnectionString(connectionString: string) {
+  try {
+    const url = new URL(connectionString);
+    const sslmode = (url.searchParams.get("sslmode") || "").toLowerCase();
+    if (sslmode === "require" && !url.searchParams.has("uselibpqcompat")) {
+      url.searchParams.set("uselibpqcompat", "true");
+    }
+    return url.toString();
+  } catch {
+    return connectionString;
+  }
+}
+
 function getPool() {
   if (cachedPool) return cachedPool;
 
@@ -11,7 +24,7 @@ function getPool() {
   }
 
   cachedPool = new Pool({
-    connectionString,
+    connectionString: normalizeConnectionString(connectionString),
     ssl: process.env.NODE_ENV === "production" ? { rejectUnauthorized: false } : undefined
   });
 
