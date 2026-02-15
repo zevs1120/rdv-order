@@ -29,6 +29,12 @@ function getFallbackProvider(primary: PrintProvider): PrintProvider | null {
   return parsed;
 }
 
+function getPrintTimeoutMs() {
+  const raw = Number(process.env.PRINT_TIMEOUT_MS || 3000);
+  if (!Number.isFinite(raw) || raw < 500) return 3000;
+  return Math.min(Math.round(raw), 15000);
+}
+
 async function postJsonWithTimeout(
   url: string,
   body: Record<string, unknown>,
@@ -51,7 +57,7 @@ async function postJsonWithTimeout(
     return { ok: res.ok, status: res.status, data };
   } catch (err: any) {
     if (err?.name === "AbortError") {
-      throw new PrintDispatchError("打印请求超时", true);
+      throw new PrintDispatchError(`打印请求超时（>${timeoutMs}ms）`, true);
     }
     throw new PrintDispatchError("打印请求网络异常", true);
   } finally {
@@ -70,12 +76,13 @@ async function dispatchToCloud(orderId: string): Promise<DispatchResult> {
     url,
     { orderId },
     { Authorization: `Bearer ${token}` },
-    3000
+    getPrintTimeoutMs()
   );
 
   if (!result.ok) {
     const retryable = result.status >= 500 || result.status === 429;
-    const message = typeof result.data?.error === "string" ? result.data.error : "云打印失败";
+    const detail = typeof result.data?.error === "string" ? result.data.error : "cloud provider error";
+    const message = `云打印失败(${result.status}) ${detail}`;
     throw new PrintDispatchError(message, retryable);
   }
 
@@ -97,12 +104,13 @@ async function dispatchToAgent(orderId: string): Promise<DispatchResult> {
     url,
     { orderId },
     { "X-Agent-Token": token },
-    3000
+    getPrintTimeoutMs()
   );
 
   if (!result.ok) {
     const retryable = result.status >= 500 || result.status === 429;
-    const message = typeof result.data?.error === "string" ? result.data.error : "打印代理失败";
+    const detail = typeof result.data?.error === "string" ? result.data.error : "agent provider error";
+    const message = `打印代理失败(${result.status}) ${detail}`;
     throw new PrintDispatchError(message, retryable);
   }
 
@@ -174,8 +182,7 @@ export async function dispatchPrintJob(orderId: string): Promise<DispatchResult>
   try {
     return await dispatchWithTracking(primary, orderId, "primary");
   } catch (err: any) {
-    const retryable = err instanceof PrintDispatchError ? err.retryable : true;
-    if (!retryable || !fallback) {
+    if (!fallback) {
       throw err;
     }
     return dispatchWithTracking(fallback, orderId, "backup");

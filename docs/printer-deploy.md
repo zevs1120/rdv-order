@@ -12,6 +12,8 @@
 - 代理打印：`PRINT_AGENT_URL`、`PRINT_AGENT_TOKEN`
 - 调度密钥：`PRINT_WORKER_KEY`
 - 设备心跳密钥（建议）：`DEVICE_HEARTBEAT_KEY`
+- 超时时间（可选）：`PRINT_TIMEOUT_MS`
+- 队列最大重试（可选）：`PRINT_MAX_RETRY`
 
 ## 3) 上线前自检
 
@@ -38,4 +40,3 @@ npm run check:print-env
 4. 在管理端设备页确认：
    - `pending` 下降
    - 设备状态非连续 `offline`
-

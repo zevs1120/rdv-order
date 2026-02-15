@@ -69,6 +69,8 @@ cp .env.example .env.local
 - 或 `PRINT_AGENT_URL` + `PRINT_AGENT_TOKEN`（店内打印代理）
 - `PRINT_WORKER_KEY`（可选，给调度器调用 `/api/print/dispatch`）
 - `PRINT_FALLBACK_PROVIDER`（可选：`cloud` 或 `agent`）
+- `PRINT_TIMEOUT_MS`（可选，默认 3000）
+- `PRINT_MAX_RETRY`（可选，默认 8）
 - `DEVICE_HEARTBEAT_KEY`（可选，给店内设备心跳上报 `/api/devices/heartbeat`）
 
 3. 新库初始化

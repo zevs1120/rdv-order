@@ -28,6 +28,8 @@ function run() {
   const fallbackStatus = fallback && fallback !== primary ? checkProvider(fallback) : null;
   const workerKey = Boolean(process.env.PRINT_WORKER_KEY);
   const heartbeatKey = Boolean(process.env.DEVICE_HEARTBEAT_KEY);
+  const timeoutMs = Number(process.env.PRINT_TIMEOUT_MS || 3000);
+  const maxRetry = Number(process.env.PRINT_MAX_RETRY || 8);
 
   const problems = [];
   if (!primaryStatus.url || !primaryStatus.token) {
@@ -39,12 +41,20 @@ function run() {
   if (!workerKey) {
     problems.push("PRINT_WORKER_KEY is not set");
   }
+  if (!Number.isFinite(timeoutMs) || timeoutMs < 500) {
+    problems.push("PRINT_TIMEOUT_MS should be >= 500");
+  }
+  if (!Number.isFinite(maxRetry) || maxRetry < 1) {
+    problems.push("PRINT_MAX_RETRY should be >= 1");
+  }
 
   const output = {
     primary: primaryStatus,
     fallback: fallbackStatus,
     workerKey,
     heartbeatKey,
+    timeoutMs,
+    maxRetry,
     ok: problems.length === 0,
     problems
   };
@@ -56,4 +66,3 @@ function run() {
 }
 
 run();
-

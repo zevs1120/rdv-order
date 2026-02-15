@@ -14,6 +14,7 @@ export type PrintWorkerResult = {
 };
 
 async function pickJobs(limit: number): Promise<PrintJobRow[]> {
+  const maxRetry = Math.max(1, Number(process.env.PRINT_MAX_RETRY || 8) || 8);
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
@@ -22,7 +23,7 @@ async function pickJobs(limit: number): Promise<PrintJobRow[]> {
          SELECT id
          FROM print_jobs
          WHERE status IN ('pending', 'failed')
-           AND retry_count < 8
+           AND retry_count < $2
          ORDER BY created_at ASC
          LIMIT $1
          FOR UPDATE SKIP LOCKED
@@ -33,7 +34,7 @@ async function pickJobs(limit: number): Promise<PrintJobRow[]> {
        FROM picked
        WHERE pj.id = picked.id
        RETURNING pj.id, pj.order_id, pj.retry_count`,
-      [limit]
+      [limit, maxRetry]
     );
     await client.query("COMMIT");
     return rows;
