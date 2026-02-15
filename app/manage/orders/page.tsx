@@ -59,6 +59,14 @@ export default function ManageOrdersPage() {
     [t]
   );
 
+  function getCurrentRange() {
+    if (!fromDate || !toDate) return null;
+    const from = new Date(`${fromDate}T00:00:00`);
+    const to = new Date(`${toDate}T23:59:59`);
+    if (Number.isNaN(from.getTime()) || Number.isNaN(to.getTime())) return null;
+    return { from, to };
+  }
+
   function statusLabel(order: OrderRow) {
     if (order.cancelled_at) {
       return lang === "en" ? "Cancelled" : "已取消";
@@ -115,11 +123,9 @@ export default function ManageOrdersPage() {
   }
 
   async function reloadWithCurrentRange() {
-    if (!fromDate || !toDate) return;
-    const from = new Date(`${fromDate}T00:00:00`);
-    const to = new Date(`${toDate}T23:59:59`);
-    if (Number.isNaN(from.getTime()) || Number.isNaN(to.getTime())) return;
-    await loadOrders(from, to);
+    const range = getCurrentRange();
+    if (!range) return;
+    await loadOrders(range.from, range.to);
   }
 
   async function deleteOrder(orderId: string) {
@@ -364,6 +370,12 @@ export default function ManageOrdersPage() {
               <input
                 value={tableFilter}
                 onChange={(e) => setTableFilter(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    void reloadWithCurrentRange();
+                  }
+                }}
                 placeholder={t("orders.tableFilter", "按桌号筛选（可选）")}
               />
               <button type="button" className="secondary compact-btn" onClick={() => { void reloadWithCurrentRange(); }}>

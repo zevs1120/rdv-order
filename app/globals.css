@@ -313,6 +313,7 @@ button:disabled {
 .order-list {
   display: grid;
   gap: 8px;
+  contain: layout paint;
 }
 
 .order-detail-list {
@@ -369,6 +370,14 @@ button:disabled {
   border-color: var(--brand);
   color: var(--brand);
   font-weight: 600;
+}
+
+.manage-tabs-wrap {
+  position: sticky;
+  top: calc(58px + env(safe-area-inset-top));
+  z-index: 18;
+  background: var(--bg);
+  padding: 4px 0;
 }
 
 .menu-admin-table {

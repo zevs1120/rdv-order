@@ -15,7 +15,7 @@ export default function ManageTabs() {
   }, []);
 
   return (
-    <div className="row" style={{ flexWrap: "wrap" }}>
+    <div className="row manage-tabs-wrap" style={{ flexWrap: "wrap" }}>
       <Link href="/manage/orders" className={pathname === "/manage/orders" ? "manage-tab active" : "manage-tab"}>
         {t("manage.orders", "订单")}
       </Link>
