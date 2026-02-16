@@ -143,6 +143,7 @@ button:disabled {
   display: grid;
   gap: 8px;
   grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  contain: layout paint;
 }
 
 .menu-item {
@@ -302,10 +303,15 @@ button:disabled {
   scrollbar-width: none;
   -webkit-overflow-scrolling: touch;
   padding-bottom: 2px;
+  scroll-snap-type: x proximity;
 }
 
 .order-actions::-webkit-scrollbar {
   display: none;
+}
+
+.order-actions > * {
+  scroll-snap-align: start;
 }
 
 .order-header {
@@ -337,6 +343,13 @@ button:disabled {
   display: grid;
   gap: 8px;
   contain: layout paint;
+}
+
+.menu-grid > .menu-item,
+.order-list > .menu-item,
+.menu-simple-list > .menu-simple-row {
+  content-visibility: auto;
+  contain-intrinsic-size: 80px;
 }
 
 .order-detail-list {
@@ -401,6 +414,19 @@ button:disabled {
   z-index: 18;
   background: var(--bg);
   padding: 4px 0;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+
+.manage-tabs-wrap::-webkit-scrollbar {
+  display: none;
+}
+
+.manage-tabs-wrap .manage-tab {
+  white-space: nowrap;
+  flex: 0 0 auto;
 }
 
 .menu-admin-table {
