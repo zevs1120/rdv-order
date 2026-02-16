@@ -93,6 +93,7 @@ export default function OrderPage() {
 
   const menuCacheRef = useRef<Partial<Record<ShiftKey, MenuItem[]>>>({});
   const menuRequestRef = useRef(0);
+  const menuIndexRef = useRef<Map<string, number>>(new Map());
   const isMergedTable = tableNo.includes("+");
   const canRunAction = useActionGuard();
   const deferredKeyword = useDeferredValue(keyword);
@@ -169,6 +170,14 @@ export default function OrderPage() {
     }
   }, [menu, selectedCategory]);
 
+  useEffect(() => {
+    const next = new Map<string, number>();
+    for (let i = 0; i < menu.length; i += 1) {
+      next.set(menu[i].id, i);
+    }
+    menuIndexRef.current = next;
+  }, [menu]);
+
   const filteredMenu = useMemo(() => {
     const key = deferredKeyword.trim().toLowerCase();
     if (!key) return menu;
@@ -192,7 +201,18 @@ export default function OrderPage() {
   const total = cart.reduce((sum, item) => sum + item.price * item.qty, 0);
 
   function setQty(id: string, qty: number) {
-    setMenu((prev) => prev.map((item) => (item.id === id ? { ...item, qty } : item)));
+    setMenu((prev) => {
+      const hintedIndex = menuIndexRef.current.get(id);
+      const index = typeof hintedIndex === "number" && prev[hintedIndex]?.id === id
+        ? hintedIndex
+        : prev.findIndex((item) => item.id === id);
+      if (index < 0) return prev;
+      const target = prev[index];
+      if ((target.qty || 0) === qty) return prev;
+      const next = prev.slice();
+      next[index] = { ...target, qty };
+      return next;
+    });
   }
 
   function shiftLabel(value: ShiftKey) {
@@ -411,6 +431,8 @@ export default function OrderPage() {
             value={keyword}
             onChange={(e) => setKeyword(e.target.value)}
             placeholder={t("order.searchPlaceholder", "搜索菜品")}
+            inputMode="search"
+            enterKeyHint="search"
           />
           <button className="secondary compact-btn" type="button" onClick={() => { router.push("/tables"); }}>
             {t("common.back", "返回")}
@@ -615,7 +637,7 @@ export default function OrderPage() {
         <div>{t("order.total", "当前加购合计")}：₱{total}</div>
         <button onClick={submitOrder} disabled={loading}>{loading ? t("order.submitting", "提交中...") : t("order.submit", "提交订单")}</button>
       </div>
-      {error && <div className="muted">{error}</div>}
+      {error && <div className="muted" aria-live="polite">{error}</div>}
 
       <BottomNav />
     </div>
