@@ -34,6 +34,16 @@ export async function GET(req: Request) {
 
     const primaryConfig = configFor(primary);
     const fallbackConfig = hasFallback ? configFor(fallback) : null;
+    const primaryReady = Boolean(primaryConfig.url && primaryConfig.tokenSet);
+    const fallbackReady = fallbackConfig ? Boolean(fallbackConfig.url && fallbackConfig.tokenSet) : false;
+    const workerKeySet = Boolean(process.env.PRINT_WORKER_KEY);
+    const heartbeatKeySet = Boolean(process.env.DEVICE_HEARTBEAT_KEY);
+
+    const warnings: string[] = [];
+    if (!primaryReady) warnings.push(`primary(${primary}) config incomplete`);
+    if (hasFallback && !fallbackReady) warnings.push(`fallback(${fallback}) config incomplete`);
+    if (!workerKeySet) warnings.push("PRINT_WORKER_KEY not set");
+    if (!heartbeatKeySet) warnings.push("DEVICE_HEARTBEAT_KEY not set");
 
     const queue = await pool.query<{ pending: number; failed: number }>(
       `SELECT
@@ -50,21 +60,29 @@ export async function GET(req: Request) {
       config: {
         primary: {
           ...primaryConfig,
-          ready: Boolean(primaryConfig.url && primaryConfig.tokenSet)
+          ready: primaryReady
         },
         fallback: fallbackConfig
           ? {
               ...fallbackConfig,
-              ready: Boolean(fallbackConfig.url && fallbackConfig.tokenSet)
+              ready: fallbackReady
             }
           : null,
-        workerKeySet: Boolean(process.env.PRINT_WORKER_KEY),
-        heartbeatKeySet: Boolean(process.env.DEVICE_HEARTBEAT_KEY)
+        workerKeySet,
+        heartbeatKeySet
       },
       queue: {
         pending: queue.rows[0]?.pending || 0,
         failed: queue.rows[0]?.failed || 0
-      }
+      },
+      checks: {
+        primaryReady,
+        fallbackReady: hasFallback ? fallbackReady : null,
+        workerKeySet,
+        heartbeatKeySet
+      },
+      ready: warnings.length === 0,
+      warnings
     });
   } catch (err: any) {
     if (err.message === "UNAUTHORIZED") return NextResponse.json({ error: "未登录" }, { status: 401 });
@@ -72,4 +90,3 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: "打印健康检查失败" }, { status: 500 });
   }
 }
-

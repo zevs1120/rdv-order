@@ -42,6 +42,8 @@ type PrintHealth = {
     pending: number;
     failed: number;
   };
+  ready: boolean;
+  warnings: string[];
 };
 
 export default function ManageDevicesPage() {
@@ -155,6 +157,10 @@ export default function ManageDevicesPage() {
         {healthOpen ? (
           <div className="order-list">
             <div className="row" style={{ justifyContent: "space-between" }}>
+              <span>{t("devices.overall", "整体状态")}</span>
+              <span className="tag">{health?.ready ? t("devices.ready", "就绪") : t("devices.notReady", "未就绪")}</span>
+            </div>
+            <div className="row" style={{ justifyContent: "space-between" }}>
               <span>Primary: {health?.provider.primary || "-"}</span>
               <span className="tag">{health?.config.primary.ready ? t("devices.ready", "就绪") : t("devices.notReady", "未就绪")}</span>
             </div>
@@ -174,6 +180,14 @@ export default function ManageDevicesPage() {
               <span>DEVICE_HEARTBEAT_KEY</span>
               <span className="tag">{health?.config.heartbeatKeySet ? t("devices.ready", "就绪") : t("devices.notSet", "未配置")}</span>
             </div>
+            {health?.warnings?.length ? (
+              <div className="stack" style={{ gap: 4 }}>
+                <span className="muted">{t("devices.warnings", "告警")}:</span>
+                {health.warnings.map((warning) => (
+                  <span key={warning} className="muted">- {warning}</span>
+                ))}
+              </div>
+            ) : null}
           </div>
         ) : null}
       </div>

@@ -158,6 +158,8 @@ const zh: Dictionary = {
   "devices.markOnline": "设为在线",
   "devices.markDegraded": "设为降级",
   "devices.markOffline": "设为离线",
+  "devices.overall": "整体状态",
+  "devices.warnings": "告警",
   "rbac.title": "权限设置",
   "rbac.section": "权限说明",
   "rbac.hint": "开关即时生效，所有修改会写入审计日志。"
@@ -319,6 +321,8 @@ const en: Dictionary = {
   "devices.markOnline": "Set Online",
   "devices.markDegraded": "Set Degraded",
   "devices.markOffline": "Set Offline",
+  "devices.overall": "Overall",
+  "devices.warnings": "Warnings",
   "rbac.title": "RBAC",
   "rbac.section": "Permission Notes",
   "rbac.hint": "Changes take effect immediately and are logged in audit logs."

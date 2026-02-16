@@ -30,6 +30,7 @@ npm run check:print-env
   - 主/备打印通道配置是否完整
   - 打印队列待处理/失败数量
   - Worker / Heartbeat 密钥是否已配置
+  - `ready` 与 `warnings`（可直接判断是否适合开业）
 
 ## 5) 最简上线流程（Vercel）
 
