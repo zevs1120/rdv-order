@@ -23,9 +23,19 @@ function getPool() {
     throw new Error("DATABASE_URL is not set");
   }
 
+  const max = Math.max(1, Number(process.env.DB_POOL_MAX || 6) || 6);
+  const connectionTimeoutMillis = Math.max(500, Number(process.env.DB_CONNECT_TIMEOUT_MS || 4000) || 4000);
+  const idleTimeoutMillis = Math.max(1000, Number(process.env.DB_IDLE_TIMEOUT_MS || 10000) || 10000);
+  const statementTimeout = Math.max(1000, Number(process.env.DB_STATEMENT_TIMEOUT_MS || 12000) || 12000);
+
   cachedPool = new Pool({
     connectionString: normalizeConnectionString(connectionString),
-    ssl: process.env.NODE_ENV === "production" ? { rejectUnauthorized: false } : undefined
+    ssl: process.env.NODE_ENV === "production" ? { rejectUnauthorized: false } : undefined,
+    max,
+    connectionTimeoutMillis,
+    idleTimeoutMillis,
+    statement_timeout: statementTimeout,
+    keepAlive: true
   });
 
   return cachedPool;

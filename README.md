@@ -72,6 +72,10 @@ cp .env.example .env.local
 - `PRINT_TIMEOUT_MS`（可选，默认 3000）
 - `PRINT_MAX_RETRY`（可选，默认 8）
 - `DEVICE_HEARTBEAT_KEY`（可选，给店内设备心跳上报 `/api/devices/heartbeat`）
+- `DB_POOL_MAX`（可选，默认 6）
+- `DB_CONNECT_TIMEOUT_MS`（可选，默认 4000）
+- `DB_IDLE_TIMEOUT_MS`（可选，默认 10000）
+- `DB_STATEMENT_TIMEOUT_MS`（可选，默认 12000）
 
 3. 新库初始化
 
