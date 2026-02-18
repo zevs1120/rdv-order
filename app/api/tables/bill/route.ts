@@ -38,9 +38,11 @@ export async function GET(req: Request) {
       name: string;
       qty: number;
       amount: number;
+      note: string | null;
     }>(
       `SELECT mi.id AS menu_item_id,
               mi.name,
+              oi.note,
               SUM(oi.qty)::int AS qty,
               SUM(oi.qty * mi.price)::int AS amount
        FROM orders o
@@ -49,8 +51,8 @@ export async function GET(req: Request) {
        WHERE o.table_no = $1
          AND o.created_at >= $2
          AND o.status IN ('submitted', 'paid')
-       GROUP BY mi.id, mi.name
-       ORDER BY mi.name ASC`,
+       GROUP BY mi.id, mi.name, oi.note
+       ORDER BY mi.name ASC, oi.note ASC NULLS FIRST`,
       [s.table_no, s.opened_at]
     );
 
@@ -106,7 +108,8 @@ export async function GET(req: Request) {
                       'menu_item_id', mi.id,
                       'name', mi.name,
                       'qty', oi.qty,
-                      'amount', oi.qty * mi.price
+                      'amount', oi.qty * mi.price,
+                      'note', oi.note
                     )
                     ORDER BY mi.name ASC
                   ),

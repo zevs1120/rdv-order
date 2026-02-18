@@ -26,6 +26,12 @@
 - 设备闭环：打印机状态、失败告警基础、自动重试、备用打印策略
 - 弱网稳定性重构：下单幂等、防重复、打印队列异步消费
 - 经理菜单管理（列表式全量编辑）
+- PWA 轻缓存（静态资源）+ 主屏幕安装支持
+- 网络状态栏（在线 / 弱网 / 离线）
+- 点单草稿自动恢复（按桌号）
+- 菜品备注（账单/订单/打印链路）
+- 打印自检（后厨 / 吧台 / 双通道）
+- 分类/关键词路由到多打印通道（后厨/吧台）
 
 ## 关键页面
 
@@ -71,6 +77,10 @@ cp .env.example .env.local
 - `PRINT_FALLBACK_PROVIDER`（可选：`cloud` 或 `agent`）
 - `PRINT_TIMEOUT_MS`（可选，默认 3000）
 - `PRINT_MAX_RETRY`（可选，默认 8）
+- `PRINT_ALERT_FAIL_COUNT`（可选，默认 3，设备失败告警阈值）
+- `PRINT_ALERT_QUEUE_FAILED`（可选，默认 3，失败队列告警阈值）
+- `PRINT_ROUTE_BAR_CATEGORIES`（可选，逗号分隔，命中分类走吧台通道）
+- `PRINT_ROUTE_BAR_KEYWORDS`（可选，逗号分隔，命中菜名关键词走吧台通道）
 - `DEVICE_HEARTBEAT_KEY`（可选，给店内设备心跳上报 `/api/devices/heartbeat`）
 - `DB_POOL_MAX`（可选，默认 6）
 - `DB_CONNECT_TIMEOUT_MS`（可选，默认 4000）
@@ -95,6 +105,7 @@ cp .env.example .env.local
 \i db/migrations/006_full_closure_foundation.sql
 \i db/migrations/007_state_machine_and_rules.sql
 \i db/migrations/008_shift_package_and_status_cleanup.sql
+\i db/migrations/009_order_item_note_and_print_alerts.sql
 ```
 
 5. 启动

@@ -1,11 +1,23 @@
 import { pool } from "./db";
 
 export type PrintProvider = "cloud" | "agent";
+type PrintTarget = "kitchen" | "bar";
 
 type DispatchResult = {
   provider: PrintProvider;
   slot: "primary" | "backup";
   remoteJobId?: string;
+};
+
+type OrderPrintRow = {
+  order_id: string;
+  table_no: string;
+  created_at: string;
+  waiter_name: string | null;
+  dish_name: string;
+  qty: number;
+  category: string | null;
+  note: string | null;
 };
 
 export class PrintDispatchError extends Error {
@@ -33,6 +45,122 @@ function getPrintTimeoutMs() {
   const raw = Number(process.env.PRINT_TIMEOUT_MS || 3000);
   if (!Number.isFinite(raw) || raw < 500) return 3000;
   return Math.min(Math.round(raw), 15000);
+}
+
+function toLowerSet(csv: string | undefined) {
+  return new Set(
+    String(csv || "")
+      .split(",")
+      .map((v) => v.trim().toLowerCase())
+      .filter(Boolean)
+  );
+}
+
+function toLowerList(csv: string | undefined) {
+  return String(csv || "")
+    .split(",")
+    .map((v) => v.trim().toLowerCase())
+    .filter(Boolean);
+}
+
+function resolveTarget(
+  category: string | null,
+  dishName: string,
+  barCategories: Set<string>,
+  barKeywords: string[]
+): PrintTarget {
+  const categoryKey = String(category || "").trim().toLowerCase();
+  if (categoryKey && barCategories.has(categoryKey)) {
+    return "bar";
+  }
+
+  const nameKey = dishName.toLowerCase();
+  if (barKeywords.some((keyword) => keyword && nameKey.includes(keyword))) {
+    return "bar";
+  }
+
+  return "kitchen";
+}
+
+async function buildOrderPayload(orderId: string) {
+  const barCategories = toLowerSet(process.env.PRINT_ROUTE_BAR_CATEGORIES);
+  const barKeywords = toLowerList(process.env.PRINT_ROUTE_BAR_KEYWORDS);
+
+  const { rows } = await pool.query<OrderPrintRow>(
+    `SELECT o.id AS order_id,
+            o.table_no,
+            o.created_at,
+            u.username AS waiter_name,
+            mi.name AS dish_name,
+            oi.qty,
+            mi.category,
+            oi.note
+     FROM orders o
+     LEFT JOIN users u ON u.id = o.waiter_id
+     JOIN order_items oi ON oi.order_id = o.id
+     JOIN menu_items mi ON mi.id = oi.menu_item_id
+     WHERE o.id = $1
+     ORDER BY mi.category ASC NULLS FIRST, mi.name ASC`,
+    [orderId]
+  );
+
+  if (rows.length === 0) {
+    throw new PrintDispatchError("打印订单不存在或无菜品", false);
+  }
+
+  const base = rows[0];
+  const items = rows.map((row) => {
+    const target = resolveTarget(row.category, row.dish_name, barCategories, barKeywords);
+    return {
+      name: row.dish_name,
+      qty: row.qty,
+      category: row.category,
+      note: row.note,
+      target
+    };
+  });
+
+  const tickets = ["kitchen", "bar"]
+    .map((target) => ({
+      target,
+      items: items.filter((item) => item.target === target)
+    }))
+    .filter((ticket) => ticket.items.length > 0);
+
+  return {
+    type: "order",
+    printVersion: 2,
+    orderId,
+    tableNo: base.table_no,
+    createdAt: base.created_at,
+    waiter: base.waiter_name || null,
+    items,
+    tickets,
+    routeRules: {
+      barCategories: Array.from(barCategories),
+      barKeywords
+    }
+  };
+}
+
+function buildSelfTestPayload(target: "kitchen" | "bar" | "both" = "both") {
+  const targets = target === "both" ? (["kitchen", "bar"] as const) : ([target] as const);
+  return {
+    type: "self_test",
+    printVersion: 2,
+    generatedAt: new Date().toISOString(),
+    tableNo: "TEST",
+    tickets: targets.map((ticketTarget) => ({
+      target: ticketTarget,
+      items: [{
+        name: ticketTarget === "bar" ? "TEST DRINK" : "TEST DISH",
+        qty: 1,
+        category: ticketTarget === "bar" ? "Test Bar" : "Test Kitchen",
+        note: "printer self test",
+        target: ticketTarget
+      }]
+    }))
+  };
 }
 
 async function postJsonWithTimeout(
@@ -65,7 +193,7 @@ async function postJsonWithTimeout(
   }
 }
 
-async function dispatchToCloud(orderId: string): Promise<DispatchResult> {
+async function dispatchToCloud(payload: Record<string, unknown>): Promise<DispatchResult> {
   const url = process.env.PRINT_CLOUD_URL;
   const token = process.env.PRINT_CLOUD_API_KEY;
   if (!url || !token) {
@@ -74,7 +202,7 @@ async function dispatchToCloud(orderId: string): Promise<DispatchResult> {
 
   const result = await postJsonWithTimeout(
     url,
-    { orderId },
+    payload,
     { Authorization: `Bearer ${token}` },
     getPrintTimeoutMs()
   );
@@ -93,7 +221,7 @@ async function dispatchToCloud(orderId: string): Promise<DispatchResult> {
   };
 }
 
-async function dispatchToAgent(orderId: string): Promise<DispatchResult> {
+async function dispatchToAgent(payload: Record<string, unknown>): Promise<DispatchResult> {
   const url = process.env.PRINT_AGENT_URL;
   const token = process.env.PRINT_AGENT_TOKEN;
   if (!url || !token) {
@@ -102,7 +230,7 @@ async function dispatchToAgent(orderId: string): Promise<DispatchResult> {
 
   const result = await postJsonWithTimeout(
     url,
-    { orderId },
+    payload,
     { "X-Agent-Token": token },
     getPrintTimeoutMs()
   );
@@ -161,11 +289,11 @@ async function markDeviceFailure(slot: "primary" | "backup", message: string) {
 
 async function dispatchWithTracking(
   provider: PrintProvider,
-  orderId: string,
+  payload: Record<string, unknown>,
   slot: "primary" | "backup"
 ): Promise<DispatchResult> {
   try {
-    const result = provider === "agent" ? await dispatchToAgent(orderId) : await dispatchToCloud(orderId);
+    const result = provider === "agent" ? await dispatchToAgent(payload) : await dispatchToCloud(payload);
     await markDeviceSuccess(slot);
     return { ...result, slot };
   } catch (err: any) {
@@ -175,16 +303,26 @@ async function dispatchWithTracking(
   }
 }
 
-export async function dispatchPrintJob(orderId: string): Promise<DispatchResult> {
+async function dispatchWithFallback(payload: Record<string, unknown>) {
   const primary = getProvider();
   const fallback = getFallbackProvider(primary);
 
   try {
-    return await dispatchWithTracking(primary, orderId, "primary");
+    return await dispatchWithTracking(primary, payload, "primary");
   } catch (err: any) {
     if (!fallback) {
       throw err;
     }
-    return dispatchWithTracking(fallback, orderId, "backup");
+    return dispatchWithTracking(fallback, payload, "backup");
   }
+}
+
+export async function dispatchPrintJob(orderId: string): Promise<DispatchResult> {
+  const payload = await buildOrderPayload(orderId);
+  return dispatchWithFallback(payload);
+}
+
+export async function dispatchPrintSelfTest(target: "kitchen" | "bar" | "both" = "both") {
+  const payload = buildSelfTestPayload(target);
+  return dispatchWithFallback(payload);
 }

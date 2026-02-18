@@ -14,6 +14,7 @@ type OrderItemDetail = {
   menu_item_id: string;
   name: string;
   qty: number;
+  note?: string | null;
   unit_price: number;
   amount: number;
 };
@@ -484,8 +485,11 @@ export default function ManageOrdersPage() {
                     {opened ? (
                       <div className="order-detail-list">
                         {(order.items || []).map((item) => (
-                          <div key={`${order.id}-${item.menu_item_id}`} className="row" style={{ justifyContent: "space-between", flexWrap: "wrap" }}>
-                            <div>{localizeMenuText(item.name, lang)} x{item.qty}</div>
+                          <div key={`${order.id}-${item.menu_item_id}-${item.note || ""}`} className="row" style={{ justifyContent: "space-between", flexWrap: "wrap" }}>
+                            <div className="stack" style={{ gap: 2 }}>
+                              <span>{localizeMenuText(item.name, lang)} x{item.qty}</span>
+                              {item.note ? <span className="muted">{t("order.noteLabel", "备注")}: {item.note}</span> : null}
+                            </div>
                             <div className="row">
                               <div>₱{item.amount}</div>
                               {canEdit ? (

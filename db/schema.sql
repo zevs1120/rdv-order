@@ -44,7 +44,8 @@ CREATE TABLE order_items (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   order_id UUID NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
   menu_item_id UUID NOT NULL REFERENCES menu_items(id),
-  qty INT NOT NULL CHECK (qty > 0)
+  qty INT NOT NULL CHECK (qty > 0),
+  note TEXT
 );
 
 CREATE TABLE order_charges (

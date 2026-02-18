@@ -24,7 +24,7 @@ function parseItems(raw: unknown): SplitItem[] {
   return Array.from(merged.entries()).map(([menuItemId, qty]) => ({ menuItemId, qty }));
 }
 
-type ItemRow = { id: string; menu_item_id: string; qty: number };
+type ItemRow = { id: string; menu_item_id: string; qty: number; note: string | null };
 
 export async function POST(req: Request, { params }: Params) {
   try {
@@ -65,7 +65,7 @@ export async function POST(req: Request, { params }: Params) {
       }
 
       const itemRows = await client.query<ItemRow>(
-        `SELECT id, menu_item_id, qty
+        `SELECT id, menu_item_id, qty, note
          FROM order_items
          WHERE order_id = $1
          ORDER BY qty DESC
@@ -108,14 +108,28 @@ export async function POST(req: Request, { params }: Params) {
           } else {
             await client.query(`UPDATE order_items SET qty = $2 WHERE id = $1`, [row.id, nextQty]);
           }
+
+          const merged = await client.query<{ id: string }>(
+            `UPDATE order_items
+             SET qty = qty + $4
+             WHERE order_id = $1
+               AND menu_item_id = $2
+               AND (
+                 (note IS NULL AND $3::text IS NULL)
+                 OR note = $3
+               )
+             RETURNING id`,
+            [targetOrderId, reqItem.menuItemId, row.note, moveQty]
+          );
+          if (merged.rows.length === 0) {
+            await client.query(
+              `INSERT INTO order_items (order_id, menu_item_id, qty, note)
+               VALUES ($1, $2, $3, $4)`,
+              [targetOrderId, reqItem.menuItemId, moveQty, row.note]
+            );
+          }
           left -= moveQty;
         }
-
-        await client.query(
-          `INSERT INTO order_items (order_id, menu_item_id, qty)
-           VALUES ($1, $2, $3)`,
-          [targetOrderId, reqItem.menuItemId, reqItem.qty]
-        );
       }
 
       await client.query(

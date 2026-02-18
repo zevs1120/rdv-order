@@ -65,6 +65,7 @@ export async function GET(req: Request) {
                     'menu_item_id', mi.id,
                     'name', mi.name,
                     'qty', oi.qty,
+                    'note', oi.note,
                     'unit_price', mi.price,
                     'amount', oi.qty * mi.price
                   )

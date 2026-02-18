@@ -24,6 +24,13 @@ function configFor(provider: Provider) {
   };
 }
 
+function parseList(csv: string | undefined) {
+  return String(csv || "")
+    .split(",")
+    .map((v) => v.trim())
+    .filter(Boolean);
+}
+
 export async function GET(req: Request) {
   try {
     await requirePermission(req, "device.view");
@@ -38,6 +45,8 @@ export async function GET(req: Request) {
     const fallbackReady = fallbackConfig ? Boolean(fallbackConfig.url && fallbackConfig.tokenSet) : false;
     const workerKeySet = Boolean(process.env.PRINT_WORKER_KEY);
     const heartbeatKeySet = Boolean(process.env.DEVICE_HEARTBEAT_KEY);
+    const routeBarCategories = parseList(process.env.PRINT_ROUTE_BAR_CATEGORIES);
+    const routeBarKeywords = parseList(process.env.PRINT_ROUTE_BAR_KEYWORDS);
 
     const warnings: string[] = [];
     if (!primaryReady) warnings.push(`primary(${primary}) config incomplete`);
@@ -80,6 +89,10 @@ export async function GET(req: Request) {
         fallbackReady: hasFallback ? fallbackReady : null,
         workerKeySet,
         heartbeatKeySet
+      },
+      routes: {
+        barCategories: routeBarCategories,
+        barKeywords: routeBarKeywords
       },
       ready: warnings.length === 0,
       warnings

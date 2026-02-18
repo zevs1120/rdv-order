@@ -55,12 +55,13 @@
   "tableNo": "A1",
   "guestCount": 4,
   "shift": "lunch",
-  "items": [{ "menuItemId": "uuid", "qty": 2 }]
+  "items": [{ "menuItemId": "uuid", "qty": 2, "note": "no ice" }]
 }
 ```
 
 说明：桌台必须是已开台状态。
 说明：如同一服务员重复提交相同 `X-Idempotency-Key`，接口会返回已有订单，不重复创建。
+说明：`note` 可选，最多 120 字，会写入订单明细并进入打印 payload。
 
 ### `DELETE /api/orders/{id}`
 
@@ -191,21 +192,29 @@
 }
 ```
 
-### `GET /api/print/health`
-
-请求头：`Authorization: Bearer <jwt>`（必须 manager）
-
-返回打印部署就绪状态（主/备通道配置、队列积压、关键密钥是否已配置）。
-
 触发打印任务消费（调度 `print_jobs` 队列）。
 
 - 方式 1：经理身份调用（`Authorization: Bearer <jwt>`）
 - 方式 2：Worker Key 调用（请求头 `X-Print-Worker-Key`）
 
-请求体（可选）：
+请求体可选，`limit` 默认为 6。
+
+### `GET /api/print/health`
+
+请求头：`Authorization: Bearer <jwt>`（必须 manager）
+
+返回打印部署就绪状态（主/备通道配置、队列积压、关键密钥是否已配置、吧台路由规则）。
+
+### `POST /api/print/self-test`
+
+请求头：`Authorization: Bearer <jwt>`（必须 manager）
+
+请求：
 
 ```json
 {
-  "limit": 6
+  "target": "kitchen"
 }
 ```
+
+`target` 可选值：`kitchen | bar | both`（默认 `both`）。

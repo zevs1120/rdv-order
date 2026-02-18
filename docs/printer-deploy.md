@@ -14,6 +14,8 @@
 - 设备心跳密钥（建议）：`DEVICE_HEARTBEAT_KEY`
 - 超时时间（可选）：`PRINT_TIMEOUT_MS`
 - 队列最大重试（可选）：`PRINT_MAX_RETRY`
+- 失败告警阈值（可选）：`PRINT_ALERT_FAIL_COUNT`、`PRINT_ALERT_QUEUE_FAILED`
+- 吧台路由（可选）：`PRINT_ROUTE_BAR_CATEGORIES`、`PRINT_ROUTE_BAR_KEYWORDS`
 
 ## 3) 上线前自检
 
@@ -30,9 +32,18 @@ npm run check:print-env
   - 主/备打印通道配置是否完整
   - 打印队列待处理/失败数量
   - Worker / Heartbeat 密钥是否已配置
+  - 分类/关键词路由配置
   - `ready` 与 `warnings`（可直接判断是否适合开业）
 
-## 5) 最简上线流程（Vercel）
+## 5) 打印自检（推荐）
+
+- 管理端设备页可直接点：
+  - `自检后厨`
+  - `自检吧台`
+  - `双通道自检`
+- 或调用接口：`POST /api/print/self-test`，请求体 `{ "target": "kitchen|bar|both" }`
+
+## 6) 最简上线流程（Vercel）
 
 1. 在 Vercel 项目环境变量填好上述键值。
 2. 部署后下 1 笔测试单。

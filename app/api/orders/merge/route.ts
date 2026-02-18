@@ -69,11 +69,11 @@ export async function POST(req: Request) {
         [targetOrderId, sourceOrderIds]
       );
 
-      const groupedItems = await client.query<{ menu_item_id: string; qty: number }>(
-        `SELECT menu_item_id, SUM(qty)::int AS qty
+      const groupedItems = await client.query<{ menu_item_id: string; note: string | null; qty: number }>(
+        `SELECT menu_item_id, note, SUM(qty)::int AS qty
          FROM order_items
          WHERE order_id = $1
-         GROUP BY menu_item_id`,
+         GROUP BY menu_item_id, note`,
         [targetOrderId]
       );
 
@@ -85,9 +85,9 @@ export async function POST(req: Request) {
 
       for (const row of groupedItems.rows) {
         await client.query(
-          `INSERT INTO order_items (order_id, menu_item_id, qty)
-           VALUES ($1, $2, $3)`,
-          [targetOrderId, row.menu_item_id, row.qty]
+          `INSERT INTO order_items (order_id, menu_item_id, qty, note)
+           VALUES ($1, $2, $3, $4)`,
+          [targetOrderId, row.menu_item_id, row.qty, row.note]
         );
       }
 

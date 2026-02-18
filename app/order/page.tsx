@@ -22,6 +22,7 @@ type MenuItem = {
   menu_group: "breakfast" | "lunch_dinner" | "cocktail" | "set_menu";
   item_type: "single" | "set";
   qty?: number;
+  note?: string;
 };
 
 type BillItem = {
@@ -29,6 +30,7 @@ type BillItem = {
   name: string;
   qty: number;
   amount: number;
+  note?: string | null;
 };
 
 type BillOrder = {
@@ -50,6 +52,19 @@ type BillOrder = {
 };
 
 type CartItem = MenuItem & { qty: number };
+
+type OrderDraft = {
+  tableNo: string;
+  shift: ShiftKey;
+  keyword: string;
+  selectedCategory: string;
+  items: Array<{
+    id: string;
+    qty: number;
+    note?: string;
+  }>;
+  updatedAt: number;
+};
 
 const SHIFT_OPTIONS: Array<{ key: ShiftKey; label: string }> = [
   { key: "breakfast", label: "早餐" },
@@ -94,6 +109,7 @@ export default function OrderPage() {
   const menuCacheRef = useRef<Partial<Record<ShiftKey, MenuItem[]>>>({});
   const menuRequestRef = useRef(0);
   const menuIndexRef = useRef<Map<string, number>>(new Map());
+  const draftRef = useRef<OrderDraft | null>(null);
   const isMergedTable = tableNo.includes("+");
   const canRunAction = useActionGuard();
   const deferredKeyword = useDeferredValue(keyword);
@@ -120,6 +136,40 @@ export default function OrderPage() {
   }, [tableNo, guests, paramsReady, router]);
 
   useEffect(() => {
+    menuCacheRef.current = {};
+    setMenu([]);
+  }, [tableNo]);
+
+  useEffect(() => {
+    if (!paramsReady || !tableNo) return;
+    const key = `rdv_order_draft:${tableNo}`;
+    try {
+      const raw = localStorage.getItem(key);
+      if (!raw) {
+        draftRef.current = null;
+        return;
+      }
+      const parsed = JSON.parse(raw) as OrderDraft;
+      if (!parsed || parsed.tableNo !== tableNo) {
+        draftRef.current = null;
+        return;
+      }
+      draftRef.current = parsed;
+      if (parsed.shift && SHIFT_OPTIONS.some((item) => item.key === parsed.shift)) {
+        setShift(parsed.shift);
+      }
+      if (typeof parsed.keyword === "string") {
+        setKeyword(parsed.keyword);
+      }
+      if (typeof parsed.selectedCategory === "string") {
+        setSelectedCategory(parsed.selectedCategory);
+      }
+    } catch {
+      draftRef.current = null;
+    }
+  }, [paramsReady, tableNo]);
+
+  useEffect(() => {
     setError("");
     const cached = menuCacheRef.current[shift];
     if (cached) {
@@ -140,8 +190,21 @@ export default function OrderPage() {
       .then((data) => {
         if (requestId !== menuRequestRef.current) return;
         const items = data.items || [];
-        menuCacheRef.current[shift] = items;
-        setMenu(items);
+        const draft = draftRef.current;
+        const draftMap = new Map(
+          (draft && draft.shift === shift ? draft.items : []).map((item) => [item.id, item])
+        );
+        const hydrated = items.map((item) => {
+          const picked = draftMap.get(item.id);
+          if (!picked) return item;
+          return {
+            ...item,
+            qty: Number.isInteger(picked.qty) && picked.qty > 0 ? picked.qty : 0,
+            note: picked.note || undefined
+          };
+        });
+        menuCacheRef.current[shift] = hydrated;
+        setMenu(hydrated);
       })
       .catch((err: Error) => {
         if (requestId !== menuRequestRef.current) return;
@@ -178,6 +241,31 @@ export default function OrderPage() {
     menuIndexRef.current = next;
   }, [menu]);
 
+  useEffect(() => {
+    if (!paramsReady || !tableNo) return;
+    const key = `rdv_order_draft:${tableNo}`;
+    const timer = window.setTimeout(() => {
+      const draft: OrderDraft = {
+        tableNo,
+        shift,
+        keyword: keyword.trim(),
+        selectedCategory,
+        items: menu
+          .filter((item) => (item.qty || 0) > 0)
+          .map((item) => ({
+            id: item.id,
+            qty: item.qty || 0,
+            note: item.note?.trim() || undefined
+          })),
+        updatedAt: Date.now()
+      };
+      draftRef.current = draft;
+      localStorage.setItem(key, JSON.stringify(draft));
+    }, 120);
+
+    return () => window.clearTimeout(timer);
+  }, [paramsReady, tableNo, shift, keyword, selectedCategory, menu]);
+
   const filteredMenu = useMemo(() => {
     const key = deferredKeyword.trim().toLowerCase();
     if (!key) return menu;
@@ -210,9 +298,23 @@ export default function OrderPage() {
       const target = prev[index];
       if ((target.qty || 0) === qty) return prev;
       const next = prev.slice();
-      next[index] = { ...target, qty };
+      next[index] = {
+        ...target,
+        qty,
+        note: qty > 0 ? target.note : undefined
+      };
       return next;
     });
+  }
+
+  function editItemNote(id: string, current?: string) {
+    const value = window.prompt(
+      t("order.notePrompt", "输入此菜备注（不辣/不要冰等，留空则清空）"),
+      current || ""
+    );
+    if (value === null) return;
+    const nextNote = value.trim().slice(0, 120);
+    setMenu((prev) => prev.map((item) => item.id === id ? { ...item, note: nextNote || undefined } : item));
   }
 
   function shiftLabel(value: ShiftKey) {
@@ -329,13 +431,14 @@ export default function OrderPage() {
           tableNo,
           guestCount: guests,
           shift,
-          items: cart.map((c) => ({ menuItemId: c.id, qty: c.qty }))
+          items: cart.map((c) => ({ menuItemId: c.id, qty: c.qty, note: c.note || null }))
         },
         timeoutMs: 8000,
         retries: 1
       });
 
-      setMenu((prev) => prev.map((item) => ({ ...item, qty: 0 })));
+      setMenu((prev) => prev.map((item) => ({ ...item, qty: 0, note: undefined })));
+      localStorage.removeItem(`rdv_order_draft:${tableNo}`);
       await loadBill();
       setShowBill(true);
       if (body.deduped) {
@@ -366,6 +469,7 @@ export default function OrderPage() {
       });
 
       window.alert(`结账完成\n订单数：${body.orderCount}\n总金额：₱${body.totalAmount}`);
+      localStorage.removeItem(`rdv_order_draft:${tableNo}`);
       router.replace("/tables");
     } catch (err: any) {
       setError(err.message || "结账失败");
@@ -413,6 +517,7 @@ export default function OrderPage() {
         retries: 1
       });
       window.alert(`关台完成\n桌号：${body.tableNo}`);
+      localStorage.removeItem(`rdv_order_draft:${tableNo}`);
       router.replace("/tables");
     } catch (err: any) {
       setError(err.message || "关台失败");
@@ -522,8 +627,11 @@ export default function OrderPage() {
           {!billLoading ? (
             <div className="order-list">
               {billItems.map((item) => (
-                <div key={item.menu_item_id} className="row" style={{ justifyContent: "space-between" }}>
-                  <div>{localizeMenuText(item.name, lang)} x{item.qty}</div>
+                <div key={`${item.menu_item_id}-${item.note || ""}`} className="row" style={{ justifyContent: "space-between" }}>
+                  <div className="stack" style={{ gap: 2 }}>
+                    <span>{localizeMenuText(item.name, lang)} x{item.qty}</span>
+                    {item.note ? <span className="muted">{t("order.noteLabel", "备注")}: {item.note}</span> : null}
+                  </div>
                   <div>₱{item.amount}</div>
                 </div>
               ))}
@@ -608,6 +716,9 @@ export default function OrderPage() {
                     <div className="muted">{t("order.allergens", "过敏原")}: {item.allergens.join(", ")}</div>
                   ) : null}
                   {item.description ? <div className="muted">{item.description}</div> : null}
+                  {item.note && (item.qty || 0) > 0 ? (
+                    <div className="muted">{t("order.noteLabel", "备注")}: {item.note}</div>
+                  ) : null}
                   <div className="row">
                     <button
                       className="secondary"
@@ -618,6 +729,13 @@ export default function OrderPage() {
                     </button>
                     <div>{item.qty || 0}</div>
                     <button onClick={() => setQty(item.id, (item.qty || 0) + 1)} type="button">+</button>
+                    <button
+                      className="secondary compact-btn"
+                      onClick={() => editItemNote(item.id, item.note)}
+                      type="button"
+                    >
+                      {t("order.noteAction", "备注")}
+                    </button>
                   </div>
                 </div>
               ))}

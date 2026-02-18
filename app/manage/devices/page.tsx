@@ -25,6 +25,11 @@ type Payload = {
     pending: number;
     failed: number;
   };
+  alerts: Array<{
+    level: "warning" | "critical";
+    code: string;
+    message: string;
+  }>;
 };
 
 type PrintHealth = {
@@ -42,6 +47,10 @@ type PrintHealth = {
     pending: number;
     failed: number;
   };
+  routes: {
+    barCategories: string[];
+    barKeywords: string[];
+  };
   ready: boolean;
   warnings: string[];
 };
@@ -53,6 +62,7 @@ export default function ManageDevicesPage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [updating, setUpdating] = useState("");
+  const [testing, setTesting] = useState("");
   const [health, setHealth] = useState<PrintHealth | null>(null);
   const [healthOpen, setHealthOpen] = useState(true);
 
@@ -123,6 +133,24 @@ export default function ManageDevicesPage() {
     }
   }
 
+  async function runSelfTest(target: "kitchen" | "bar" | "both") {
+    setTesting(target);
+    setError("");
+    try {
+      await apiFetchJson("/api/print/self-test", {
+        method: "POST",
+        body: { target },
+        timeoutMs: 8000,
+        retries: 0
+      });
+      await loadData();
+    } catch (err: any) {
+      setError(err.message || "打印自检失败");
+    } finally {
+      setTesting("");
+    }
+  }
+
   useEffect(() => {
     void loadData();
   }, []);
@@ -180,6 +208,12 @@ export default function ManageDevicesPage() {
               <span>DEVICE_HEARTBEAT_KEY</span>
               <span className="tag">{health?.config.heartbeatKeySet ? t("devices.ready", "就绪") : t("devices.notSet", "未配置")}</span>
             </div>
+            <div className="muted">
+              {t("devices.routeBarCategories", "吧台分类路由")}: {(health?.routes.barCategories || []).join(", ") || "-"}
+            </div>
+            <div className="muted">
+              {t("devices.routeBarKeywords", "吧台关键词路由")}: {(health?.routes.barKeywords || []).join(", ") || "-"}
+            </div>
             {health?.warnings?.length ? (
               <div className="stack" style={{ gap: 4 }}>
                 <span className="muted">{t("devices.warnings", "告警")}:</span>
@@ -197,10 +231,47 @@ export default function ManageDevicesPage() {
           <strong>{t("devices.pendingJobs", "待打印")}：{data?.printQueue.pending || 0}</strong>
           <strong>{t("devices.failedJobs", "打印失败")}：{data?.printQueue.failed || 0}</strong>
         </div>
+        <div className="row" style={{ flexWrap: "wrap" }}>
+          <button
+            className="secondary compact-btn"
+            type="button"
+            onClick={() => { void runSelfTest("kitchen"); }}
+            disabled={testing !== ""}
+          >
+            {testing === "kitchen" ? t("common.loading", "加载中...") : t("devices.testKitchen", "自检后厨")}
+          </button>
+          <button
+            className="secondary compact-btn"
+            type="button"
+            onClick={() => { void runSelfTest("bar"); }}
+            disabled={testing !== ""}
+          >
+            {testing === "bar" ? t("common.loading", "加载中...") : t("devices.testBar", "自检吧台")}
+          </button>
+          <button
+            className="secondary compact-btn"
+            type="button"
+            onClick={() => { void runSelfTest("both"); }}
+            disabled={testing !== ""}
+          >
+            {testing === "both" ? t("common.loading", "加载中...") : t("devices.testBoth", "双通道自检")}
+          </button>
+        </div>
       </div>
 
       {loading ? <div className="muted">{t("common.loading", "加载中...")}</div> : null}
       {error ? <div className="muted">{error}</div> : null}
+      {(data?.alerts || []).length > 0 ? (
+        <div className="panel stack device-alert-panel">
+          <strong>{t("devices.alertTitle", "打印告警")}</strong>
+          {(data?.alerts || []).map((alert) => (
+            <div key={`${alert.code}-${alert.message}`} className="muted">
+              - {alert.message}
+            </div>
+          ))}
+          <div className="muted">{t("devices.alertHint", "建议优先检查主打印机网络，必要时切换备用通道。")}</div>
+        </div>
+      ) : null}
 
       <div className="order-list">
         {(data?.devices || []).map((device) => (

@@ -30,6 +30,16 @@ function run() {
   const heartbeatKey = Boolean(process.env.DEVICE_HEARTBEAT_KEY);
   const timeoutMs = Number(process.env.PRINT_TIMEOUT_MS || 3000);
   const maxRetry = Number(process.env.PRINT_MAX_RETRY || 8);
+  const alertFailCount = Number(process.env.PRINT_ALERT_FAIL_COUNT || 3);
+  const alertQueueFailed = Number(process.env.PRINT_ALERT_QUEUE_FAILED || 3);
+  const routeBarCategories = String(process.env.PRINT_ROUTE_BAR_CATEGORIES || "")
+    .split(",")
+    .map((v) => v.trim())
+    .filter(Boolean);
+  const routeBarKeywords = String(process.env.PRINT_ROUTE_BAR_KEYWORDS || "")
+    .split(",")
+    .map((v) => v.trim())
+    .filter(Boolean);
 
   const problems = [];
   if (!primaryStatus.url || !primaryStatus.token) {
@@ -47,6 +57,12 @@ function run() {
   if (!Number.isFinite(maxRetry) || maxRetry < 1) {
     problems.push("PRINT_MAX_RETRY should be >= 1");
   }
+  if (!Number.isFinite(alertFailCount) || alertFailCount < 1) {
+    problems.push("PRINT_ALERT_FAIL_COUNT should be >= 1");
+  }
+  if (!Number.isFinite(alertQueueFailed) || alertQueueFailed < 1) {
+    problems.push("PRINT_ALERT_QUEUE_FAILED should be >= 1");
+  }
 
   const output = {
     primary: primaryStatus,
@@ -55,6 +71,10 @@ function run() {
     heartbeatKey,
     timeoutMs,
     maxRetry,
+    alertFailCount,
+    alertQueueFailed,
+    routeBarCategories,
+    routeBarKeywords,
     ok: problems.length === 0,
     problems
   };

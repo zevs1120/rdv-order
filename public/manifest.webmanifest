@@ -1,0 +1,19 @@
+{
+  "name": "RDV 点餐",
+  "short_name": "RDV",
+  "description": "酒店/餐厅手机点餐系统",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#f7f4ef",
+  "theme_color": "#8f1f23",
+  "icons": [
+    {
+      "src": "/icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
+

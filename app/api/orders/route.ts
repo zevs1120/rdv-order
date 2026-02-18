@@ -7,6 +7,7 @@ import { writeAuditLogSafe } from "../../../lib/audit";
 type OrderItemInput = {
   menuItemId: string;
   qty: number;
+  note: string | null;
 };
 
 type OrderBody = {
@@ -22,10 +23,12 @@ function parseItems(raw: unknown): OrderItemInput[] {
     throw new Error("INVALID_ITEMS");
   }
 
-  const merged = new Map<string, number>();
+  const merged = new Map<string, OrderItemInput>();
   for (const item of raw) {
     const menuItemId = String((item as { menuItemId?: unknown })?.menuItemId || "").trim();
     const qty = Number((item as { qty?: unknown })?.qty);
+    const noteRaw = String((item as { note?: unknown })?.note || "").trim();
+    const note = noteRaw || null;
 
     if (!UUID_V4_LIKE.test(menuItemId)) {
       throw new Error("INVALID_ITEMS");
@@ -33,14 +36,24 @@ function parseItems(raw: unknown): OrderItemInput[] {
     if (!Number.isInteger(qty) || qty <= 0 || qty > 30) {
       throw new Error("INVALID_ITEMS");
     }
-    merged.set(menuItemId, (merged.get(menuItemId) || 0) + qty);
+    if (noteRaw.length > 120) {
+      throw new Error("INVALID_ITEMS");
+    }
+
+    const key = `${menuItemId}::${noteRaw}`;
+    const existing = merged.get(key);
+    if (existing) {
+      merged.set(key, { ...existing, qty: existing.qty + qty });
+    } else {
+      merged.set(key, { menuItemId, qty, note });
+    }
   }
 
   if (merged.size === 0 || merged.size > 40) {
     throw new Error("INVALID_ITEMS");
   }
 
-  return Array.from(merged.entries()).map(([menuItemId, qty]) => ({ menuItemId, qty }));
+  return Array.from(merged.values());
 }
 
 async function validateMenuItems(itemIds: string[]) {
@@ -65,8 +78,10 @@ export async function POST(req: Request) {
 
     const items = parseItems(body?.items);
     const itemIds = items.map((item) => item.menuItemId);
+    const uniqueItemIds = Array.from(new Set(itemIds));
     const qtyList = items.map((item) => item.qty);
-    const validItems = await validateMenuItems(itemIds);
+    const noteList = items.map((item) => item.note);
+    const validItems = await validateMenuItems(uniqueItemIds);
     if (!validItems) {
       return NextResponse.json({ error: "存在无效或已下架菜品" }, { status: 400 });
     }
@@ -124,10 +139,10 @@ export async function POST(req: Request) {
 
       if (createdNewOrder) {
         await client.query(
-          `INSERT INTO order_items (order_id, menu_item_id, qty)
-           SELECT $1, x.menu_item_id::uuid, x.qty::int
-           FROM UNNEST($2::text[], $3::int[]) AS x(menu_item_id, qty)`,
-          [createdOrderId, itemIds, qtyList]
+          `INSERT INTO order_items (order_id, menu_item_id, qty, note)
+           SELECT $1, x.menu_item_id::uuid, x.qty::int, NULLIF(x.note, '')
+           FROM UNNEST($2::text[], $3::int[], $4::text[]) AS x(menu_item_id, qty, note)`,
+          [createdOrderId, itemIds, qtyList, noteList.map((note) => note || "")]
         );
 
         await client.query(

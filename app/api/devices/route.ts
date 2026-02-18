@@ -21,12 +21,39 @@ export async function GET(req: Request) {
       )
     ]);
 
+    const failThreshold = Math.max(1, Number(process.env.PRINT_ALERT_FAIL_COUNT || 3) || 3);
+    const queueFailedThreshold = Math.max(1, Number(process.env.PRINT_ALERT_QUEUE_FAILED || 3) || 3);
+
+    const alerts: Array<{
+      level: "warning" | "critical";
+      code: string;
+      message: string;
+    }> = [];
+    for (const device of devices.rows as Array<{ device_code: string; fail_count: number; status: string; is_backup: boolean }>) {
+      if ((device.fail_count || 0) >= failThreshold) {
+        alerts.push({
+          level: device.status === "offline" ? "critical" : "warning",
+          code: "device_fail_count_high",
+          message: `${device.device_code} 连续失败 ${device.fail_count} 次`
+        });
+      }
+    }
+    const queueFailed = jobs.rows[0]?.failed || 0;
+    if (queueFailed >= queueFailedThreshold) {
+      alerts.push({
+        level: "critical",
+        code: "print_queue_failed_high",
+        message: `打印失败队列 ${queueFailed}，建议切换备用打印通道`
+      });
+    }
+
     return NextResponse.json({
       devices: devices.rows,
       printQueue: {
         pending: jobs.rows[0]?.pending || 0,
         failed: jobs.rows[0]?.failed || 0
-      }
+      },
+      alerts
     });
   } catch (err: any) {
     if (err.message === "UNAUTHORIZED") return NextResponse.json({ error: "未登录" }, { status: 401 });
