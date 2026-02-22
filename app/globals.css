@@ -1,4 +1,5 @@
 :root {
+  --app-max: 560px;
   --bg: #f7f4ef;
   --panel: #fffaf2;
   --line: #e4d9c6;
@@ -19,10 +20,14 @@ html,
 body {
   padding: 0;
   margin: 0;
+  width: 100%;
+  max-width: 100%;
   background: var(--bg);
   color: var(--ink);
   font-family: "PingFang SC", "Noto Sans SC", "Helvetica Neue", Arial, sans-serif;
   -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  overflow-x: clip;
   overscroll-behavior-y: contain;
 }
 
@@ -31,22 +36,24 @@ html {
 }
 
 body {
+  min-height: 100svh;
   min-height: 100dvh;
   -webkit-font-smoothing: antialiased;
 }
 
 main {
-  width: 100%;
-  max-width: 560px;
+  width: min(100%, var(--app-max));
+  max-width: var(--app-max);
   margin: 0 auto;
-  padding: calc(52px + var(--netbar)) 10px calc(74px + env(safe-area-inset-bottom));
+  padding: calc(52px + var(--netbar)) max(10px, env(safe-area-inset-right)) calc(74px + env(safe-area-inset-bottom)) max(10px, env(safe-area-inset-left));
 }
 
 h1 {
   font-size: 22px;
   margin: 0;
   letter-spacing: 0.2px;
-  white-space: nowrap;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
 }
 
 h3 {
@@ -57,18 +64,26 @@ header {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-wrap: wrap;
   gap: 8px;
 }
 
 .stack {
   display: grid;
   gap: 10px;
+  min-width: 0;
 }
 
 .row {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 8px;
+  min-width: 0;
+}
+
+.row > * {
+  min-width: 0;
 }
 
 .panel,
@@ -82,12 +97,14 @@ header {
 .muted {
   color: var(--muted);
   font-size: 13px;
+  overflow-wrap: anywhere;
 }
 
 input,
 select,
 button {
   min-height: var(--tap);
+  max-width: 100%;
   font-size: 16px;
   border-radius: 2px;
 }
@@ -155,8 +172,9 @@ button:disabled {
 
 .order-layout {
   display: grid;
-  grid-template-columns: 72px 1fr;
+  grid-template-columns: clamp(58px, 20vw, 72px) minmax(0, 1fr);
   gap: 8px;
+  min-width: 0;
 }
 
 .category-sidebar {
@@ -333,8 +351,8 @@ button:disabled {
 }
 
 .order-search-input {
-  width: 132px;
-  min-width: 132px;
+  width: clamp(96px, 34vw, 132px);
+  min-width: 96px;
 }
 
 .order-submit-bar {
@@ -368,14 +386,15 @@ button:disabled {
 
 .bottom-nav {
   position: fixed;
-  left: 50%;
-  transform: translateX(-50%);
+  left: 0;
+  right: 0;
   bottom: 0;
-  width: min(560px, 100vw);
+  margin: 0 auto;
+  width: min(var(--app-max), calc(100vw - env(safe-area-inset-left) - env(safe-area-inset-right)));
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 6px;
-  padding: 6px 8px calc(6px + env(safe-area-inset-bottom));
+  padding: 6px max(8px, env(safe-area-inset-right)) calc(6px + env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-left));
   border-top: 1px solid var(--line);
   background: rgba(255, 250, 242, 0.98);
 }
@@ -499,10 +518,11 @@ button:disabled {
 
 .menu-save-bar {
   position: fixed;
-  left: 50%;
-  transform: translateX(-50%);
+  left: 0;
+  right: 0;
   bottom: calc(54px + env(safe-area-inset-bottom));
-  width: min(560px, calc(100vw - 16px));
+  margin: 0 auto;
+  width: min(var(--app-max), calc(100vw - 16px - env(safe-area-inset-left) - env(safe-area-inset-right)));
   display: grid;
   grid-template-columns: 1fr;
   gap: 8px;
@@ -516,7 +536,7 @@ button:disabled {
 .lang-switch {
   position: fixed;
   top: calc(8px + var(--netbar) + env(safe-area-inset-top));
-  right: 10px;
+  right: max(10px, env(safe-area-inset-right));
   width: 44px;
   min-height: 30px;
   z-index: 60;
@@ -529,14 +549,15 @@ button:disabled {
 .network-status {
   position: fixed;
   top: 0;
-  left: 50%;
-  transform: translateX(-50%);
-  width: min(560px, 100vw);
+  left: 0;
+  right: 0;
+  margin: 0 auto;
+  width: min(var(--app-max), calc(100vw - env(safe-area-inset-left) - env(safe-area-inset-right)));
   height: calc(var(--netbar) + env(safe-area-inset-top));
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: env(safe-area-inset-top) 10px 0;
+  padding: env(safe-area-inset-top) max(10px, env(safe-area-inset-right)) 0 max(10px, env(safe-area-inset-left));
   font-size: 12px;
   z-index: 58;
   border-bottom: 1px solid var(--line);
