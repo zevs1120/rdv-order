@@ -74,6 +74,7 @@ cp .env.example .env.local
 - `PRINT_CLOUD_URL` + `PRINT_CLOUD_API_KEY`（云打印）
 - 或 `PRINT_AGENT_URL` + `PRINT_AGENT_TOKEN`（店内打印代理）
 - 或 `XPYUN_USER` + `XPYUN_USER_KEY` + `XPYUN_SN`（芯烨云打印，`PRINT_PROVIDER=xpyun`）
+  - 兼容别名：`USER` + `USERKEY` + `SN`
 - `XPYUN_API_URL`（可选，默认 `https://open.xpyun.net/api/openapi/xprinter/print`）
 - `XPYUN_COPIES`（可选，默认 1）
 - `XPYUN_VOICE`（可选，默认 2）

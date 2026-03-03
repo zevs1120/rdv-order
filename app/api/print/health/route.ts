@@ -14,9 +14,14 @@ function parseProvider(raw: string | undefined, fallback: Provider): Provider {
 
 function configFor(provider: Provider) {
   if (provider === "xpyun") {
+    const aliasUser = process.env.USERKEY || process.env.XPYUN_USERKEY || process.env.SN ? process.env.USER : "";
     return {
       url: process.env.XPYUN_API_URL || "https://open.xpyun.net/api/openapi/xprinter/print",
-      tokenSet: Boolean(process.env.XPYUN_USER && process.env.XPYUN_USER_KEY && process.env.XPYUN_SN)
+      tokenSet: Boolean(
+        (process.env.XPYUN_USER || aliasUser)
+        && (process.env.XPYUN_USER_KEY || process.env.XPYUN_USERKEY || process.env.USERKEY)
+        && (process.env.XPYUN_SN || process.env.SN)
+      )
     };
   }
   if (provider === "cloud") {

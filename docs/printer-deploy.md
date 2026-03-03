@@ -12,6 +12,7 @@
 - 云打印：`PRINT_CLOUD_URL`、`PRINT_CLOUD_API_KEY`
 - 代理打印：`PRINT_AGENT_URL`、`PRINT_AGENT_TOKEN`
 - 芯烨云：`XPYUN_USER`、`XPYUN_USER_KEY`、`XPYUN_SN`
+  - 兼容别名：`USER`、`USERKEY`、`SN`
 - 芯烨接口（可选）：`XPYUN_API_URL`（默认 `https://open.xpyun.net/api/openapi/xprinter/print`）
 - 芯烨份数/语音（可选）：`XPYUN_COPIES`、`XPYUN_VOICE`、`XPYUN_MODE`
 - 调度密钥：`PRINT_WORKER_KEY`

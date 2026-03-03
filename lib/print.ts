@@ -230,15 +230,11 @@ function buildSelfTestPayload(target: "kitchen" | "bar" | "both" = "both"): Self
   };
 }
 
-function escapeXpyunText(value: string) {
-  return value
-    .replace(/&/g, "＆")
-    .replace(/</g, "&lt")
-    .replace(/>/g, "&gt");
-}
-
-function line(text = "") {
-  return `${escapeXpyunText(text)}<BR>`;
+function sanitizeXpyunLine(value: string) {
+  return String(value || "")
+    .replace(/\r/g, "")
+    .replace(/\n/g, " ")
+    .trim();
 }
 
 function formatPrintDateTime(iso: string) {
@@ -265,33 +261,34 @@ function toXpyunContent(payload: PrintPayload) {
   const headerDate = payload.type === "order" ? payload.createdAt : payload.generatedAt;
 
   const lines: string[] = [
-    "<CB>RDV ORDER<BR></CB>",
-    line(`桌号: ${payload.tableNo}`),
-    line(`时间: ${formatPrintDateTime(headerDate)}`)
+    "RDV ORDER",
+    `桌号: ${sanitizeXpyunLine(payload.tableNo)}`,
+    `时间: ${formatPrintDateTime(headerDate)}`
   ];
 
   if (payload.type === "order" && payload.waiter) {
-    lines.push(line(`服务员: ${payload.waiter}`));
+    lines.push(`服务员: ${sanitizeXpyunLine(payload.waiter)}`);
   }
 
-  lines.push(line("--------------------------------"));
+  lines.push("--------------------------------");
   for (const item of items) {
-    lines.push(line(`${item.name} x${item.qty}`));
+    lines.push(`${sanitizeXpyunLine(item.name)} x${item.qty}`);
     if (item.note) {
-      lines.push(line(`备注: ${item.note}`));
+      lines.push(`备注: ${sanitizeXpyunLine(item.note)}`);
     }
-    lines.push("<BR>");
+    lines.push("");
   }
-  lines.push(line("--------------------------------"));
-  lines.push(line(`菜品数: ${items.length}`));
-  lines.push(line(`总份数: ${totalQty}`));
-  lines.push("<BR><BR>");
+  lines.push("--------------------------------");
+  lines.push(`菜品数: ${items.length}`);
+  lines.push(`总份数: ${totalQty}`);
+  lines.push("");
+  lines.push("");
 
-  let content = lines.join("");
-  const maxBytes = 11_500; // XPYUN content hard limit is 12KB
+  let content = `${lines.join("\n")}\n`;
+  const maxBytes = 11_500;
   while (Buffer.byteLength(content, "utf8") > maxBytes && lines.length > 8) {
     lines.splice(Math.max(8, lines.length - 4), 2);
-    content = lines.join("");
+    content = `${lines.join("\n")}\n`;
   }
   return content;
 }
@@ -302,9 +299,10 @@ function isRetryableXpyunError(code: number) {
 
 async function dispatchToXpyun(payload: PrintPayload): Promise<DispatchResult> {
   const url = process.env.XPYUN_API_URL || "https://open.xpyun.net/api/openapi/xprinter/print";
-  const user = (process.env.XPYUN_USER || "").trim();
-  const userKey = (process.env.XPYUN_USER_KEY || "").trim();
-  const sn = (process.env.XPYUN_SN || "").trim();
+  const aliasUser = process.env.USERKEY || process.env.XPYUN_USERKEY || process.env.SN ? process.env.USER : "";
+  const user = (process.env.XPYUN_USER || aliasUser || "").trim();
+  const userKey = (process.env.XPYUN_USER_KEY || process.env.XPYUN_USERKEY || process.env.USERKEY || "").trim();
+  const sn = (process.env.XPYUN_SN || process.env.SN || "").trim();
   if (!url || !user || !userKey || !sn) {
     throw new PrintDispatchError("芯烨云打印配置缺失", false);
   }
@@ -313,8 +311,9 @@ async function dispatchToXpyun(payload: PrintPayload): Promise<DispatchResult> {
   const sign = createHash("sha1").update(`${user}${userKey}${timestamp}`).digest("hex");
   const copiesRaw = Number(process.env.XPYUN_COPIES || 1);
   const copies = Number.isFinite(copiesRaw) ? Math.min(65535, Math.max(1, Math.round(copiesRaw))) : 1;
-  const voiceRaw = Number(process.env.XPYUN_VOICE || 2);
-  const voice = Number.isFinite(voiceRaw) ? Math.min(4, Math.max(0, Math.round(voiceRaw))) : 2;
+  const voiceRaw = process.env.XPYUN_VOICE;
+  const voiceNum = voiceRaw === undefined || voiceRaw === "" ? null : Number(voiceRaw);
+  const voice = Number.isFinite(voiceNum) ? Math.min(4, Math.max(0, Math.round(voiceNum as number))) : null;
   const modeRaw = process.env.XPYUN_MODE;
   const modeNum = modeRaw === undefined || modeRaw === "" ? null : Number(modeRaw);
   const mode = Number.isFinite(modeNum) ? Math.max(0, Math.round(modeNum as number)) : null;
@@ -325,9 +324,9 @@ async function dispatchToXpyun(payload: PrintPayload): Promise<DispatchResult> {
     sign,
     sn,
     content: toXpyunContent(payload),
-    copies,
-    voice
+    copies
   };
+  if (voice !== null) body.voice = voice;
   if (mode !== null) body.mode = mode;
 
   const result = await postJsonWithTimeout(url, body, {}, getPrintTimeoutMs());

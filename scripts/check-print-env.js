@@ -13,12 +13,13 @@ function checkProvider(provider) {
     };
   }
   if (provider === "xpyun") {
+    const aliasUser = process.env.USERKEY || process.env.XPYUN_USERKEY || process.env.SN ? process.env.USER : "";
     return {
       provider,
       url: Boolean(process.env.XPYUN_API_URL || "https://open.xpyun.net/api/openapi/xprinter/print"),
-      user: Boolean(process.env.XPYUN_USER),
-      userKey: Boolean(process.env.XPYUN_USER_KEY),
-      sn: Boolean(process.env.XPYUN_SN)
+      user: Boolean(process.env.XPYUN_USER || aliasUser),
+      userKey: Boolean(process.env.XPYUN_USER_KEY || process.env.XPYUN_USERKEY || process.env.USERKEY),
+      sn: Boolean(process.env.XPYUN_SN || process.env.SN)
     };
   }
   return {
