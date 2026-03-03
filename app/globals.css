@@ -713,15 +713,17 @@ button:disabled {
 
 .manage-tabs-wrap {
   position: sticky;
-  top: calc(58px + var(--netbar) + env(safe-area-inset-top));
-  z-index: 18;
+  top: calc(var(--netbar) + env(safe-area-inset-top));
+  z-index: 36;
   background: #f4efe5;
-  border-bottom: 1px solid rgba(199, 182, 156, 0.75);
-  padding: 6px 0 7px;
+  border-top: 1px solid rgba(199, 182, 156, 0.75);
+  border-bottom: 1px solid rgba(199, 182, 156, 0.9);
+  padding: 6px 0;
   flex-wrap: nowrap;
   overflow-x: auto;
   scrollbar-width: none;
   -webkit-overflow-scrolling: touch;
+  box-shadow: 0 1px 0 rgba(28, 34, 46, 0.06);
 }
 
 .manage-tabs-wrap::-webkit-scrollbar {
