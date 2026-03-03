@@ -18,6 +18,7 @@
 - 调度密钥：`PRINT_WORKER_KEY`
 - 设备心跳密钥（建议）：`DEVICE_HEARTBEAT_KEY`
 - 超时时间（可选）：`PRINT_TIMEOUT_MS`
+- 卡死回收（可选）：`PRINT_STALE_PRINTING_SECONDS`（默认 45 秒）
 - 分单开关（可选）：`PRINT_SPLIT_BY_TARGET`（默认关闭，单打印机建议保持关闭）
 - 队列最大重试（可选）：`PRINT_MAX_RETRY`
 - 失败告警阈值（可选）：`PRINT_ALERT_FAIL_COUNT`、`PRINT_ALERT_QUEUE_FAILED`

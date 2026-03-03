@@ -83,6 +83,7 @@ cp .env.example .env.local
 - `PRINT_FALLBACK_PROVIDER`（可选：`cloud` / `agent` / `xpyun`）
 - `PRINT_SPLIT_BY_TARGET`（可选，默认 `false`；`true` 时按后厨/吧台拆单）
 - `PRINT_TIMEOUT_MS`（可选，默认 3000）
+- `PRINT_STALE_PRINTING_SECONDS`（可选，默认 45，回收卡死 `printing` 任务）
 - `PRINT_MAX_RETRY`（可选，默认 8）
 - `PRINT_ALERT_FAIL_COUNT`（可选，默认 3，设备失败告警阈值）
 - `PRINT_ALERT_QUEUE_FAILED`（可选，默认 3，失败队列告警阈值）

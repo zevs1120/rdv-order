@@ -172,7 +172,9 @@ export async function POST(req: Request) {
       }
 
       await client.query("COMMIT");
-      void runPrintWorker(1).catch(() => undefined);
+      // In serverless environments, fire-and-forget is unreliable.
+      // Await one quick worker pass so current order has deterministic print attempt.
+      await runPrintWorker(1).catch(() => undefined);
       await writeAuditLogSafe({
         actorUserId: auth.userId,
         action: deduped ? "order.submit_deduped" : "order.submit",
