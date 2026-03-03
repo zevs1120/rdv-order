@@ -232,6 +232,17 @@ CREATE INDEX orders_status_created_idx
 CREATE INDEX orders_waiter_created_idx
   ON orders(waiter_id, created_at DESC);
 
+CREATE INDEX orders_table_bill_open_idx
+  ON orders(table_no, created_at DESC)
+  WHERE cancelled_at IS NULL
+    AND merged_into_order_id IS NULL
+    AND status IN ('submitted', 'paid');
+
+CREATE INDEX orders_paid_report_idx
+  ON orders(created_at DESC)
+  WHERE cancelled_at IS NULL
+    AND status IN ('paid', 'closed');
+
 CREATE INDEX order_items_order_id_idx
   ON order_items(order_id);
 
@@ -257,14 +268,24 @@ CREATE INDEX kitchen_tickets_status_idx
 CREATE INDEX menu_items_lookup_idx
   ON menu_items(menu_group, is_active, is_temporary, sort_order, name);
 
+CREATE INDEX menu_items_available_shifts_gin_idx
+  ON menu_items USING GIN (available_shifts);
+
 CREATE UNIQUE INDEX print_jobs_order_unique_idx
   ON print_jobs(order_id);
 
 CREATE INDEX print_jobs_status_created_idx
   ON print_jobs(status, created_at);
 
+CREATE INDEX print_jobs_status_updated_idx
+  ON print_jobs(status, updated_at ASC, created_at ASC);
+
 CREATE INDEX table_session_tables_table_idx
   ON table_session_tables(table_no);
+
+CREATE INDEX table_sessions_open_lookup_idx
+  ON table_sessions(table_no, opened_at DESC)
+  WHERE closed_at IS NULL;
 
 CREATE INDEX cashier_closings_time_idx
   ON cashier_closings(from_time DESC, to_time DESC);

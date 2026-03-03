@@ -66,8 +66,22 @@ type OrderDraft = {
   }>;
   updatedAt: number;
 };
+type BillCachePayload = {
+  tableNo: string;
+  fetchedAt: number;
+  items: BillItem[];
+  orders: BillOrder[];
+  totalAmount: number;
+  totalQty: number;
+};
 
 type NoteMode = "more" | "no";
+type MenuCachePayload = {
+  updatedAt: number;
+  items: MenuItem[];
+};
+
+const MENU_CACHE_TTL_MS = 6 * 60 * 60 * 1000;
 
 const SHIFT_OPTIONS: Array<{ key: ShiftKey; zh: string; en: string }> = [
   { key: "breakfast", zh: "早餐", en: "Breakfast" },
@@ -123,6 +137,7 @@ export default function OrderPage() {
   const menuIndexRef = useRef<Map<string, number>>(new Map());
   const menuMetaRef = useRef<Map<string, MenuItem>>(new Map());
   const cartSelectionsRef = useRef<Record<string, CartSelection>>({});
+  const billCacheRef = useRef<BillCachePayload | null>(null);
   const draftRef = useRef<OrderDraft | null>(null);
   const draftSerializedRef = useRef("");
   const submitInFlightRef = useRef(false);
@@ -143,6 +158,36 @@ export default function OrderPage() {
       menu_group: item.menu_group,
       item_type: item.item_type
     };
+  }
+
+  function readMenuCache(shiftKey: ShiftKey): MenuItem[] | null {
+    if (typeof window === "undefined") return null;
+    const key = `rdv_menu_cache:${shiftKey}`;
+    try {
+      const raw = sessionStorage.getItem(key);
+      if (!raw) return null;
+      const parsed = JSON.parse(raw) as MenuCachePayload;
+      if (!parsed || !Array.isArray(parsed.items)) return null;
+      const age = Date.now() - Number(parsed.updatedAt || 0);
+      if (!Number.isFinite(age) || age < 0 || age > MENU_CACHE_TTL_MS) return null;
+      return parsed.items.map((item) => stripTransientFields(item));
+    } catch {
+      return null;
+    }
+  }
+
+  function writeMenuCache(shiftKey: ShiftKey, items: MenuItem[]) {
+    if (typeof window === "undefined") return;
+    const key = `rdv_menu_cache:${shiftKey}`;
+    const payload: MenuCachePayload = {
+      updatedAt: Date.now(),
+      items: items.map((item) => stripTransientFields(item))
+    };
+    try {
+      sessionStorage.setItem(key, JSON.stringify(payload));
+    } catch {
+      // Ignore storage errors.
+    }
   }
 
   function hydrateMenuItems(items: MenuItem[], selections: Record<string, CartSelection>) {
@@ -208,6 +253,7 @@ export default function OrderPage() {
   useEffect(() => {
     menuCacheRef.current = {};
     menuMetaRef.current.clear();
+    billCacheRef.current = null;
     cartSelectionsRef.current = {};
     setCartSelections({});
     draftSerializedRef.current = "";
@@ -269,6 +315,13 @@ export default function OrderPage() {
 
   useEffect(() => {
     setError("");
+    const storageCached = readMenuCache(shift);
+    if (storageCached && !menuCacheRef.current[shift]) {
+      menuCacheRef.current[shift] = storageCached;
+      for (const item of storageCached) {
+        menuMetaRef.current.set(item.id, item);
+      }
+    }
     const cached = menuCacheRef.current[shift];
     if (cached) {
       setMenu(hydrateMenuItems(cached, cartSelectionsRef.current));
@@ -293,6 +346,7 @@ export default function OrderPage() {
         }
         const hydrated = hydrateMenuItems(items, cartSelectionsRef.current);
         menuCacheRef.current[shift] = items.map((item) => stripTransientFields(item));
+        writeMenuCache(shift, items);
         setMenu(hydrated);
       })
       .catch((err: Error) => {
@@ -414,13 +468,20 @@ export default function OrderPage() {
       .join("|");
   }, [cart]);
   const total = cart.reduce((sum, item) => sum + item.price * item.qty, 0);
+  const menuById = useMemo(() => {
+    const map = new Map<string, MenuItem>();
+    for (const item of menu) {
+      map.set(item.id, item);
+    }
+    return map;
+  }, [menu]);
   const noteSheetItem = useMemo(
-    () => menu.find((item) => item.id === noteSheetItemId) || null,
-    [menu, noteSheetItemId]
+    () => menuById.get(noteSheetItemId) || null,
+    [menuById, noteSheetItemId]
   );
 
   function setQty(id: string, qty: number) {
-    const current = menu.find((item) => item.id === id);
+    const current = menuById.get(id);
     setMenu((prev) => {
       const hintedIndex = menuIndexRef.current.get(id);
       const index = typeof hintedIndex === "number" && prev[hintedIndex]?.id === id
@@ -467,7 +528,7 @@ export default function OrderPage() {
   function applyManualNote(itemId: string, input = noteInput) {
     const clean = input.trim();
     if (!clean) return;
-    const current = menu.find((item) => item.id === itemId);
+    const current = menuById.get(itemId);
     if (!current) return;
     const token = `${noteMode} ${clean}`;
     const tokens = parseNoteTokens(current.note);
@@ -482,7 +543,7 @@ export default function OrderPage() {
   }
 
   function clearManualNote(itemId: string) {
-    const current = menu.find((item) => item.id === itemId);
+    const current = menuById.get(itemId);
     if (!current) return;
     setMenu((prev) => prev.map((item) => (item.id === itemId ? { ...item, note: undefined } : item)));
     updateCartSelection(itemId, current.qty || 0, undefined);
@@ -509,16 +570,40 @@ export default function OrderPage() {
 
   async function loadBill() {
     if (!tableNo) return;
+    const cached = billCacheRef.current;
+    if (
+      cached &&
+      cached.tableNo === tableNo &&
+      Date.now() - cached.fetchedAt < 1800
+    ) {
+      setBillItems(cached.items);
+      setBillOrders(cached.orders);
+      setBillTotal(cached.totalAmount);
+      setBillQty(cached.totalQty);
+      return;
+    }
     setBillLoading(true);
     try {
       const body = await apiFetchJson<{ items: BillItem[]; orders?: BillOrder[]; totalAmount: number; totalQty: number }>(
         `/api/tables/bill?tableNo=${encodeURIComponent(tableNo)}`,
         { timeoutMs: 6000, retries: 1 }
       );
-      setBillItems(body.items || []);
-      setBillOrders(body.orders || []);
-      setBillTotal(body.totalAmount || 0);
-      setBillQty(body.totalQty || 0);
+      const nextItems = body.items || [];
+      const nextOrders = body.orders || [];
+      const nextTotalAmount = body.totalAmount || 0;
+      const nextTotalQty = body.totalQty || 0;
+      setBillItems(nextItems);
+      setBillOrders(nextOrders);
+      setBillTotal(nextTotalAmount);
+      setBillQty(nextTotalQty);
+      billCacheRef.current = {
+        tableNo,
+        fetchedAt: Date.now(),
+        items: nextItems,
+        orders: nextOrders,
+        totalAmount: nextTotalAmount,
+        totalQty: nextTotalQty
+      };
     } catch (err: any) {
       setError(err.message || t("order.billLoadFailed", "Failed to load bill"));
     } finally {
@@ -662,6 +747,7 @@ export default function OrderPage() {
       setCartSheetOpen(false);
       localStorage.removeItem(`rdv_order_draft:${tableNo}`);
       draftSerializedRef.current = "";
+      billCacheRef.current = null;
       lastSubmittedSignatureRef.current = cartSignature;
       lastSubmittedAtRef.current = Date.now();
       await loadBill();
@@ -712,6 +798,7 @@ export default function OrderPage() {
       setCartSheetOpen(false);
       localStorage.removeItem(`rdv_order_draft:${tableNo}`);
       draftSerializedRef.current = "";
+      billCacheRef.current = null;
       router.replace("/tables");
     } catch (err: any) {
       setError(err.message || t("order.checkoutFailed", "Checkout failed"));
@@ -776,6 +863,7 @@ export default function OrderPage() {
       setCartSheetOpen(false);
       localStorage.removeItem(`rdv_order_draft:${tableNo}`);
       draftSerializedRef.current = "";
+      billCacheRef.current = null;
       router.replace("/tables");
     } catch (err: any) {
       setError(err.message || t("order.closeFailed", "Failed to close table"));
@@ -998,11 +1086,11 @@ export default function OrderPage() {
                   </div>
                   <div className="muted menu-item-price">₱{item.price}</div>
                   {Array.isArray(item.allergens) && item.allergens.length > 0 ? (
-                    <div className="muted">{t("order.allergens", "过敏原")}: {item.allergens.join(", ")}</div>
+                    <div className="muted menu-item-meta">{t("order.allergens", "过敏原")}: {item.allergens.join(", ")}</div>
                   ) : null}
-                  {item.description ? <div className="muted">{item.description}</div> : null}
+                  {item.description ? <div className="muted menu-item-meta">{item.description}</div> : null}
                   {item.note && (item.qty || 0) > 0 ? (
-                    <div className="muted">{t("order.noteLabel", "备注")}: {item.note}</div>
+                    <div className="muted menu-item-meta">{t("order.noteLabel", "备注")}: {item.note}</div>
                   ) : null}
                   <div className="row qty-stepper">
                     <button
@@ -1013,7 +1101,7 @@ export default function OrderPage() {
                       -
                     </button>
                     <div className="qty-value">{item.qty || 0}</div>
-                    <button className="compact-btn qty-btn" onClick={() => increaseQtyAndOpenNote(item)} type="button">+</button>
+                    <button type="button" className="compact-btn qty-btn" onClick={() => increaseQtyAndOpenNote(item)}>+</button>
                   </div>
                 </div>
               ))}
@@ -1040,7 +1128,7 @@ export default function OrderPage() {
         >
           {t("order.currentOrder", "当前购物车")} · ₱{total}
         </button>
-        <button onClick={submitOrder} disabled={loading}>{loading ? t("order.submitting", "提交中...") : t("order.submit", "提交订单")}</button>
+        <button type="button" onClick={submitOrder} disabled={loading}>{loading ? t("order.submitting", "提交中...") : t("order.submit", "提交订单")}</button>
       </div>
       {cartSheetOpen ? (
         <>

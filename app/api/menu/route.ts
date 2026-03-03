@@ -44,7 +44,7 @@ export async function GET(req: Request) {
     { items: rows, shift, menuGroup: mapped },
     {
       headers: {
-        "Cache-Control": "public, max-age=15, stale-while-revalidate=45"
+        "Cache-Control": "public, max-age=60, stale-while-revalidate=240"
       }
     }
   );

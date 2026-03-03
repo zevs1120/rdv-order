@@ -19,6 +19,14 @@ export async function GET(req: Request) {
     if (Number.isNaN(rangeFrom.getTime()) || Number.isNaN(rangeTo.getTime())) {
       return NextResponse.json({ error: "时间格式错误" }, { status: 400 });
     }
+    if (rangeFrom.getTime() > rangeTo.getTime()) {
+      return NextResponse.json({ error: "时间范围无效" }, { status: 400 });
+    }
+    const maxRangeDays = 370;
+    const rangeMs = rangeTo.getTime() - rangeFrom.getTime();
+    if (rangeMs > maxRangeDays * 24 * 60 * 60 * 1000) {
+      return NextResponse.json({ error: "时间范围无效" }, { status: 400 });
+    }
 
     const { rows } = await pool.query<{ id: string; name: string; qty: number }>(
       `SELECT mi.id,

@@ -247,10 +247,10 @@ export default function MenuAdminPage() {
       <header>
         <h1>{t("admin.title", "菜单管理")}</h1>
         <div className="row">
-          <button className="secondary compact-btn" onClick={() => { void loadItems(); }}>
+          <button type="button" className="secondary compact-btn" onClick={() => { void loadItems(); }}>
             {t("common.refresh", "刷新")}
           </button>
-          <button className="secondary compact-btn" onClick={() => { localStorage.clear(); router.replace("/"); }}>
+          <button type="button" className="secondary compact-btn" onClick={() => { localStorage.clear(); router.replace("/"); }}>
             {t("common.logout", "退出")}
           </button>
         </div>

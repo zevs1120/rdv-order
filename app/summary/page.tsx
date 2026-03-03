@@ -34,8 +34,8 @@ export default function SummaryPage() {
       <header>
         <h1>{t("manage.income", "Revenue")}</h1>
         <div className="row">
-          <button className="secondary" onClick={() => { router.push("/admin/menu"); }}>{t("manage.menu", "菜单后台")}</button>
-          <button className="secondary" onClick={() => { localStorage.clear(); router.replace("/"); }}>{t("common.logout", "退出")}</button>
+          <button type="button" className="secondary" onClick={() => { router.push("/admin/menu"); }}>{t("manage.menu", "菜单后台")}</button>
+          <button type="button" className="secondary" onClick={() => { localStorage.clear(); router.replace("/"); }}>{t("common.logout", "退出")}</button>
         </div>
       </header>
       <div className="card stack">
@@ -47,7 +47,7 @@ export default function SummaryPage() {
           End (ISO)
           <input value={to} onChange={(e) => setTo(e.target.value)} placeholder="2026-02-15T23:59:59+08:00" />
         </label>
-        <button onClick={loadSummary}>{t("common.search", "Search")}</button>
+        <button type="button" onClick={loadSummary}>{t("common.search", "Search")}</button>
       </div>
       {error && <div className="muted">{error}</div>}
       {data && (
