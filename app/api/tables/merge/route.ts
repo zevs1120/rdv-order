@@ -7,14 +7,44 @@ import { lockBaseTables } from "../../../../lib/table-lock";
 const TABLES = ["A1", "A2", "A3", "B1", "B2", "B3", "C1", "C2", "C3", "C4", "C5"];
 const TABLE_SET = new Set(TABLES);
 
+function splitTableNo(raw: string) {
+  return raw
+    .split("+")
+    .map((part) => part.trim())
+    .filter(Boolean);
+}
+
+function isMissingTableSessionTablesError(err: any) {
+  return err?.code === "42P01" && String(err?.message || "").includes("table_session_tables");
+}
+
 async function getUsedTables(client: Awaited<ReturnType<typeof pool.connect>>) {
-  const { rows } = await client.query<{ table_no: string }>(
-    `SELECT DISTINCT tst.table_no
-     FROM table_sessions ts
-     JOIN table_session_tables tst ON tst.session_id = ts.id
-     WHERE ts.closed_at IS NULL`
-  );
-  return new Set(rows.map((r) => r.table_no));
+  try {
+    const { rows } = await client.query<{ table_no: string }>(
+      `SELECT DISTINCT tst.table_no
+       FROM table_sessions ts
+       JOIN table_session_tables tst ON tst.session_id = ts.id
+       WHERE ts.closed_at IS NULL`
+    );
+    return new Set(rows.map((r) => r.table_no));
+  } catch (err: any) {
+    if (!isMissingTableSessionTablesError(err)) {
+      throw err;
+    }
+
+    const fallback = await client.query<{ table_no: string }>(
+      `SELECT table_no
+       FROM table_sessions
+       WHERE closed_at IS NULL`
+    );
+    const used = new Set<string>();
+    for (const row of fallback.rows) {
+      for (const part of splitTableNo(row.table_no)) {
+        if (TABLE_SET.has(part)) used.add(part);
+      }
+    }
+    return used;
+  }
 }
 
 export async function POST(req: Request) {
@@ -51,11 +81,17 @@ export async function POST(req: Request) {
         [mergedName, guestCount, auth.userId]
       );
 
-      await client.query(
-        `INSERT INTO table_session_tables (session_id, table_no)
-         VALUES ($1, $2), ($1, $3)`,
-        [created.rows[0].id, primaryTable, secondaryTable]
-      );
+      try {
+        await client.query(
+          `INSERT INTO table_session_tables (session_id, table_no)
+           VALUES ($1, $2), ($1, $3)`,
+          [created.rows[0].id, primaryTable, secondaryTable]
+        );
+      } catch (err: any) {
+        if (!isMissingTableSessionTablesError(err)) {
+          throw err;
+        }
+      }
 
       await client.query("COMMIT");
       await writeAuditLogSafe({

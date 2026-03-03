@@ -67,12 +67,21 @@ async function getRoleOverrides(role: AuthPayload["role"]) {
     return cached.map;
   }
 
-  const { rows } = await pool.query<{ permission: string; allowed: boolean }>(
-    `SELECT permission, allowed
-     FROM role_permissions
-     WHERE role = $1`,
-    [role]
-  );
+  let rows: Array<{ permission: string; allowed: boolean }> = [];
+  try {
+    const result = await pool.query<{ permission: string; allowed: boolean }>(
+      `SELECT permission, allowed
+       FROM role_permissions
+       WHERE role = $1`,
+      [role]
+    );
+    rows = result.rows;
+  } catch (err: any) {
+    // Backward compatibility: older databases may not have role_permissions yet.
+    if (err?.code !== "42P01") {
+      throw err;
+    }
+  }
 
   const next = new Map<string, boolean>();
   for (const row of rows) {

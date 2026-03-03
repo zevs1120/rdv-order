@@ -11,6 +11,17 @@ type SessionRow = {
   guest_count: number;
 };
 
+function splitTableNo(raw: string) {
+  return raw
+    .split("+")
+    .map((part) => part.trim())
+    .filter(Boolean);
+}
+
+function isMissingTableSessionTablesError(err: any) {
+  return err?.code === "42P01" && String(err?.message || "").includes("table_session_tables");
+}
+
 export async function POST(req: Request) {
   try {
     const auth = await requirePermission(req, "order.create");
@@ -41,15 +52,24 @@ export async function POST(req: Request) {
       }
 
       const s = session.rows[0];
-      const mapping = await client.query<{ table_no: string }>(
-        `SELECT table_no
-         FROM table_session_tables
-         WHERE session_id = $1
-         ORDER BY table_no ASC`,
-        [s.id]
-      );
+      let mappingRows: Array<{ table_no: string }> = [];
+      try {
+        const mapping = await client.query<{ table_no: string }>(
+          `SELECT table_no
+           FROM table_session_tables
+           WHERE session_id = $1
+           ORDER BY table_no ASC`,
+          [s.id]
+        );
+        mappingRows = mapping.rows;
+      } catch (err: any) {
+        if (!isMissingTableSessionTablesError(err)) {
+          throw err;
+        }
+        mappingRows = splitTableNo(s.table_no).map((table_no) => ({ table_no }));
+      }
 
-      if (mapping.rows.length < 2) {
+      if (mappingRows.length < 2) {
         await client.query("ROLLBACK");
         return NextResponse.json({ error: "当前不是有效拼桌" }, { status: 400 });
       }
@@ -68,8 +88,8 @@ export async function POST(req: Request) {
         return NextResponse.json({ error: "该拼桌已有订单，不能取消拼桌，请先结账" }, { status: 409 });
       }
 
-      const primary = mapping.rows[0].table_no;
-      const secondary = mapping.rows[1].table_no;
+      const primary = mappingRows[0].table_no;
+      const secondary = mappingRows[1].table_no;
 
       await client.query(
         `UPDATE table_sessions
@@ -78,11 +98,17 @@ export async function POST(req: Request) {
         [s.id, primary]
       );
 
-      await client.query(
-        `DELETE FROM table_session_tables
-         WHERE session_id = $1 AND table_no = $2`,
-        [s.id, secondary]
-      );
+      try {
+        await client.query(
+          `DELETE FROM table_session_tables
+           WHERE session_id = $1 AND table_no = $2`,
+          [s.id, secondary]
+        );
+      } catch (err: any) {
+        if (!isMissingTableSessionTablesError(err)) {
+          throw err;
+        }
+      }
 
       await client.query("COMMIT");
       await writeAuditLogSafe({

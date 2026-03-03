@@ -27,22 +27,51 @@ type OpenSessionRow = {
   session_table_no: string;
   guest_count: number;
   opened_at: string;
-  table_no: string;
+  table_no: string | null;
 };
 
+function splitTableNo(raw: string) {
+  return raw
+    .split("+")
+    .map((part) => part.trim())
+    .filter(Boolean);
+}
+
+function isMissingTableSessionTablesError(err: any) {
+  return err?.code === "42P01" && String(err?.message || "").includes("table_session_tables");
+}
+
 async function getOpenSessionRows() {
-  const { rows } = await pool.query<OpenSessionRow>(
-    `SELECT ts.id AS session_id,
-            ts.table_no AS session_table_no,
-            ts.guest_count,
-            ts.opened_at,
-            tst.table_no
-     FROM table_sessions ts
-     LEFT JOIN table_session_tables tst ON tst.session_id = ts.id
-     WHERE ts.closed_at IS NULL
-     ORDER BY ts.opened_at ASC`
-  );
-  return rows;
+  try {
+    const { rows } = await pool.query<OpenSessionRow>(
+      `SELECT ts.id AS session_id,
+              ts.table_no AS session_table_no,
+              ts.guest_count,
+              ts.opened_at,
+              tst.table_no
+       FROM table_sessions ts
+       LEFT JOIN table_session_tables tst ON tst.session_id = ts.id
+       WHERE ts.closed_at IS NULL
+       ORDER BY ts.opened_at ASC`
+    );
+    return rows;
+  } catch (err: any) {
+    if (!isMissingTableSessionTablesError(err)) {
+      throw err;
+    }
+
+    const fallback = await pool.query<OpenSessionRow>(
+      `SELECT ts.id AS session_id,
+              ts.table_no AS session_table_no,
+              ts.guest_count,
+              ts.opened_at,
+              NULL::text AS table_no
+       FROM table_sessions ts
+       WHERE ts.closed_at IS NULL
+       ORDER BY ts.opened_at ASC`
+    );
+    return fallback.rows;
+  }
 }
 
 function buildTables(rows: OpenSessionRow[]) {
@@ -65,12 +94,21 @@ function buildTables(rows: OpenSessionRow[]) {
   for (const sessionRows of group.values()) {
     const mapped = sessionRows
       .map((r) => r.table_no)
-      .filter((t): t is string => Boolean(t) && TABLE_SET.has(t));
+      .filter((t): t is string => Boolean(t))
+      .flatMap((t) => splitTableNo(t))
+      .filter((t) => TABLE_SET.has(t));
+
+    const fallbackFromSessionName = splitTableNo(sessionRows[0].session_table_no)
+      .filter((t) => TABLE_SET.has(t));
 
     const uniqueMapped = Array.from(new Set(mapped));
     const baseTables = uniqueMapped.length > 0
       ? uniqueMapped.sort((a, b) => (TABLE_ORDER.get(a) || 999) - (TABLE_ORDER.get(b) || 999))
-      : [sessionRows[0].session_table_no];
+      : fallbackFromSessionName;
+
+    if (baseTables.length === 0) {
+      continue;
+    }
 
     const displayName = baseTables.join("+");
     const primary = baseTables[0];
@@ -122,13 +160,34 @@ function buildTables(rows: OpenSessionRow[]) {
 }
 
 async function getUsedBaseTables(client: Awaited<ReturnType<typeof pool.connect>>) {
-  const { rows } = await client.query<{ table_no: string }>(
-    `SELECT DISTINCT tst.table_no
-     FROM table_sessions ts
-     JOIN table_session_tables tst ON tst.session_id = ts.id
-     WHERE ts.closed_at IS NULL`
-  );
-  return new Set(rows.map((r) => r.table_no));
+  try {
+    const { rows } = await client.query<{ table_no: string }>(
+      `SELECT DISTINCT tst.table_no
+       FROM table_sessions ts
+       JOIN table_session_tables tst ON tst.session_id = ts.id
+       WHERE ts.closed_at IS NULL`
+    );
+    return new Set(rows.map((r) => r.table_no));
+  } catch (err: any) {
+    if (!isMissingTableSessionTablesError(err)) {
+      throw err;
+    }
+
+    const fallback = await client.query<{ table_no: string }>(
+      `SELECT table_no
+       FROM table_sessions
+       WHERE closed_at IS NULL`
+    );
+    const used = new Set<string>();
+    for (const row of fallback.rows) {
+      for (const part of splitTableNo(row.table_no)) {
+        if (TABLE_SET.has(part)) {
+          used.add(part);
+        }
+      }
+    }
+    return used;
+  }
 }
 
 export async function GET(req: Request) {
@@ -177,11 +236,17 @@ export async function POST(req: Request) {
         [tableNo, guestCount, auth.userId]
       );
 
-      await client.query(
-        `INSERT INTO table_session_tables (session_id, table_no)
-         VALUES ($1, $2)`,
-        [created.rows[0].id, tableNo]
-      );
+      try {
+        await client.query(
+          `INSERT INTO table_session_tables (session_id, table_no)
+           VALUES ($1, $2)`,
+          [created.rows[0].id, tableNo]
+        );
+      } catch (err: any) {
+        if (!isMissingTableSessionTablesError(err)) {
+          throw err;
+        }
+      }
 
       await client.query("COMMIT");
       await writeAuditLogSafe({
