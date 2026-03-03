@@ -214,7 +214,7 @@ button:disabled {
 .menu-grid {
   display: grid;
   gap: 8px;
-  grid-template-columns: repeat(auto-fill, minmax(168px, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   contain: layout paint;
 }
 
@@ -230,9 +230,11 @@ button:disabled {
   display: grid;
   grid-template-columns: clamp(58px, 20vw, 72px) minmax(0, 1fr);
   gap: 8px;
+  height: 100%;
   min-width: 0;
   min-height: 0;
   align-items: stretch;
+  overflow: hidden;
 }
 
 .category-sidebar {
@@ -248,9 +250,8 @@ button:disabled {
   overflow-x: hidden;
   -webkit-overflow-scrolling: touch;
   scrollbar-gutter: stable;
-  position: sticky;
-  top: 0;
-  align-self: start;
+  position: relative;
+  align-self: stretch;
   padding: 4px;
   border: 1px solid var(--line-strong);
   background: #fff;
@@ -493,11 +494,9 @@ button:disabled {
   overflow-x: auto;
   scrollbar-width: none;
   -webkit-overflow-scrolling: touch;
-  position: sticky;
-  top: calc(62px + var(--netbar) + env(safe-area-inset-top));
-  z-index: 23;
   background: var(--panel);
   padding-bottom: 8px;
+  border-bottom: 1px solid rgba(199, 182, 156, 0.6);
 }
 
 .shift-tabs::-webkit-scrollbar {
@@ -628,7 +627,8 @@ button:disabled {
 .order-main-panel {
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
-  min-height: clamp(420px, calc(100dvh - 340px), 760px);
+  height: clamp(340px, calc(100dvh - 300px), 760px);
+  min-height: 340px;
   overflow: hidden;
 }
 
@@ -968,12 +968,9 @@ a {
     grid-template-columns: 64px 1fr;
   }
 
-  .menu-grid {
-    grid-template-columns: 1fr;
-  }
-
   .order-main-panel {
-    min-height: clamp(340px, calc(100dvh - 304px), 700px);
+    height: clamp(320px, calc(100dvh - 286px), 700px);
+    min-height: 320px;
   }
 
   .order-actions .compact-btn {
@@ -1040,7 +1037,8 @@ a {
   }
 
   .order-main-panel {
-    min-height: clamp(320px, calc(100dvh - 294px), 640px);
+    height: clamp(300px, calc(100dvh - 276px), 640px);
+    min-height: 300px;
   }
 
   .order-actions .compact-btn {

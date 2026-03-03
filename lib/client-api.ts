@@ -32,6 +32,8 @@ const serverErrorEn: Record<string, string> = {
   "提交失败": "Failed to submit order",
   "桌台未开台": "Table is not open",
   "账单查询失败": "Failed to load bill",
+  "账单打印失败": "Failed to print receipt",
+  "暂无可打印账单": "No receipt content to print",
   "当前无可结账订单": "No payable orders for this table",
   "结账失败": "Checkout failed",
   "当前桌台有未结订单，请先结账": "Table has unpaid orders. Checkout first.",

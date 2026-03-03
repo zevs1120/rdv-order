@@ -98,6 +98,7 @@ export default function OrderPage() {
 
   const [showBill, setShowBill] = useState(false);
   const [billLoading, setBillLoading] = useState(false);
+  const [printingBillReceipt, setPrintingBillReceipt] = useState(false);
   const [billItems, setBillItems] = useState<BillItem[]>([]);
   const [billOrders, setBillOrders] = useState<BillOrder[]>([]);
   const [billTotal, setBillTotal] = useState(0);
@@ -525,6 +526,26 @@ export default function OrderPage() {
     }
   }
 
+  async function printGuestReceipt() {
+    if (!canRunAction()) return;
+    if (!tableNo) return;
+    setError("");
+    setPrintingBillReceipt(true);
+    try {
+      await apiFetchJson("/api/tables/print-bill", {
+        method: "POST",
+        body: { tableNo },
+        timeoutMs: 10000,
+        retries: 0
+      });
+      window.alert(t("order.printReceiptSuccess", "Receipt sent to printer"));
+    } catch (err: any) {
+      setError(err.message || t("order.printReceiptFailed", "Failed to print receipt"));
+    } finally {
+      setPrintingBillReceipt(false);
+    }
+  }
+
   async function createCustomDish() {
     if (!canRunAction()) return;
     setError("");
@@ -870,7 +891,9 @@ export default function OrderPage() {
         <div className="panel stack">
           <div className="row" style={{ justifyContent: "space-between" }}>
             <h3 style={{ margin: 0 }}>{t("order.billTitle", "已点餐品")}（{tableNo}）</h3>
-            <button className="secondary" type="button" onClick={() => setShowBill(false)}>{t("common.close", "关闭")}</button>
+            <div className="row" style={{ justifyContent: "flex-end" }}>
+              <button className="secondary compact-btn" type="button" onClick={() => setShowBill(false)}>{t("common.close", "关闭")}</button>
+            </div>
           </div>
           {billLoading ? <div className="muted">{t("common.loading", "加载中...")}</div> : null}
           {!billLoading && billItems.length === 0 ? <div className="muted">{t("order.billEmpty", "暂无已点餐品")}</div> : null}
@@ -909,9 +932,19 @@ export default function OrderPage() {
             <strong>{t("order.billQty", "总数量")}：{billQty}</strong>
             <strong>{t("order.billAmount", "总金额")}：₱{billTotal}</strong>
           </div>
-          <button type="button" onClick={checkout} disabled={loading}>
-            {loading ? t("order.processing", "Processing...") : `${t("order.checkout", "结账")} + ${t("order.closeTable", "关台")}`}
-          </button>
+          <div className="row" style={{ justifyContent: "flex-end" }}>
+            <button
+              className="secondary"
+              type="button"
+              onClick={printGuestReceipt}
+              disabled={billLoading || printingBillReceipt || billItems.length === 0}
+            >
+              {printingBillReceipt ? t("order.printingReceipt", "Printing...") : t("order.printReceipt", "Print Receipt")}
+            </button>
+            <button type="button" onClick={checkout} disabled={loading}>
+              {loading ? t("order.processing", "Processing...") : `${t("order.checkout", "结账")} + ${t("order.closeTable", "关台")}`}
+            </button>
+          </div>
         </div>
       ) : null}
 
@@ -981,13 +1014,6 @@ export default function OrderPage() {
                     </button>
                     <div className="qty-value">{item.qty || 0}</div>
                     <button className="compact-btn qty-btn" onClick={() => increaseQtyAndOpenNote(item)} type="button">+</button>
-                    <button
-                      className="secondary compact-btn note-action"
-                      onClick={() => openNoteSheetFor(item.id)}
-                      type="button"
-                    >
-                      {t("order.noteAction", "备注")}
-                    </button>
                   </div>
                 </div>
               ))}

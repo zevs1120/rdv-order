@@ -55,7 +55,34 @@ type SelfTestPrintPayload = {
   tickets: PrintTicket[];
 };
 
-type PrintPayload = OrderPrintPayload | SelfTestPrintPayload;
+type TableBillPrintItem = {
+  name: string;
+  qty: number;
+  unitPrice: number;
+  amount: number;
+  note: string | null;
+};
+
+type TableBillChargeLine = {
+  label: string;
+  amount: number;
+};
+
+type TableBillPrintPayload = {
+  type: "table_bill";
+  printVersion: number;
+  tableNo: string;
+  openedAt: string;
+  printedAt: string;
+  items: TableBillPrintItem[];
+  totalQty: number;
+  itemAmount: number;
+  chargeAmount: number;
+  totalAmount: number;
+  charges: TableBillChargeLine[];
+};
+
+type PrintPayload = OrderPrintPayload | SelfTestPrintPayload | TableBillPrintPayload;
 
 export class PrintDispatchError extends Error {
   readonly retryable: boolean;
@@ -193,6 +220,106 @@ async function buildOrderPayload(orderId: string): Promise<OrderPrintPayload> {
   };
 }
 
+function chargeTypeLabel(type: string) {
+  if (type === "discount") return "DISCOUNT";
+  if (type === "service_fee") return "SERVICE FEE";
+  if (type === "tax") return "TAX";
+  return "ADJUSTMENT";
+}
+
+async function buildTableBillPayload(tableNoRaw: string): Promise<TableBillPrintPayload> {
+  const tableNo = String(tableNoRaw || "").trim();
+  if (!tableNo) {
+    throw new PrintDispatchError("缺少桌号", false);
+  }
+
+  const session = await pool.query<{ table_no: string; opened_at: string }>(
+    `SELECT table_no, opened_at
+     FROM table_sessions
+     WHERE table_no = $1
+       AND closed_at IS NULL
+     LIMIT 1`,
+    [tableNo]
+  );
+  if (session.rows.length === 0) {
+    throw new PrintDispatchError("桌台未开台", false);
+  }
+  const openedAt = session.rows[0].opened_at;
+
+  const itemsRes = await pool.query<{
+    name: string;
+    note: string | null;
+    qty: number;
+    unit_price: number;
+    amount: number;
+  }>(
+    `SELECT mi.name,
+            oi.note,
+            SUM(oi.qty)::int AS qty,
+            mi.price::int AS unit_price,
+            SUM(oi.qty * mi.price)::int AS amount
+     FROM orders o
+     JOIN order_items oi ON oi.order_id = o.id
+     JOIN menu_items mi ON mi.id = oi.menu_item_id
+     WHERE o.table_no = $1
+       AND o.created_at >= $2
+       AND o.status IN ('submitted', 'paid')
+       AND o.cancelled_at IS NULL
+       AND o.merged_into_order_id IS NULL
+     GROUP BY mi.name, oi.note, mi.price
+     ORDER BY mi.name ASC, oi.note ASC NULLS FIRST`,
+    [tableNo, openedAt]
+  );
+  if (itemsRes.rows.length === 0) {
+    throw new PrintDispatchError("暂无可打印账单", false);
+  }
+
+  const chargesRes = await pool.query<{ charge_type: string; amount: number }>(
+    `SELECT oc.charge_type, COALESCE(SUM(oc.amount), 0)::int AS amount
+     FROM order_charges oc
+     JOIN orders o ON o.id = oc.order_id
+     WHERE o.table_no = $1
+       AND o.created_at >= $2
+       AND o.status IN ('submitted', 'paid')
+       AND o.cancelled_at IS NULL
+       AND o.merged_into_order_id IS NULL
+     GROUP BY oc.charge_type
+     ORDER BY oc.charge_type ASC`,
+    [tableNo, openedAt]
+  );
+
+  const items = itemsRes.rows.map((row) => ({
+    name: row.name,
+    qty: Number(row.qty) || 0,
+    unitPrice: Number(row.unit_price) || 0,
+    amount: Number(row.amount) || 0,
+    note: row.note || null
+  }));
+  const totalQty = items.reduce((sum, item) => sum + Math.max(0, item.qty), 0);
+  const itemAmount = items.reduce((sum, item) => sum + Math.max(0, item.amount), 0);
+
+  const charges = chargesRes.rows.map((row) => ({
+    label: chargeTypeLabel(row.charge_type),
+    amount: Number(row.amount) || 0
+  }));
+  const chargeAmount = charges.reduce((sum, charge) => sum + charge.amount, 0);
+  const totalAmount = itemAmount + chargeAmount;
+
+  return {
+    type: "table_bill",
+    printVersion: 2,
+    tableNo,
+    openedAt,
+    printedAt: new Date().toISOString(),
+    items,
+    totalQty,
+    itemAmount,
+    chargeAmount,
+    totalAmount,
+    charges
+  };
+}
+
 function buildSelfTestPayload(target: "kitchen" | "bar" | "both" = "both"): SelfTestPrintPayload {
   const splitByTarget = shouldSplitByTarget();
   const targets = splitByTarget
@@ -294,6 +421,12 @@ function formatCompactAmount(amount: number) {
   return Math.max(0, Math.round(amount)).toLocaleString("en-US");
 }
 
+function formatSignedCompactAmount(amount: number) {
+  const rounded = Math.round(amount);
+  if (rounded < 0) return `-${Math.abs(rounded).toLocaleString("en-US")}`;
+  return rounded.toLocaleString("en-US");
+}
+
 function getReceiptLineWidth() {
   const raw = Number(process.env.XPYUN_LINE_WIDTH || 32);
   if (!Number.isFinite(raw)) return 32;
@@ -361,7 +494,7 @@ function finalizeXpyunContent(lines: string[]) {
   return content;
 }
 
-function toXpyunKitchenContent(payload: PrintPayload) {
+function toXpyunKitchenContent(payload: OrderPrintPayload | SelfTestPrintPayload) {
   const items = payload.tickets.flatMap((ticket) => ticket.items);
   const totalQty = items.reduce((sum, item) => sum + Math.max(0, Number(item.qty) || 0), 0);
   const headerDate = payload.type === "order" ? payload.createdAt : payload.generatedAt;
@@ -454,6 +587,50 @@ function toXpyunCustomerContent(payload: OrderPrintPayload) {
   return finalizeXpyunContent(lines);
 }
 
+function toXpyunTableBillContent(payload: TableBillPrintPayload) {
+  const separator = dividerLine("-");
+  const majorSeparator = dividerLine("=");
+
+  const lines: string[] = [
+    "<CB><B2>RDV GUEST RECEIPT</B2></CB><BR>",
+    xpyunLine(`TABLE ${payload.tableNo}`, { center: true, forceTag: "B2" }),
+    xpyunLine(`Opened: ${formatPrintDateTime(payload.openedAt)}`),
+    xpyunLine(`Printed: ${formatPrintDateTime(payload.printedAt)}`)
+  ];
+
+  lines.push(xpyunLine(majorSeparator, { forceTag: "" }));
+  for (const item of payload.items) {
+    const name = localizeMenuText(item.name, "en").toUpperCase();
+    for (const row of wrapReceiptText(name)) {
+      lines.push(xpyunLine(row, { forceTag: "B" }));
+    }
+    lines.push(xpyunLine(formatAmountRow(item.qty, item.unitPrice, item.amount)));
+    if (item.note) {
+      for (const noteRow of wrapReceiptText(`NOTE: ${item.note}`)) {
+        lines.push(xpyunLine(noteRow, { forceTag: "B" }));
+      }
+    }
+    lines.push(xpyunLine(separator, { forceTag: "" }));
+  }
+
+  lines.push(xpyunLine(`ITEM LINES: ${payload.items.length}`));
+  lines.push(xpyunLine(`TOTAL QTY : ${payload.totalQty}`));
+  lines.push(xpyunLine(`SUBTOTAL  : PHP ${formatCompactAmount(payload.itemAmount)}`));
+  if (payload.charges.length > 0) {
+    for (const charge of payload.charges) {
+      lines.push(xpyunLine(`${charge.label}: PHP ${formatSignedCompactAmount(charge.amount)}`));
+    }
+  }
+  lines.push(xpyunLine(`TOTAL     : ${formatPhp(payload.totalAmount)}`, { forceTag: "B2" }));
+  lines.push(xpyunLine(majorSeparator, { forceTag: "" }));
+  lines.push("<C>THANK YOU</C><BR>");
+  lines.push("<BR>");
+  lines.push("<BR>");
+  lines.push("<BR>");
+
+  return finalizeXpyunContent(lines);
+}
+
 function isRetryableXpyunError(code: number) {
   return code === 1003 || code === 1006 || code === 2001 || code === 5000;
 }
@@ -491,16 +668,19 @@ function resolveXpyunConfig(): XpyunConfig {
   return { url, user, userKey, sn, copies, voice, mode };
 }
 
-async function dispatchXpyunContent(config: XpyunConfig, content: string) {
+async function dispatchXpyunContent(config: XpyunConfig, content: string, copiesOverride?: number) {
   const timestamp = String(Math.floor(Date.now() / 1000));
   const sign = createHash("sha1").update(`${config.user}${config.userKey}${timestamp}`).digest("hex");
+  const safeCopies = Number.isFinite(copiesOverride)
+    ? Math.min(65535, Math.max(1, Math.round(copiesOverride as number)))
+    : config.copies;
   const body: Record<string, unknown> = {
     user: config.user,
     timestamp,
     sign,
     sn: config.sn,
     content,
-    copies: config.copies
+    copies: safeCopies
   };
   if (config.voice !== null) body.voice = config.voice;
   if (config.mode !== null) body.mode = config.mode;
@@ -529,6 +709,15 @@ async function dispatchToXpyun(payload: PrintPayload): Promise<DispatchResult> {
       provider: "xpyun",
       slot: "primary",
       remoteJobId: [kitchenJobId, customerJobId].filter(Boolean).join(",") || undefined
+    };
+  }
+
+  if (payload.type === "table_bill") {
+    const jobId = await dispatchXpyunContent(config, toXpyunTableBillContent(payload), 1);
+    return {
+      provider: "xpyun",
+      slot: "primary",
+      remoteJobId: jobId
     };
   }
 
@@ -700,6 +889,11 @@ async function dispatchWithFallback(payload: PrintPayload) {
 
 export async function dispatchPrintJob(orderId: string): Promise<DispatchResult> {
   const payload = await buildOrderPayload(orderId);
+  return dispatchWithFallback(payload);
+}
+
+export async function dispatchTableBillPrint(tableNo: string): Promise<DispatchResult> {
+  const payload = await buildTableBillPayload(tableNo);
   return dispatchWithFallback(payload);
 }
 
