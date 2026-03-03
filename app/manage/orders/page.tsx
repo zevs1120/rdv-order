@@ -9,6 +9,7 @@ import { useI18n } from "../../components/i18n-provider";
 import { localizeMenuText } from "../../../lib/menu-text";
 import { useActionGuard } from "../../../lib/use-action-guard";
 import { type PresetKey, rangeByPreset, toDateInput } from "../../../lib/date-range";
+import { AppBar, Button } from "../../../components/ui";
 
 type OrderItemDetail = {
   menu_item_id: string;
@@ -325,14 +326,14 @@ export default function ManageOrdersPage() {
 
   return (
     <div className="stack">
-      <header>
-        <h1>{t("orders.title", "订单")}</h1>
-        <div className="row">
-          <button className="secondary compact-btn" type="button" onClick={() => { void reloadWithCurrentRange(); }}>
+      <AppBar
+        title={t("orders.title", "订单")}
+        right={(
+          <Button variant="secondary" onClick={() => { void reloadWithCurrentRange(); }}>
             {t("common.refresh", "刷新")}
-          </button>
-        </div>
-      </header>
+          </Button>
+        )}
+      />
 
       <ManageTabs />
 

@@ -1,0 +1,56 @@
+:root {
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+
+  --radius-sm: 10px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+
+  --border-1: 1px;
+  --shadow-1: 0 1px 2px rgba(15, 23, 42, 0.06);
+  --shadow-2: 0 6px 20px rgba(15, 23, 42, 0.08);
+
+  --font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "PingFang SC", "Noto Sans SC", sans-serif;
+  --font-title: 22px;
+  --font-section: 16px;
+  --font-body: 14px;
+  --font-caption: 12px;
+  --line-title: 1.2;
+  --line-body: 1.45;
+
+  --gray-0: #ffffff;
+  --gray-25: #fcfcfd;
+  --gray-50: #f8fafc;
+  --gray-100: #f1f5f9;
+  --gray-200: #e2e8f0;
+  --gray-300: #cbd5e1;
+  --gray-400: #94a3b8;
+  --gray-500: #64748b;
+  --gray-600: #475569;
+  --gray-700: #334155;
+  --gray-800: #1e293b;
+  --gray-900: #0f172a;
+
+  --brand-500: #8f1520;
+  --brand-600: #78101a;
+
+  --success-500: #1f8f5f;
+  --warning-500: #b7791f;
+  --danger-500: #c53030;
+
+  --bg-page: var(--gray-50);
+  --bg-surface: var(--gray-0);
+  --text-primary: var(--gray-900);
+  --text-secondary: var(--gray-600);
+  --text-muted: var(--gray-500);
+  --line-default: var(--gray-200);
+
+  --tap-min: 44px;
+  --topbar-h: 52px;
+  --bottombar-h: 62px;
+}

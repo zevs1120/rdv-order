@@ -7,6 +7,7 @@ import ManageTabs from "../../components/manage-tabs";
 import { apiFetchJson, getStoredAuth } from "../../../lib/client-api";
 import { useI18n } from "../../components/i18n-provider";
 import { useActionGuard } from "../../../lib/use-action-guard";
+import { AppBar, Button } from "../../../components/ui";
 
 type PermissionRow = {
   role: "waiter" | "manager";
@@ -165,12 +166,14 @@ export default function ManageRbacPage() {
 
   return (
     <div className="stack">
-      <header>
-        <h1>{t("rbac.title", "权限设置")}</h1>
-        <button className="secondary compact-btn" type="button" onClick={() => { void loadRows(); }}>
-          {t("common.refresh", "刷新")}
-        </button>
-      </header>
+      <AppBar
+        title={t("rbac.title", "权限设置")}
+        right={(
+          <Button variant="secondary" onClick={() => { void loadRows(); }}>
+            {t("common.refresh", "刷新")}
+          </Button>
+        )}
+      />
 
       <ManageTabs />
 

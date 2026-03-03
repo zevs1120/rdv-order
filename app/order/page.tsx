@@ -7,6 +7,7 @@ import { apiFetchJson, getStoredAuth } from "../../lib/client-api";
 import { useI18n } from "../components/i18n-provider";
 import { localizeMenuText, shortCategoryLabel } from "../../lib/menu-text";
 import { useActionGuard } from "../../lib/use-action-guard";
+import { AppBar, Badge, BottomSheet, Button, Card, Chip, EmptyState, ListRow, SearchField, Toast } from "../../components/ui";
 
 type ShiftKey = "breakfast" | "lunch" | "dinner" | "beverage" | "cocktail" | "package";
 type CustomDishMode = "temporary" | "permanent";
@@ -131,6 +132,8 @@ export default function OrderPage() {
   const [noteMode, setNoteMode] = useState<NoteMode>("no");
   const [noteInput, setNoteInput] = useState("");
   const [cartSheetOpen, setCartSheetOpen] = useState(false);
+  const [actionMenuOpen, setActionMenuOpen] = useState(false);
+  const [toast, setToast] = useState<{ message: string; undo?: () => void } | null>(null);
 
   const menuCacheRef = useRef<Partial<Record<ShiftKey, MenuItem[]>>>({});
   const menuRequestRef = useRef(0);
@@ -244,7 +247,15 @@ export default function OrderPage() {
       router.replace("/tables");
       return;
     }
+    localStorage.setItem("rdv_recent_table", tableNo);
+    localStorage.setItem("rdv_recent_guests", String(guests));
   }, [tableNo, guests, paramsReady, router]);
+
+  useEffect(() => {
+    if (!toast) return;
+    const timer = window.setTimeout(() => setToast(null), 4200);
+    return () => window.clearTimeout(timer);
+  }, [toast]);
 
   useEffect(() => {
     cartSelectionsRef.current = cartSelections;
@@ -550,9 +561,14 @@ export default function OrderPage() {
     setNoteInput("");
   }
 
-  function increaseQtyAndOpenNote(item: MenuItem) {
-    setQty(item.id, (item.qty || 0) + 1);
-    openNoteSheetFor(item.id);
+  function increaseQtyAndToast(item: MenuItem) {
+    const previousQty = item.qty || 0;
+    setQty(item.id, previousQty + 1);
+    const label = localizeMenuText(item.name, lang);
+    setToast({
+      message: lang === "en" ? `Added ${label} x1` : `已添加 ${label} x1`,
+      undo: () => setQty(item.id, previousQty)
+    });
   }
 
   function closeNoteSheet(shouldSaveInput = true) {
@@ -754,12 +770,12 @@ export default function OrderPage() {
       setShowBill(true);
       if (body.deduped) {
         if (body.dedupeReason === "recent_duplicate") {
-          alert(t("order.duplicateBlocked", "Duplicate submit blocked. Please wait a moment."));
+          setToast({ message: t("order.duplicateBlocked", "Duplicate submit blocked. Please wait a moment.") });
         } else {
-          alert(t("order.submitDeduped", "Duplicate submission detected. Existing order reused."));
+          setToast({ message: t("order.submitDeduped", "Duplicate submission detected. Existing order reused.") });
         }
       } else {
-        alert(t("order.submitSuccess", "Order submitted. Print has been triggered."));
+        setToast({ message: t("order.submitSuccess", "Order submitted. Print has been triggered.") });
       }
     } catch (err: any) {
       setError(err.message || t("order.submitFailed", "Failed to submit order"));
@@ -887,345 +903,332 @@ export default function OrderPage() {
 
   return (
     <div className="stack order-screen">
-      <header className="order-header">
-        <h1 className="order-title">{t("order.title", "新订单")}</h1>
-        <div className="row order-actions" role="toolbar" aria-label={t("order.toolbar", "订单操作栏")}>
-          <input
-            className="order-search-input"
+      <AppBar
+        title={
+          <div className="order-top-title">
+            <span>{lang === "en" ? `Table ${tableNo}` : `桌号 ${tableNo}`}</span>
+            <Badge tone="brand">{lang === "en" ? `${guests} Guests` : `${guests} 人`}</Badge>
+          </div>
+        }
+        left={
+          <Button variant="secondary" onClick={() => router.push("/tables")}>
+            {lang === "en" ? "Tables" : "桌台"}
+          </Button>
+        }
+        right={
+          <div className="order-top-actions">
+            <Button
+              variant="secondary"
+              onClick={async () => {
+                setShowBill(true);
+                await loadBill();
+              }}
+            >
+              {t("order.ordered", "Items")}
+            </Button>
+            <div className="order-more-wrap">
+              <Button variant="secondary" onClick={() => setActionMenuOpen((v) => !v)}>
+                {t("common.more", "More")}
+              </Button>
+              {actionMenuOpen ? (
+                <div className="order-more-menu">
+                  <button type="button" onClick={() => { setShowAddDish(true); setActionMenuOpen(false); }}>
+                    {t("order.addDish", "Add")}
+                  </button>
+                  <button type="button" onClick={() => { router.push(`/manage/orders?tableNo=${encodeURIComponent(tableNo)}`); }}>
+                    {t("orders.title", "Orders")}
+                  </button>
+                  {isMergedTable ? (
+                    <button type="button" onClick={() => { setActionMenuOpen(false); void unmergeTable(); }}>
+                      {t("order.unmerge", "Unmerge")}
+                    </button>
+                  ) : null}
+                  <button type="button" onClick={() => { setActionMenuOpen(false); void checkout(); }}>
+                    {t("order.checkout", "Checkout")}
+                  </button>
+                  <button type="button" onClick={() => { setActionMenuOpen(false); void closeTable(); }}>
+                    {t("order.closeTable", "Close")}
+                  </button>
+                </div>
+              ) : null}
+            </div>
+          </div>
+        }
+        subline={
+          <SearchField
             value={keyword}
             onChange={(e) => setKeyword(e.target.value)}
-            placeholder={t("order.searchPlaceholder", "搜索菜品")}
-            inputMode="search"
-            enterKeyHint="search"
+            placeholder={t("order.searchPlaceholder", "Search dishes")}
+            className="order-search-compact"
           />
-          <button className="secondary compact-btn" type="button" onClick={() => { router.push("/tables"); }}>
-            {t("common.back", "返回")}
-          </button>
-          <button className="secondary compact-btn" type="button" onClick={async () => { setShowBill(true); await loadBill(); }}>
-            {t("order.ordered", "已点")}
-          </button>
-          <button className="secondary compact-btn" type="button" onClick={() => setShowAddDish((v) => !v)}>
-            {t("order.addDish", "新增菜")}
-          </button>
-          <button
-            className="secondary compact-btn"
-            type="button"
-            onClick={() => {
-              router.push(`/manage/orders?tableNo=${encodeURIComponent(tableNo)}`);
-            }}
-          >
-            {t("orders.title", "订单操作")}
-          </button>
-          {isMergedTable ? <button className="secondary compact-btn" type="button" onClick={unmergeTable}>{t("order.unmerge", "取消拼桌")}</button> : null}
-          <button className="secondary compact-btn" type="button" onClick={checkout}>{t("order.checkout", "结账")}</button>
-          <button className="secondary compact-btn" type="button" onClick={closeTable}>{t("order.closeTable", "关台")}</button>
-        </div>
-      </header>
+        }
+      />
 
-      {showAddDish ? (
-        <div className="panel stack">
-          <h3 style={{ margin: 0 }}>{t("order.addDishTitle", "新增菜品")}</h3>
-          <div className="row" style={{ flexWrap: "wrap" }}>
-            <button
-              type="button"
-              className={addDishMode === "temporary" ? "compact-btn" : "secondary compact-btn"}
-              onClick={() => setAddDishMode("temporary")}
-            >
-              {t("order.addDishTemp", "临时菜（仅本次可用）")}
-            </button>
-            <button
-              type="button"
-              className={addDishMode === "permanent" ? "compact-btn" : "secondary compact-btn"}
-              onClick={() => setAddDishMode("permanent")}
-              disabled={role !== "manager"}
-            >
-              {t("order.addDishPermanent", "永久菜（加入菜单）")}
-            </button>
-          </div>
-          {role !== "manager" ? (
-            <div className="muted">{t("order.addDishPermanentManagerOnly", "永久菜仅经理可创建")}</div>
-          ) : null}
-          <input
-            placeholder={t("order.addDishName", "菜名")}
-            value={addDishForm.name}
-            onChange={(e) => setAddDishForm((prev) => ({ ...prev, name: e.target.value }))}
-          />
-          <input
-            placeholder={t("order.addDishPrice", "价格")}
-            value={addDishForm.price}
-            onChange={(e) => setAddDishForm((prev) => ({ ...prev, price: e.target.value }))}
-            inputMode="numeric"
-          />
-          <input
-            placeholder={t("order.addDishCategory", "分类")}
-            value={addDishForm.category}
-            onChange={(e) => setAddDishForm((prev) => ({ ...prev, category: e.target.value }))}
-          />
-          <input
-            placeholder={t("order.addDishDesc", "描述")}
-            value={addDishForm.description}
-            onChange={(e) => setAddDishForm((prev) => ({ ...prev, description: e.target.value }))}
-          />
-          <div className="row">
-            <button className="secondary" type="button" onClick={() => setShowAddDish(false)}>{t("common.cancel", "取消")}</button>
-            <button type="button" onClick={createCustomDish} disabled={addingDish}>
-              {addingDish ? t("admin.saving", "保存中...") : t("order.addDishCreate", "创建并加入")}
-            </button>
-          </div>
-        </div>
-      ) : null}
-
-      {showBill ? (
-        <div className="panel stack">
-          <div className="row" style={{ justifyContent: "space-between" }}>
-            <h3 style={{ margin: 0 }}>{t("order.billTitle", "已点餐品")}（{tableNo}）</h3>
-            <div className="row" style={{ justifyContent: "flex-end" }}>
-              <button className="secondary compact-btn" type="button" onClick={() => setShowBill(false)}>{t("common.close", "关闭")}</button>
-            </div>
-          </div>
-          {billLoading ? <div className="muted">{t("common.loading", "加载中...")}</div> : null}
-          {!billLoading && billItems.length === 0 ? <div className="muted">{t("order.billEmpty", "暂无已点餐品")}</div> : null}
-          {!billLoading ? (
-            <div className="order-list">
-              {billItems.map((item) => (
-                <div key={`${item.menu_item_id}-${item.note || ""}`} className="row" style={{ justifyContent: "space-between" }}>
-                  <div className="stack" style={{ gap: 2 }}>
-                    <span>{localizeMenuText(item.name, lang)} x{item.qty}</span>
-                    {item.note ? <span className="muted">{t("order.noteLabel", "备注")}: {item.note}</span> : null}
-                  </div>
-                  <div>₱{item.amount}</div>
-                </div>
-              ))}
-            </div>
-          ) : null}
-          {!billLoading && billOrders.length > 0 ? (
-            <div className="order-detail-list">
-              {billOrders.map((order) => (
-                <div key={order.id} className="stack" style={{ gap: 4 }}>
-                  <div className="row" style={{ justifyContent: "space-between" }}>
-                    <strong>#{order.id.slice(0, 8)}</strong>
-                    <span className="tag">{order.status}</span>
-                  </div>
-                  <div className="muted">{new Date(order.created_at).toLocaleString()}</div>
-                  <div className="row" style={{ justifyContent: "space-between" }}>
-                    <span>₱{order.item_amount}</span>
-                    <span>{order.charge_amount >= 0 ? "+" : ""}{order.charge_amount}</span>
-                    <strong>₱{order.total_amount}</strong>
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : null}
-          <div className="row" style={{ justifyContent: "space-between" }}>
-            <strong>{t("order.billQty", "总数量")}：{billQty}</strong>
-            <strong>{t("order.billAmount", "总金额")}：₱{billTotal}</strong>
-          </div>
-          <div className="row" style={{ justifyContent: "flex-end" }}>
-            <button
-              className="secondary"
-              type="button"
-              onClick={printGuestReceipt}
-              disabled={billLoading || printingBillReceipt || billItems.length === 0}
-            >
-              {printingBillReceipt ? t("order.printingReceipt", "Printing...") : t("order.printReceipt", "Print Receipt")}
-            </button>
-            <button type="button" onClick={checkout} disabled={loading}>
-              {loading ? t("order.processing", "Processing...") : `${t("order.checkout", "结账")} + ${t("order.closeTable", "关台")}`}
-            </button>
-          </div>
-        </div>
-      ) : null}
-
-      <div className="panel stack">
-        <div className="row" style={{ justifyContent: "space-between", flexWrap: "wrap" }}>
-          <div><strong>{t("order.table", "桌号")}：</strong>{tableNo || "-"}</div>
-          <div><strong>{t("order.guests", "人数")}：</strong>{guests > 0 ? `${guests}` : "-"}</div>
-        </div>
-      </div>
-
-      <div className="panel order-main-panel">
-        <div className="row shift-tabs">
+      <Card className="order-shift-panel">
+        <div className="row order-shift-row">
           {SHIFT_OPTIONS.map((option) => (
-            <button
-              key={option.key}
-              className={shift === option.key ? "compact-btn" : "secondary compact-btn"}
-              onClick={() => setShift(option.key)}
-              type="button"
-            >
+            <Chip key={option.key} active={shift === option.key} onClick={() => setShift(option.key)}>
               {shiftLabel(option.key)}
-            </button>
+            </Chip>
           ))}
         </div>
-        <div className="order-layout">
-          <aside className="category-sidebar">
-            {categories.map((category) => (
-              <button
-                key={category}
-                type="button"
-                className={selectedCategory === category ? "category-btn active" : "category-btn"}
-                onClick={() => setSelectedCategory(category)}
-              >
-                {shortCategoryLabel(category, lang)}
-              </button>
-            ))}
-          </aside>
-          <div className="menu-content">
-            <div className="menu-grid">
-              {menuLoading ? (
-                <>
-                  <div className="skeleton skeleton-card" />
-                  <div className="skeleton skeleton-card" />
-                  <div className="skeleton skeleton-card" />
-                </>
-              ) : null}
-              {visibleItems.map((item) => (
-                <div key={item.id} className="menu-item stack">
-                  <div className="menu-item-title">
-                    {localizeMenuText(item.name, lang)}
-                    {item.item_type === "set" ? (lang === "en" ? " (Set)" : "（套餐）") : ""}
-                  </div>
-                  <div className="muted menu-item-price">₱{item.price}</div>
-                  {Array.isArray(item.allergens) && item.allergens.length > 0 ? (
-                    <div className="muted menu-item-meta">{t("order.allergens", "过敏原")}: {item.allergens.join(", ")}</div>
-                  ) : null}
-                  {item.description ? <div className="muted menu-item-meta">{item.description}</div> : null}
-                  {item.note && (item.qty || 0) > 0 ? (
-                    <div className="muted menu-item-meta">{t("order.noteLabel", "备注")}: {item.note}</div>
-                  ) : null}
-                  <div className="row qty-stepper">
-                    <button
-                      className="secondary compact-btn qty-btn"
-                      onClick={() => setQty(item.id, Math.max(0, (item.qty || 0) - 1))}
-                      type="button"
-                    >
-                      -
-                    </button>
-                    <div className="qty-value">{item.qty || 0}</div>
-                    <button type="button" className="compact-btn qty-btn" onClick={() => increaseQtyAndOpenNote(item)}>+</button>
-                  </div>
-                </div>
-              ))}
-              {!menuLoading && visibleItems.length === 0 ? <div className="muted">{t("order.categoryEmpty", "该分类暂无菜品")}</div> : null}
+      </Card>
+
+      <div className="order-layout">
+        <aside className="category-sidebar">
+          {categories.map((category) => (
+            <button
+              key={category}
+              type="button"
+              className={selectedCategory === category ? "category-btn active" : "category-btn"}
+              onClick={() => setSelectedCategory(category)}
+            >
+              {shortCategoryLabel(category, lang)}
+            </button>
+          ))}
+        </aside>
+        <div className="menu-content order-list-mode">
+          {menuLoading ? (
+            <div className="stack">
+              <div className="ui-skeleton" style={{ height: 68 }} />
+              <div className="ui-skeleton" style={{ height: 68 }} />
+              <div className="ui-skeleton" style={{ height: 68 }} />
             </div>
-          </div>
+          ) : null}
+          {!menuLoading && visibleItems.length === 0 ? (
+            <EmptyState title={t("order.categoryEmpty", "No dishes in this category")} />
+          ) : null}
+          {!menuLoading ? (
+            <div className="order-menu-list">
+              {visibleItems.map((item) => (
+                <ListRow
+                  key={item.id}
+                  title={
+                    <>
+                      {localizeMenuText(item.name, lang)}
+                      {item.item_type === "set" ? (lang === "en" ? " (Set)" : "（套餐）") : ""}
+                    </>
+                  }
+                  subtitle={
+                    <>
+                      {item.description ? item.description : item.category || ""}
+                      {item.note && (item.qty || 0) > 0 ? ` · ${t("order.noteLabel", "Note")}: ${item.note}` : ""}
+                    </>
+                  }
+                  trailing={(
+                    <div className="order-menu-trailing">
+                      <strong>₱{item.price}</strong>
+                      {(item.qty || 0) > 0 ? <Badge tone="brand">x{item.qty}</Badge> : null}
+                    </div>
+                  )}
+                  onClick={() => increaseQtyAndToast(item)}
+                />
+              ))}
+            </div>
+          ) : null}
         </div>
       </div>
 
       {categories.length === 0 ? (
-        <div className="panel">
-          <div className="muted">{t("order.menuEmpty", "当前班次暂无可用菜单")}</div>
-        </div>
+        <Card>
+          <div className="muted">{t("order.menuEmpty", "No menu for this shift")}</div>
+        </Card>
       ) : null}
 
-      <div className="panel order-submit-bar">
-        <button
-          type="button"
-          className="secondary compact-btn current-order-trigger"
+      <Card className="order-cart-dock">
+        <Button
+          variant="secondary"
           onClick={() => {
             setNoteSheetOpen(false);
             setCartSheetOpen(true);
           }}
         >
-          {t("order.currentOrder", "当前购物车")} · ₱{total}
-        </button>
-        <button type="button" onClick={submitOrder} disabled={loading}>{loading ? t("order.submitting", "提交中...") : t("order.submit", "提交订单")}</button>
-      </div>
-      {cartSheetOpen ? (
-        <>
-          <button
-            type="button"
-            className="note-sheet-backdrop"
-            onClick={() => setCartSheetOpen(false)}
-            aria-label={t("common.close", "关闭")}
-          />
-          <div className="panel cart-sheet">
-            <div className="row" style={{ justifyContent: "space-between" }}>
-              <strong>{t("order.currentOrder", "当前购物车")}</strong>
-              <button type="button" className="secondary compact-btn" onClick={() => setCartSheetOpen(false)}>
-                {t("common.done", "完成")}
-              </button>
-            </div>
-            <div className="order-list">
-              {cart.map((item) => (
-                <div key={`cart-${item.id}-${item.note || ""}`} className="row" style={{ justifyContent: "space-between", alignItems: "flex-start" }}>
-                  <div className="stack" style={{ gap: 2, flex: "1 1 auto" }}>
-                    <span>{localizeMenuText(item.name, lang)} x{item.qty}</span>
-                    {item.note ? <span className="muted">{t("order.noteLabel", "备注")}: {item.note}</span> : null}
-                  </div>
-                  <strong>₱{item.price * item.qty}</strong>
-                </div>
-              ))}
-              {cart.length === 0 ? <div className="muted">{t("order.currentOrderEmpty", "购物车为空")}</div> : null}
-            </div>
-            <div className="row" style={{ justifyContent: "space-between" }}>
-              <strong>{t("order.total", "当前加购合计")}：₱{total}</strong>
-              <button type="button" onClick={submitOrder} disabled={loading || cart.length === 0}>
-                {loading ? t("order.submitting", "提交中...") : t("order.submit", "提交订单")}
-              </button>
-            </div>
+          {t("order.currentOrder", "Current Order")} · {cart.length} · ₱{total}
+        </Button>
+        <Button onClick={submitOrder} loading={loading} disabled={cart.length === 0}>
+          {loading ? t("order.submitting", "Submitting...") : t("order.submit", "Submit Order")}
+        </Button>
+      </Card>
+
+      <BottomSheet
+        open={showAddDish}
+        onClose={() => setShowAddDish(false)}
+        title={t("order.addDishTitle", "Add Custom Dish")}
+        footer={(
+          <>
+            <Button variant="secondary" onClick={() => setShowAddDish(false)}>{t("common.cancel", "Cancel")}</Button>
+            <Button onClick={createCustomDish} loading={addingDish}>{t("order.addDishCreate", "Create & Add")}</Button>
+          </>
+        )}
+      >
+        <div className="stack">
+          <div className="row" style={{ flexWrap: "wrap" }}>
+            <Chip active={addDishMode === "temporary"} onClick={() => setAddDishMode("temporary")}>
+              {t("order.addDishTemp", "Temporary (this order only)")}
+            </Chip>
+            <Chip active={addDishMode === "permanent"} onClick={() => setAddDishMode("permanent")} disabled={role !== "manager"}>
+              {t("order.addDishPermanent", "Permanent (add to menu)")}
+            </Chip>
           </div>
-        </>
-      ) : null}
-      {noteSheetOpen && noteSheetItem ? (
-        <>
-          <button
-            type="button"
-            className="note-sheet-backdrop"
-            onClick={() => closeNoteSheet(true)}
-            aria-label={t("common.close", "关闭")}
+          {role !== "manager" ? (
+            <div className="muted">{t("order.addDishPermanentManagerOnly", "Permanent dish requires manager")}</div>
+          ) : null}
+          <input
+            placeholder={t("order.addDishName", "Dish Name")}
+            value={addDishForm.name}
+            onChange={(e) => setAddDishForm((prev) => ({ ...prev, name: e.target.value }))}
           />
-          <div className="panel note-sheet">
-            <div className="row" style={{ justifyContent: "space-between" }}>
-              <strong>{localizeMenuText(noteSheetItem.name, lang)}</strong>
-              <button type="button" className="secondary compact-btn" onClick={() => closeNoteSheet(true)}>
-                {t("common.done", "完成")}
-              </button>
-            </div>
-            <div className="row note-mode-row">
-              <button
-                type="button"
-                className={noteMode === "more" ? "compact-btn" : "secondary compact-btn"}
-                onClick={() => setNoteMode("more")}
-              >
-                {t("order.noteModeMore", "more")}
-              </button>
-              <button
-                type="button"
-                className={noteMode === "no" ? "compact-btn" : "secondary compact-btn"}
-                onClick={() => setNoteMode("no")}
-              >
-                {t("order.noteModeNo", "no")}
-              </button>
-            </div>
-            <div className="stack" style={{ gap: 8 }}>
-              <input
-                value={noteInput}
-                onChange={(e) => setNoteInput(e.target.value)}
-                placeholder={t("order.noteInputPlaceholder", "Type your note")}
-                maxLength={60}
-                autoFocus
-                onKeyDown={(e) => {
-                  if (e.key !== "Enter") return;
-                  e.preventDefault();
-                  applyManualNote(noteSheetItem.id);
-                }}
-              />
-              <div className="row" style={{ justifyContent: "space-between" }}>
-                <button type="button" className="compact-btn" onClick={() => applyManualNote(noteSheetItem.id)}>
-                  {t("order.noteAdd", "Add")}
-                </button>
-                <button type="button" className="secondary compact-btn" onClick={() => clearManualNote(noteSheetItem.id)}>
-                  {t("order.noteClear", "Clear")}
-                </button>
+          <input
+            placeholder={t("order.addDishPrice", "Price")}
+            value={addDishForm.price}
+            onChange={(e) => setAddDishForm((prev) => ({ ...prev, price: e.target.value }))}
+            inputMode="numeric"
+          />
+          <input
+            placeholder={t("order.addDishCategory", "Category")}
+            value={addDishForm.category}
+            onChange={(e) => setAddDishForm((prev) => ({ ...prev, category: e.target.value }))}
+          />
+          <input
+            placeholder={t("order.addDishDesc", "Description")}
+            value={addDishForm.description}
+            onChange={(e) => setAddDishForm((prev) => ({ ...prev, description: e.target.value }))}
+          />
+        </div>
+      </BottomSheet>
+
+      <BottomSheet
+        open={showBill}
+        onClose={() => setShowBill(false)}
+        title={`${t("order.billTitle", "Ordered Items")} (${tableNo})`}
+        footer={(
+          <>
+            <Button
+              variant="secondary"
+              onClick={printGuestReceipt}
+              loading={printingBillReceipt}
+              disabled={billLoading || billItems.length === 0}
+            >
+              {t("order.printReceipt", "Print Receipt")}
+            </Button>
+            <Button onClick={checkout} loading={loading}>
+              {`${t("order.checkout", "Checkout")} + ${t("order.closeTable", "Close")}`}
+            </Button>
+          </>
+        )}
+      >
+        {billLoading ? <div className="muted">{t("common.loading", "Loading...")}</div> : null}
+        {!billLoading && billItems.length === 0 ? <EmptyState title={t("order.billEmpty", "No items yet")} /> : null}
+        {!billLoading ? (
+          <div className="order-list">
+            {billItems.map((item) => (
+              <div key={`${item.menu_item_id}-${item.note || ""}`} className="row" style={{ justifyContent: "space-between", alignItems: "flex-start" }}>
+                <div className="stack" style={{ gap: 2 }}>
+                  <span>{localizeMenuText(item.name, lang)} x{item.qty}</span>
+                  {item.note ? <span className="muted">{t("order.noteLabel", "Note")}: {item.note}</span> : null}
+                </div>
+                <strong>₱{item.amount}</strong>
+              </div>
+            ))}
+          </div>
+        ) : null}
+        <div className="row" style={{ justifyContent: "space-between" }}>
+          <strong>{t("order.billQty", "Total Qty")}: {billQty}</strong>
+          <strong>{t("order.billAmount", "Total Amount")}: ₱{billTotal}</strong>
+        </div>
+      </BottomSheet>
+
+      <BottomSheet
+        open={cartSheetOpen}
+        onClose={() => setCartSheetOpen(false)}
+        title={t("order.currentOrder", "Current Order")}
+        footer={(
+          <>
+            <strong>{t("order.total", "Current Total")}: ₱{total}</strong>
+            <Button onClick={submitOrder} loading={loading} disabled={cart.length === 0}>
+              {t("order.submit", "Submit Order")}
+            </Button>
+          </>
+        )}
+      >
+        <div className="order-list">
+          {cart.map((item) => (
+            <div key={`cart-${item.id}-${item.note || ""}`} className="row cart-row">
+              <div className="stack" style={{ gap: 2, flex: "1 1 auto" }}>
+                <span>{localizeMenuText(item.name, lang)}</span>
+                <span className="muted">₱{item.price} x {item.qty}</span>
+                {item.note ? <span className="muted">{t("order.noteLabel", "Note")}: {item.note}</span> : null}
+              </div>
+              <div className="cart-row-actions">
+                <Button variant="secondary" onClick={() => setQty(item.id, Math.max(0, item.qty - 1))}>-</Button>
+                <span>{item.qty}</span>
+                <Button variant="secondary" onClick={() => setQty(item.id, item.qty + 1)}>+</Button>
+                <Button variant="secondary" onClick={() => openNoteSheetFor(item.id)}>
+                  {t("order.noteAction", "Note")}
+                </Button>
+                <Button variant="danger" onClick={() => setQty(item.id, 0)}>
+                  {lang === "en" ? "Remove" : "移除"}
+                </Button>
               </div>
             </div>
+          ))}
+          {cart.length === 0 ? <EmptyState title={t("order.currentOrderEmpty", "Cart is empty")} /> : null}
+        </div>
+      </BottomSheet>
+
+      <BottomSheet
+        open={noteSheetOpen && Boolean(noteSheetItem)}
+        onClose={() => closeNoteSheet(true)}
+        title={noteSheetItem ? localizeMenuText(noteSheetItem.name, lang) : undefined}
+        footer={(
+          <>
+            <Button variant="secondary" onClick={() => noteSheetItem && clearManualNote(noteSheetItem.id)}>
+              {t("order.noteClear", "Clear")}
+            </Button>
+            <Button onClick={() => noteSheetItem && applyManualNote(noteSheetItem.id)}>
+              {t("order.noteAdd", "Add")}
+            </Button>
+          </>
+        )}
+      >
+        {noteSheetItem ? (
+          <div className="stack">
+            <div className="row note-mode-row">
+              <Button variant={noteMode === "more" ? "primary" : "secondary"} onClick={() => setNoteMode("more")}>
+                {t("order.noteModeMore", "more")}
+              </Button>
+              <Button variant={noteMode === "no" ? "primary" : "secondary"} onClick={() => setNoteMode("no")}>
+                {t("order.noteModeNo", "no")}
+              </Button>
+            </div>
+            <input
+              value={noteInput}
+              onChange={(e) => setNoteInput(e.target.value)}
+              placeholder={t("order.noteInputPlaceholder", "Type your note")}
+              maxLength={60}
+              autoFocus
+              onKeyDown={(e) => {
+                if (e.key !== "Enter") return;
+                e.preventDefault();
+                applyManualNote(noteSheetItem.id);
+              }}
+            />
             <div className="muted">
-              {t("order.noteLabel", "备注")}: {noteSheetItem.note || "-"}
+              {t("order.noteLabel", "Note")}: {noteSheetItem.note || "-"}
             </div>
           </div>
-        </>
-      ) : null}
-      {error && <div className="muted" aria-live="polite">{error}</div>}
+        ) : null}
+      </BottomSheet>
+
+      {error ? <div className="muted" aria-live="polite">{error}</div> : null}
+
+      <Toast
+        open={Boolean(toast)}
+        message={toast?.message || ""}
+        actionLabel={toast?.undo ? (lang === "en" ? "Undo" : "撤销") : undefined}
+        onAction={toast?.undo}
+        onClose={() => setToast(null)}
+      />
 
       <BottomNav />
     </div>

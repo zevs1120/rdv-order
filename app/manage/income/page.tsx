@@ -7,6 +7,7 @@ import ManageTabs from "../../components/manage-tabs";
 import { apiFetchJson, getStoredAuth } from "../../../lib/client-api";
 import { useI18n } from "../../components/i18n-provider";
 import { type PresetKey, rangeByPreset, toDateInput } from "../../../lib/date-range";
+import { AppBar } from "../../../components/ui";
 
 type IncomeDay = {
   day: string;
@@ -98,9 +99,7 @@ export default function ManageIncomePage() {
 
   return (
     <div className="stack">
-      <header>
-        <h1>{t("income.title", "管理")}</h1>
-      </header>
+      <AppBar title={t("income.section", "收入")} />
 
       <ManageTabs />
 

@@ -6,6 +6,7 @@ import BottomNav from "../components/bottom-nav";
 import { apiFetchJson, getStoredAuth } from "../../lib/client-api";
 import { useI18n } from "../components/i18n-provider";
 import { useActionGuard } from "../../lib/use-action-guard";
+import { AppBar, Badge, BottomSheet, Button, Card, Chip, EmptyState, IconButton, Skeleton } from "../../components/ui";
 
 type TableItem = {
   tableNo: string;
@@ -13,9 +14,11 @@ type TableItem = {
   column: number;
   status: "open" | "idle";
   guestCount: number | null;
+  openedAt?: string | null;
 };
 
-const GUEST_OPTIONS = [1, 2, 3, 4, 5, 6, 8, 10, 12];
+const FILTERS = ["all", "open", "idle"] as const;
+type FilterKey = (typeof FILTERS)[number];
 
 export default function TablesPage() {
   const router = useRouter();
@@ -23,13 +26,15 @@ export default function TablesPage() {
   const [tables, setTables] = useState<TableItem[]>([]);
   const [loadingTables, setLoadingTables] = useState(false);
   const [error, setError] = useState("");
+
   const [openingTable, setOpeningTable] = useState<TableItem | null>(null);
   const [guestCount, setGuestCount] = useState(2);
-  const [submitting, setSubmitting] = useState(false);
 
-  const [mergeMode, setMergeMode] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [selectMode, setSelectMode] = useState(false);
   const [mergeSelection, setMergeSelection] = useState<string[]>([]);
   const [mergeGuestCount, setMergeGuestCount] = useState(4);
+  const [filter, setFilter] = useState<FilterKey>("all");
   const canRunAction = useActionGuard();
 
   useEffect(() => {
@@ -61,16 +66,9 @@ export default function TablesPage() {
     }
   }
 
-  const columns = useMemo(() => {
-    const grouped: TableItem[][] = [[], [], []];
-    for (const table of tables) {
-      const index = Math.min(2, Math.max(0, table.column - 1));
-      grouped[index].push(table);
-    }
-    return grouped;
-  }, [tables]);
-
   function enterMenu(tableNo: string, guests: number) {
+    localStorage.setItem("rdv_recent_table", tableNo);
+    localStorage.setItem("rdv_recent_guests", String(guests));
     router.push(`/order?tableNo=${encodeURIComponent(tableNo)}&guests=${guests}`);
   }
 
@@ -116,7 +114,7 @@ export default function TablesPage() {
         timeoutMs: 7000,
         retries: 1
       });
-      setMergeMode(false);
+      setSelectMode(false);
       setMergeSelection([]);
       enterMenu(body.session.tableNo, body.session.guestCount);
     } catch (err: any) {
@@ -128,20 +126,20 @@ export default function TablesPage() {
 
   function onTableClick(table: TableItem) {
     if (submitting) return;
-    if (table.status === "open") {
-      enterMenu(table.tableNo, table.guestCount || 1);
-      return;
-    }
 
-    if (mergeMode) {
+    if (selectMode) {
+      if (table.status !== "idle") return;
       const base = table.baseTables[0];
       setMergeSelection((prev) => {
-        if (prev.includes(base)) {
-          return prev.filter((t) => t !== base);
-        }
+        if (prev.includes(base)) return prev.filter((t) => t !== base);
         if (prev.length >= 2) return prev;
         return [...prev, base];
       });
+      return;
+    }
+
+    if (table.status === "open") {
+      enterMenu(table.tableNo, table.guestCount || 1);
       return;
     }
 
@@ -149,123 +147,166 @@ export default function TablesPage() {
     setOpeningTable(table);
   }
 
+  function tableTone(table: TableItem) {
+    if (table.status === "open") return "warning" as const;
+    return "success" as const;
+  }
+
+  function tableStatusLabel(table: TableItem) {
+    if (table.status === "open") return lang === "en" ? "In Service" : "服务中";
+    return t("tables.idle", "Idle");
+  }
+
+  function openDuration(openedAt?: string | null) {
+    if (!openedAt) return "-";
+    const diff = Math.max(0, Date.now() - new Date(openedAt).getTime());
+    const mins = Math.floor(diff / 60000);
+    if (mins < 60) return `${mins}m`;
+    const h = Math.floor(mins / 60);
+    const m = mins % 60;
+    return `${h}h ${m}m`;
+  }
+
+  const filteredTables = useMemo(() => {
+    if (filter === "all") return tables;
+    return tables.filter((table) => table.status === filter);
+  }, [filter, tables]);
+
+  const columns = useMemo(() => {
+    const grouped: TableItem[][] = [[], [], []];
+    for (const table of filteredTables) {
+      const index = Math.min(2, Math.max(0, table.column - 1));
+      grouped[index].push(table);
+    }
+    return grouped;
+  }, [filteredTables]);
+
   return (
-    <div className="stack">
-      <header className="tables-header">
-        <h1>{t("tables.title", "请选择桌号")}</h1>
-        <div className="row tables-actions">
-          <button
-            className={mergeMode ? "compact-btn" : "secondary compact-btn"}
-            type="button"
-            onClick={() => {
-              setMergeMode((v) => !v);
-              setMergeSelection([]);
-            }}
-            disabled={submitting || Boolean(openingTable)}
-          >
-            {t("tables.merge", "拼桌")}
-          </button>
-          <button className="secondary compact-btn" onClick={loadTables} type="button" disabled={submitting}>
-            {t("common.refresh", "刷新")}
-          </button>
-          <button
-            className="secondary compact-btn danger-outline"
-            onClick={() => {
-              localStorage.clear();
-              router.replace("/");
-            }}
-            type="button"
-            disabled={submitting}
-          >
-            {t("common.logout", "退出")}
-          </button>
-        </div>
-      </header>
-
-      {openingTable ? (
-        <div className="panel stack tables-open-panel">
-          <h3 style={{ margin: 0 }}>{t("tables.opening", "开台：")}{openingTable.tableNo}</h3>
-          <label className="stack">
-            {t("tables.guestCount", "用餐人数")}
-            <select value={guestCount} onChange={(e) => setGuestCount(Number(e.target.value))}>
-              {GUEST_OPTIONS.map((count) => (
-                <option key={count} value={count}>
-                  {lang === "en" ? `${count} guests` : `${count} 人`}
-                </option>
-              ))}
-            </select>
-          </label>
-          <div className="row">
-            <button className="secondary" type="button" onClick={() => setOpeningTable(null)}>{t("common.cancel", "取消")}</button>
-            <button type="button" onClick={openTable} disabled={submitting}>
-              {submitting ? t("tables.openingNow", "开台中...") : t("tables.confirmOpen", "确认开台")}
-            </button>
+    <div className="stack tables-screen">
+      <AppBar
+        title={t("tables.title", "Select Table")}
+        right={
+          <div className="row" style={{ gap: 6 }}>
+            <Button variant="secondary" onClick={loadTables} disabled={loadingTables || submitting}>
+              {t("common.refresh", "Refresh")}
+            </Button>
+            <Button
+              variant={selectMode ? "primary" : "secondary"}
+              onClick={() => {
+                setSelectMode((v) => !v);
+                setMergeSelection([]);
+              }}
+              disabled={submitting || Boolean(openingTable)}
+            >
+              {selectMode ? (lang === "en" ? "Done" : "完成") : (lang === "en" ? "Select" : "选择")}
+            </Button>
           </div>
-        </div>
-      ) : null}
-
-      <div className="bar-banner">{t("tables.bar", "吧台（BAR）")}</div>
-
-      {mergeMode ? (
-        <div className="panel stack tables-merge-panel">
-          <div className="muted">{t("tables.mergeModeHint", "拼桌模式：选择两张空闲桌，确认后合并为一个桌号。")}</div>
-          <div className="row" style={{ justifyContent: "space-between", flexWrap: "wrap" }}>
-            <div>{t("tables.selected", "已选择")}：{mergeSelection.join(" + ") || t("tables.noneSelected", "未选择")}</div>
-            <div className="row">
-              <select value={mergeGuestCount} onChange={(e) => setMergeGuestCount(Number(e.target.value))}>
-                {GUEST_OPTIONS.map((count) => (
-                  <option key={count} value={count}>
-                    {lang === "en" ? `${count} guests` : `${count} 人`}
-                  </option>
-                ))}
-              </select>
-              <button type="button" onClick={confirmMerge} disabled={submitting || mergeSelection.length !== 2}>
-                {submitting ? t("tables.mergeProcessing", "处理中...") : t("tables.mergeConfirm", "确认拼桌")}
-              </button>
-            </div>
+        }
+        subline={
+          <div className="row" style={{ flexWrap: "nowrap", overflowX: "auto" }}>
+            <Chip active={filter === "all"} onClick={() => setFilter("all")}>{lang === "en" ? "All" : "全部"}</Chip>
+            <Chip active={filter === "open"} onClick={() => setFilter("open")}>{lang === "en" ? "In Service" : "服务中"}</Chip>
+            <Chip active={filter === "idle"} onClick={() => setFilter("idle")}>{lang === "en" ? "Idle" : "空闲"}</Chip>
           </div>
-        </div>
-      ) : null}
+        }
+      />
 
-      <div className="panel table-layout">
-        {loadingTables ? (
-          <>
-            <div className="skeleton skeleton-card" />
-            <div className="skeleton skeleton-card" />
-            <div className="skeleton skeleton-card" />
-            <div className="skeleton skeleton-card" />
-            <div className="skeleton skeleton-card" />
-            <div className="skeleton skeleton-card" />
-          </>
-        ) : (
-          columns.map((items, idx) => (
+      {loadingTables ? (
+        <div className="table-grid-shell">
+          <Skeleton h={108} />
+          <Skeleton h={108} />
+          <Skeleton h={108} />
+          <Skeleton h={108} />
+          <Skeleton h={108} />
+          <Skeleton h={108} />
+        </div>
+      ) : (
+        <div className="table-grid-shell">
+          {columns.map((items, idx) => (
             <div key={idx} className="table-column">
               {items.map((table) => {
                 const selected = mergeSelection.includes(table.baseTables[0]);
                 return (
-                  <button
+                  <Card
                     key={table.tableNo}
-                    type="button"
-                    className={`${table.status === "open" ? "table-btn open" : "table-btn idle"}${selected ? " selected" : ""}`}
+                    className={`table-card ${selected ? "is-selected" : ""} ${table.status === "open" ? "is-open" : ""}`}
                     onClick={() => onTableClick(table)}
                   >
-                    <div className="table-name">{table.tableNo}</div>
-                    <div className="table-meta">
-                      {table.status === "open"
-                        ? lang === "en"
-                          ? `${t("tables.opened", "Open")} · ${table.guestCount || "?"} guests`
-                          : `${t("tables.opened", "已开台")} · ${table.guestCount || "?"}人`
-                        : t("tables.idle", "空闲")}
+                    <div className="row" style={{ justifyContent: "space-between", alignItems: "flex-start" }}>
+                      <div className="table-card__title">{table.tableNo}</div>
+                      <Badge tone={tableTone(table)}>{tableStatusLabel(table)}</Badge>
                     </div>
-                  </button>
+                    <div className="table-card__meta">
+                      {lang === "en" ? "Guests" : "人数"}: {table.guestCount || "-"}
+                    </div>
+                    <div className="table-card__meta">
+                      {lang === "en" ? "Duration" : "时长"}: {openDuration(table.openedAt)}
+                    </div>
+                  </Card>
                 );
               })}
             </div>
-          ))
-        )}
-      </div>
+          ))}
+        </div>
+      )}
+
+      {!loadingTables && filteredTables.length === 0 ? (
+        <EmptyState
+          title={lang === "en" ? "No table in this filter" : "当前筛选下没有桌台"}
+          description={lang === "en" ? "Try another status filter" : "请切换筛选查看"}
+        />
+      ) : null}
 
       {error ? <div className="muted">{error}</div> : null}
+
+      <BottomSheet
+        open={Boolean(openingTable)}
+        onClose={() => setOpeningTable(null)}
+        title={
+          openingTable
+            ? `${lang === "en" ? "Open Table" : "开台"} ${openingTable.tableNo}`
+            : null
+        }
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setOpeningTable(null)}>{t("common.cancel", "Cancel")}</Button>
+            <Button onClick={openTable} loading={submitting}>{t("tables.confirmOpen", "Confirm Open")}</Button>
+          </>
+        }
+      >
+        <div className="table-sheet-stepper">
+          <span>{t("tables.guestCount", "Guests")}</span>
+          <div className="row" style={{ gap: 8 }}>
+            <IconButton
+              label={lang === "en" ? "Decrease guests" : "减少人数"}
+              icon="−"
+              onClick={() => setGuestCount((prev) => Math.max(1, prev - 1))}
+            />
+            <strong style={{ minWidth: 42, textAlign: "center" }}>{guestCount}</strong>
+            <IconButton
+              label={lang === "en" ? "Increase guests" : "增加人数"}
+              icon="＋"
+              onClick={() => setGuestCount((prev) => Math.min(20, prev + 1))}
+            />
+          </div>
+        </div>
+      </BottomSheet>
+
+      {selectMode ? (
+        <div className="merge-action-bar">
+          <div className="muted">
+            {t("tables.selected", "Selected")}: {mergeSelection.join(" + ") || t("tables.noneSelected", "None")}
+          </div>
+          <div className="row" style={{ gap: 8 }}>
+            <Button variant="secondary" onClick={() => setMergeGuestCount((v) => Math.max(1, v - 1))}>-</Button>
+            <span>{mergeGuestCount}</span>
+            <Button variant="secondary" onClick={() => setMergeGuestCount((v) => Math.min(20, v + 1))}>+</Button>
+            <Button onClick={confirmMerge} disabled={mergeSelection.length !== 2 || submitting} loading={submitting}>
+              {t("tables.mergeConfirm", "Confirm Merge")}
+            </Button>
+          </div>
+        </div>
+      ) : null}
 
       <BottomNav />
     </div>

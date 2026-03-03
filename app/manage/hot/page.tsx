@@ -8,6 +8,7 @@ import { apiFetchJson, getStoredAuth } from "../../../lib/client-api";
 import { useI18n } from "../../components/i18n-provider";
 import { type PresetKey, rangeByPreset, toDateInput } from "../../../lib/date-range";
 import { localizeMenuText } from "../../../lib/menu-text";
+import { AppBar } from "../../../components/ui";
 
 type HotItem = {
   id: string;
@@ -99,9 +100,7 @@ export default function ManageHotPage() {
 
   return (
     <div className="stack">
-      <header>
-        <h1>{t("hot.title", "热销菜")}</h1>
-      </header>
+      <AppBar title={t("hot.title", "热销菜")} />
 
       <ManageTabs />
 

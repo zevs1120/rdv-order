@@ -6,6 +6,7 @@ import BottomNav from "../../components/bottom-nav";
 import ManageTabs from "../../components/manage-tabs";
 import { apiFetchJson, getStoredAuth } from "../../../lib/client-api";
 import { useI18n } from "../../components/i18n-provider";
+import { AppBar, Button } from "../../../components/ui";
 
 type Device = {
   id: string;
@@ -157,17 +158,19 @@ export default function ManageDevicesPage() {
 
   return (
     <div className="stack">
-      <header className="devices-header">
-        <h1>{t("devices.title", "设备状态")}</h1>
-        <div className="row devices-actions">
-          <button className="secondary compact-btn" type="button" onClick={() => { void loadData(); }}>
-            {t("common.refresh", "刷新")}
-          </button>
-          <button className="compact-btn" type="button" onClick={() => { void retryPrintJobs(); }}>
-            {t("devices.retryPrint", "重试打印")}
-          </button>
-        </div>
-      </header>
+      <AppBar
+        title={t("devices.title", "设备状态")}
+        right={(
+          <div className="row devices-actions">
+            <Button variant="secondary" onClick={() => { void loadData(); }}>
+              {t("common.refresh", "刷新")}
+            </Button>
+            <Button onClick={() => { void retryPrintJobs(); }}>
+              {t("devices.retryPrint", "重试打印")}
+            </Button>
+          </div>
+        )}
+      />
 
       <ManageTabs />
 

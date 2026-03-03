@@ -3,6 +3,7 @@ export type Lang = "zh" | "en";
 type Dictionary = Record<string, string>;
 
 const zh: Dictionary = {
+  "nav.tables": "桌台",
   "nav.order": "点餐",
   "nav.manage": "管理",
   "manage.orders": "订单",
@@ -24,6 +25,7 @@ const zh: Dictionary = {
   "common.close": "关闭",
   "common.done": "完成",
   "common.search": "搜索",
+  "common.more": "更多",
   "common.expand": "展开",
   "common.collapse": "收起",
   "lang.toggle": "EN",
@@ -252,6 +254,7 @@ const zh: Dictionary = {
 };
 
 const en: Dictionary = {
+  "nav.tables": "Tables",
   "nav.order": "Order",
   "nav.manage": "Manage",
   "manage.orders": "Orders",
@@ -273,6 +276,7 @@ const en: Dictionary = {
   "common.close": "Close",
   "common.done": "Done",
   "common.search": "Search",
+  "common.more": "More",
   "common.expand": "Expand",
   "common.collapse": "Collapse",
   "lang.toggle": "中",
