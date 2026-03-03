@@ -748,6 +748,16 @@ button:disabled {
   padding-bottom: 86px;
 }
 
+.fee-rule-row {
+  display: grid;
+  grid-template-columns: minmax(140px, 1.4fr) 1fr 1fr 90px auto;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid var(--line-strong);
+  background: #fff;
+  padding: 8px;
+}
+
 .menu-simple-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 92px 82px;
@@ -1154,6 +1164,14 @@ a {
     content: attr(data-label);
     font-size: 12px;
     color: var(--muted);
+  }
+
+  .fee-rule-row {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .fee-rule-row > :first-child {
+    grid-column: 1 / -1;
   }
 }
 

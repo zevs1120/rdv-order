@@ -19,6 +19,8 @@ type OrderBody = {
 const UUID_V4_LIKE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const IDEMPOTENCY_KEY = /^[a-zA-Z0-9_-]{8,80}$/;
 const ORDER_DEDUPE_WINDOW_DEFAULT_SECONDS = 8;
+type ChargeType = "discount" | "service_fee" | "tax";
+type ChargeMode = "amount" | "percent";
 
 function parseItems(raw: unknown): OrderItemInput[] {
   if (!Array.isArray(raw) || raw.length === 0) {
@@ -116,6 +118,71 @@ async function validateMenuItems(itemIds: string[]) {
     [itemIds]
   );
   return rows.length === itemIds.length;
+}
+
+async function applyActivePricingRulesToOrder(
+  client: PoolClient,
+  orderId: string,
+  actorUserId: string
+) {
+  try {
+    const rulesRes = await client.query<{
+      id: string;
+      charge_type: ChargeType;
+      mode: ChargeMode;
+      value: number;
+    }>(
+      `SELECT id, charge_type, mode, value
+       FROM pricing_rules
+       WHERE is_active = true
+       ORDER BY sort_order ASC, created_at ASC`
+    );
+
+    if (rulesRes.rows.length === 0) return;
+
+    const finance = await client.query<{ item_amount: number }>(
+      `SELECT COALESCE(SUM(oi.qty * mi.price), 0)::int AS item_amount
+       FROM order_items oi
+       JOIN menu_items mi ON mi.id = oi.menu_item_id
+       WHERE oi.order_id = $1`,
+      [orderId]
+    );
+    const itemAmount = Number(finance.rows[0]?.item_amount || 0);
+    if (itemAmount <= 0) return;
+
+    for (const rule of rulesRes.rows) {
+      const amountRaw = rule.mode === "percent"
+        ? Math.round((itemAmount * rule.value) / 100)
+        : rule.value;
+      const amount = rule.charge_type === "discount"
+        ? -Math.min(amountRaw, itemAmount)
+        : amountRaw;
+      const note = rule.charge_type === "discount"
+        ? "auto discount"
+        : rule.charge_type === "service_fee"
+          ? "auto service fee"
+          : "auto tax";
+
+      await client.query(
+        `INSERT INTO order_charges (order_id, charge_type, mode, value, amount, note, created_by, rule_id, source)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'rule_auto')
+         ON CONFLICT (order_id, rule_id, source)
+         WHERE rule_id IS NOT NULL
+         DO UPDATE SET charge_type = EXCLUDED.charge_type,
+                       mode = EXCLUDED.mode,
+                       value = EXCLUDED.value,
+                       amount = EXCLUDED.amount,
+                       note = EXCLUDED.note`,
+        [orderId, rule.charge_type, rule.mode, rule.value, amount, note, actorUserId, rule.id]
+      );
+    }
+  } catch (err: any) {
+    if (err?.code === "42P01") {
+      // Backward compatibility for old schemas missing pricing tables.
+      return;
+    }
+    throw err;
+  }
 }
 
 export async function POST(req: Request) {
@@ -232,6 +299,8 @@ export async function POST(req: Request) {
            FROM UNNEST($2::text[], $3::int[], $4::text[]) AS x(menu_item_id, qty, note)`,
           [createdOrderId, itemIds, qtyList, noteList.map((note) => note || "")]
         );
+
+        await applyActivePricingRulesToOrder(client, createdOrderId, auth.userId);
 
         await client.query(
           `INSERT INTO order_events (order_id, event_type, payload, created_by)
