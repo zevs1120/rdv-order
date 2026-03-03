@@ -103,6 +103,8 @@ const serverErrorEn: Record<string, string> = {
   "规则保存失败": "Failed to save fee rules",
   "缺少规则数据": "Missing fee rules payload",
   "规则参数无效": "Invalid fee rule parameters",
+  "规则不存在": "Fee rule not found",
+  "规则删除失败": "Failed to delete fee rule",
   "设备状态查询失败": "Failed to load device status",
   "设备状态更新失败": "Failed to update device status",
   "设备不存在": "Device not found",

@@ -29,6 +29,7 @@ export default function ManageFeesPage() {
   const [rules, setRules] = useState<FeeRule[]>([]);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [deletingId, setDeletingId] = useState("");
   const [error, setError] = useState("");
   const [sectionOpen, setSectionOpen] = useState(true);
 
@@ -95,6 +96,39 @@ export default function ManageFeesPage() {
         sort_order: nextSort
       }
     ]);
+  }
+
+  async function deleteRule(index: number) {
+    if (!canRunAction()) return;
+    const rule = rules[index];
+    if (!rule) return;
+
+    if (!rule.id) {
+      setRules((prev) => prev.filter((_, i) => i !== index));
+      return;
+    }
+
+    const ok = window.confirm(
+      lang === "en"
+        ? `Delete fee rule "${rule.name}"?`
+        : `确认删除费用规则「${rule.name}」吗？`
+    );
+    if (!ok) return;
+
+    setDeletingId(rule.id);
+    setError("");
+    try {
+      await apiFetchJson(`/api/pricing/rules/${rule.id}`, {
+        method: "DELETE",
+        timeoutMs: 8000,
+        retries: 0
+      });
+      setRules((prev) => prev.filter((item) => item.id !== rule.id));
+    } catch (err: any) {
+      setError(err.message || (lang === "en" ? "Failed to delete fee rule" : "删除费用规则失败"));
+    } finally {
+      setDeletingId("");
+    }
   }
 
   async function saveRules() {
@@ -224,6 +258,14 @@ export default function ManageFeesPage() {
                 aria-pressed={rule.is_active}
                 aria-label={`${rule.name || t("fees.name", "规则")} ${rule.is_active ? "enabled" : "disabled"}`}
               />
+              <button
+                type="button"
+                className="secondary compact-btn"
+                onClick={() => { void deleteRule(index); }}
+                disabled={saving || (Boolean(rule.id) && deletingId === rule.id)}
+              >
+                {deletingId === rule.id ? t("orders.deleting", "删除中...") : t("fees.delete", "删除")}
+              </button>
             </div>
           ))}
 
