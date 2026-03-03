@@ -6,7 +6,13 @@ export async function requireAuth(req: Request, roles: Array<AuthPayload["role"]
     throw new Error("UNAUTHORIZED");
   }
 
-  const payload = await verifyToken(token);
+  let payload: AuthPayload;
+  try {
+    payload = await verifyToken(token);
+  } catch {
+    // Treat any JWT verification failure as unauthenticated.
+    throw new Error("UNAUTHORIZED");
+  }
   if (!roles.includes(payload.role)) {
     throw new Error("FORBIDDEN");
   }

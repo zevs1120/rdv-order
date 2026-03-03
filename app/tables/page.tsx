@@ -48,7 +48,14 @@ export default function TablesPage() {
       const body = await apiFetchJson<{ tables: TableItem[] }>("/api/tables", { timeoutMs: 5000, retries: 1 });
       setTables(body.tables || []);
     } catch (err: any) {
-      setError(err.message || t("tables.loadFailed", "Failed to load tables"));
+      const message = String(err?.message || "");
+      if (message === "未登录" || message === "Not signed in") {
+        localStorage.removeItem("rdv_token");
+        localStorage.removeItem("rdv_role");
+        router.replace("/");
+        return;
+      }
+      setError(message || t("tables.loadFailed", "Failed to load tables"));
     } finally {
       setLoadingTables(false);
     }
