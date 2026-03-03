@@ -114,6 +114,7 @@ export default function OrderPage() {
   const [noteSheetOpen, setNoteSheetOpen] = useState(false);
   const [noteSheetItemId, setNoteSheetItemId] = useState("");
   const [noteMode, setNoteMode] = useState<NoteMode>("no");
+  const [noteInput, setNoteInput] = useState("");
 
   const menuCacheRef = useRef<Partial<Record<ShiftKey, MenuItem[]>>>({});
   const menuRequestRef = useRef(0);
@@ -406,21 +407,6 @@ export default function OrderPage() {
     () => menu.find((item) => item.id === noteSheetItemId) || null,
     [menu, noteSheetItemId]
   );
-  const noteIngredients = useMemo(() => {
-    const source = String(noteSheetItem?.description || "");
-    if (!source) return [];
-    return Array.from(new Set(
-      source
-        .split(/[\n,，]/)
-        .map((v) => v.trim())
-        .filter(Boolean)
-        .filter((v) => !/subject to availability/i.test(v))
-    )).slice(0, 20);
-  }, [noteSheetItem?.description]);
-  const noteTokenSet = useMemo(
-    () => new Set(parseNoteTokens(noteSheetItem?.note).map((v) => v.toLowerCase())),
-    [noteSheetItem?.note]
-  );
 
   function setQty(id: string, qty: number) {
     const current = menu.find((item) => item.id === id);
@@ -446,6 +432,7 @@ export default function OrderPage() {
   function openNoteSheetFor(itemId: string) {
     setNoteSheetItemId(itemId);
     setNoteMode("no");
+    setNoteInput("");
     setNoteSheetOpen(true);
   }
 
@@ -466,20 +453,27 @@ export default function OrderPage() {
     return trimmed.join("; ");
   }
 
-  function applyIngredientNote(itemId: string, ingredient: string) {
-    const clean = ingredient.trim();
+  function applyManualNote(itemId: string) {
+    const clean = noteInput.trim();
     if (!clean) return;
     const current = menu.find((item) => item.id === itemId);
     if (!current) return;
     const token = `${noteMode} ${clean}`;
     const tokens = parseNoteTokens(current.note);
     const exists = tokens.some((v) => v.toLowerCase() === token.toLowerCase());
-    const nextTokens = exists
-      ? tokens.filter((v) => v.toLowerCase() !== token.toLowerCase())
-      : [...tokens, token];
+    const nextTokens = exists ? tokens : [...tokens, token];
     const nextNote = serializeNoteTokens(nextTokens) || undefined;
     setMenu((prev) => prev.map((item) => (item.id === itemId ? { ...item, note: nextNote } : item)));
     updateCartSelection(itemId, current.qty || 0, nextNote);
+    setNoteInput("");
+  }
+
+  function clearManualNote(itemId: string) {
+    const current = menu.find((item) => item.id === itemId);
+    if (!current) return;
+    setMenu((prev) => prev.map((item) => (item.id === itemId ? { ...item, note: undefined } : item)));
+    updateCartSelection(itemId, current.qty || 0, undefined);
+    setNoteInput("");
   }
 
   function increaseQtyAndOpenNote(item: MenuItem) {
@@ -1005,22 +999,26 @@ export default function OrderPage() {
                 {t("order.noteModeNo", "no")}
               </button>
             </div>
-            <div className="row note-chips">
-              {noteIngredients.map((ingredient) => {
-                const token = `${noteMode} ${ingredient}`.toLowerCase();
-                const active = noteTokenSet.has(token);
-                return (
-                  <button
-                    key={ingredient}
-                    type="button"
-                    className={active ? "compact-btn note-chip active" : "secondary compact-btn note-chip"}
-                    onClick={() => applyIngredientNote(noteSheetItem.id, ingredient)}
-                  >
-                    {ingredient}
-                  </button>
-                );
-              })}
-              {noteIngredients.length === 0 ? <span className="muted">{t("order.noteNoIngredients", "暂无配料可选")}</span> : null}
+            <div className="stack" style={{ gap: 8 }}>
+              <input
+                value={noteInput}
+                onChange={(e) => setNoteInput(e.target.value)}
+                placeholder={t("order.noteInputPlaceholder", "Type your note")}
+                maxLength={60}
+                onKeyDown={(e) => {
+                  if (e.key !== "Enter") return;
+                  e.preventDefault();
+                  applyManualNote(noteSheetItem.id);
+                }}
+              />
+              <div className="row" style={{ justifyContent: "space-between" }}>
+                <button type="button" className="compact-btn" onClick={() => applyManualNote(noteSheetItem.id)}>
+                  {t("order.noteAdd", "Add")}
+                </button>
+                <button type="button" className="secondary compact-btn" onClick={() => clearManualNote(noteSheetItem.id)}>
+                  {t("order.noteClear", "Clear")}
+                </button>
+              </div>
             </div>
             <div className="muted">
               {t("order.noteLabel", "备注")}: {noteSheetItem.note || "-"}
