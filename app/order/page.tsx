@@ -1117,7 +1117,7 @@ export default function OrderPage() {
         </div>
       ) : null}
 
-      <div className="panel row order-submit-bar" style={{ justifyContent: "space-between" }}>
+      <div className="panel order-submit-bar">
         <button
           type="button"
           className="secondary compact-btn current-order-trigger"

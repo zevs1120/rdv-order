@@ -474,6 +474,10 @@ button:disabled {
 }
 
 .order-submit-bar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
   position: sticky;
   bottom: calc(56px + env(safe-area-inset-bottom));
   z-index: 26;
@@ -482,11 +486,17 @@ button:disabled {
   box-shadow: 0 -8px 24px rgba(34, 42, 58, 0.08);
 }
 
+.order-submit-bar > button {
+  min-width: 0;
+}
+
 .current-order-trigger {
   min-width: 0;
-  max-width: 62%;
+  max-width: none;
   overflow: hidden;
   text-overflow: ellipsis;
+  justify-self: start;
+  text-align: left;
 }
 
 .shift-tabs {
@@ -1049,8 +1059,42 @@ a {
     min-height: 300px;
   }
 
+  .order-actions {
+    flex-wrap: wrap;
+    overflow-x: visible;
+    gap: 6px;
+  }
+
+  .order-search-input {
+    width: 100%;
+    min-width: 0;
+    flex: 1 0 100%;
+  }
+
   .order-actions .compact-btn {
-    max-width: 92px;
+    flex: 1 1 calc(25% - 6px);
+    max-width: none;
+    min-width: 0;
+    padding: 4px 6px;
+    font-size: 12px;
+    text-align: center;
+  }
+
+  .order-submit-bar {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 6px;
+  }
+
+  .order-submit-bar button {
+    width: 100%;
+    min-width: 0;
+    font-size: 13px;
+    padding-left: 8px;
+    padding-right: 8px;
+  }
+
+  .current-order-trigger {
+    text-align: left;
   }
 
   .cart-sheet,
@@ -1072,6 +1116,16 @@ a {
 
   .bottom-nav-item {
     min-height: 46px;
+  }
+}
+
+@media (max-width: 390px) {
+  .order-actions .compact-btn {
+    flex-basis: calc(33.333% - 6px);
+  }
+
+  .order-submit-bar button {
+    font-size: 12px;
   }
 }
 
