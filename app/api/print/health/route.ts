@@ -2,16 +2,23 @@ import { NextResponse } from "next/server";
 import { pool } from "../../../../lib/db";
 import { requirePermission } from "../../../../lib/permissions";
 
-type Provider = "cloud" | "agent";
+type Provider = "cloud" | "agent" | "xpyun";
 
 function parseProvider(raw: string | undefined, fallback: Provider): Provider {
   const value = String(raw || "").toLowerCase();
   if (value === "agent") return "agent";
+  if (value === "xpyun") return "xpyun";
   if (value === "cloud") return "cloud";
   return fallback;
 }
 
 function configFor(provider: Provider) {
+  if (provider === "xpyun") {
+    return {
+      url: process.env.XPYUN_API_URL || "https://open.xpyun.net/api/openapi/xprinter/print",
+      tokenSet: Boolean(process.env.XPYUN_USER && process.env.XPYUN_USER_KEY && process.env.XPYUN_SN)
+    };
+  }
   if (provider === "cloud") {
     return {
       url: process.env.PRINT_CLOUD_URL || "",

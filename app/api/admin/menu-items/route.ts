@@ -4,6 +4,27 @@ import { requirePermission } from "../../../../lib/permissions";
 
 const ALLOWED_GROUPS = ["breakfast", "lunch_dinner", "cocktail", "set_menu"] as const;
 const ALLOWED_ITEM_TYPES = ["single", "set"] as const;
+const BEVERAGE_CATEGORY_KEYS = new Set([
+  "beer",
+  "soft drink",
+  "soft drinks",
+  "canned juice",
+  "canned juices",
+  "coffee",
+  "coffees",
+  "shake",
+  "shakes",
+  "啤酒",
+  "咖啡",
+  "软饮",
+  "罐装果汁",
+  "奶昔"
+]);
+
+function isBeverageCategory(raw: unknown) {
+  const key = String(raw || "").trim().toLowerCase();
+  return BEVERAGE_CATEGORY_KEYS.has(key);
+}
 
 export async function GET(req: Request) {
   try {
@@ -69,7 +90,9 @@ export async function POST(req: Request) {
             ? ["cocktail"]
             : body.menuGroup === "set_menu"
               ? ["package"]
-            : ["lunch", "dinner"]
+            : isBeverageCategory(body.category)
+              ? ["beverage"]
+              : ["lunch", "dinner"]
       );
 
     const { rows } = await pool.query(

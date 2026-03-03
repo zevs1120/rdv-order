@@ -1,6 +1,6 @@
 function parseProvider(raw, fallback) {
   const v = String(raw || "").toLowerCase();
-  if (v === "cloud" || v === "agent") return v;
+  if (v === "cloud" || v === "agent" || v === "xpyun") return v;
   return fallback;
 }
 
@@ -10,6 +10,15 @@ function checkProvider(provider) {
       provider,
       url: Boolean(process.env.PRINT_CLOUD_URL),
       token: Boolean(process.env.PRINT_CLOUD_API_KEY)
+    };
+  }
+  if (provider === "xpyun") {
+    return {
+      provider,
+      url: Boolean(process.env.XPYUN_API_URL || "https://open.xpyun.net/api/openapi/xprinter/print"),
+      user: Boolean(process.env.XPYUN_USER),
+      userKey: Boolean(process.env.XPYUN_USER_KEY),
+      sn: Boolean(process.env.XPYUN_SN)
     };
   }
   return {
@@ -42,11 +51,21 @@ function run() {
     .filter(Boolean);
 
   const problems = [];
-  if (!primaryStatus.url || !primaryStatus.token) {
+  if (primaryStatus.provider === "xpyun") {
+    if (!primaryStatus.url || !primaryStatus.user || !primaryStatus.userKey || !primaryStatus.sn) {
+      problems.push(`primary provider ${primaryStatus.provider} config incomplete`);
+    }
+  } else if (!primaryStatus.url || !primaryStatus.token) {
     problems.push(`primary provider ${primaryStatus.provider} config incomplete`);
   }
-  if (fallbackStatus && (!fallbackStatus.url || !fallbackStatus.token)) {
-    problems.push(`fallback provider ${fallbackStatus.provider} config incomplete`);
+  if (fallbackStatus) {
+    if (fallbackStatus.provider === "xpyun") {
+      if (!fallbackStatus.url || !fallbackStatus.user || !fallbackStatus.userKey || !fallbackStatus.sn) {
+        problems.push(`fallback provider ${fallbackStatus.provider} config incomplete`);
+      }
+    } else if (!fallbackStatus.url || !fallbackStatus.token) {
+      problems.push(`fallback provider ${fallbackStatus.provider} config incomplete`);
+    }
   }
   if (!workerKey) {
     problems.push("PRINT_WORKER_KEY is not set");

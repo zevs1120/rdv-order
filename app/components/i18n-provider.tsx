@@ -12,16 +12,20 @@ type I18nContextValue = {
 const I18nContext = createContext<I18nContextValue | null>(null);
 
 export default function I18nProvider({ children }: { children: ReactNode }) {
-  const [lang, setLang] = useState<Lang>("zh");
+  const [lang, setLang] = useState<Lang>(() => {
+    if (typeof window === "undefined") return "zh";
+    const stored = localStorage.getItem("rdv_lang");
+    if (stored === "zh" || stored === "en") return stored;
+    const browserLang = (navigator.language || "").toLowerCase();
+    return browserLang.startsWith("zh") ? "zh" : "en";
+  });
 
   useEffect(() => {
+    // client-only sync guard for environments where localStorage might change between mounts
     const stored = localStorage.getItem("rdv_lang");
     if (stored === "zh" || stored === "en") {
-      setLang(stored);
-      return;
+      setLang((prev) => (prev === stored ? prev : stored));
     }
-    const browserLang = (navigator.language || "").toLowerCase();
-    setLang(browserLang.startsWith("zh") ? "zh" : "en");
   }, []);
 
   useEffect(() => {
@@ -45,4 +49,3 @@ export function useI18n() {
   }
   return ctx;
 }
-

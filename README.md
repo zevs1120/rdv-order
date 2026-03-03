@@ -73,8 +73,14 @@ cp .env.example .env.local
 - `PRINT_PROVIDER`
 - `PRINT_CLOUD_URL` + `PRINT_CLOUD_API_KEY`（云打印）
 - 或 `PRINT_AGENT_URL` + `PRINT_AGENT_TOKEN`（店内打印代理）
+- 或 `XPYUN_USER` + `XPYUN_USER_KEY` + `XPYUN_SN`（芯烨云打印，`PRINT_PROVIDER=xpyun`）
+- `XPYUN_API_URL`（可选，默认 `https://open.xpyun.net/api/openapi/xprinter/print`）
+- `XPYUN_COPIES`（可选，默认 1）
+- `XPYUN_VOICE`（可选，默认 2）
+- `XPYUN_MODE`（可选）
 - `PRINT_WORKER_KEY`（可选，给调度器调用 `/api/print/dispatch`）
-- `PRINT_FALLBACK_PROVIDER`（可选：`cloud` 或 `agent`）
+- `PRINT_FALLBACK_PROVIDER`（可选：`cloud` / `agent` / `xpyun`）
+- `PRINT_SPLIT_BY_TARGET`（可选，默认 `false`；`true` 时按后厨/吧台拆单）
 - `PRINT_TIMEOUT_MS`（可选，默认 3000）
 - `PRINT_MAX_RETRY`（可选，默认 8）
 - `PRINT_ALERT_FAIL_COUNT`（可选，默认 3，设备失败告警阈值）
@@ -106,6 +112,11 @@ cp .env.example .env.local
 \i db/migrations/007_state_machine_and_rules.sql
 \i db/migrations/008_shift_package_and_status_cleanup.sql
 \i db/migrations/009_order_item_note_and_print_alerts.sql
+\i db/migrations/010_breakfast_menu_additions.sql
+\i db/migrations/011_disable_legacy_breakfast_sets.sql
+\i db/migrations/012_move_beverages_to_beverage_shift.sql
+\i db/migrations/013_move_coffee_to_beverage_shift.sql
+\i db/migrations/014_performance_indexes_mobile_scale.sql
 ```
 
 5. 启动
@@ -127,7 +138,7 @@ npm run check:print-env
 - `DATABASE_URL`
 - `JWT_SECRET`
 - `PRINT_PROVIDER`
-- `PRINT_CLOUD_URL` + `PRINT_CLOUD_API_KEY`（或 `PRINT_AGENT_URL` + `PRINT_AGENT_TOKEN`）
+- `PRINT_CLOUD_URL` + `PRINT_CLOUD_API_KEY`（或 `PRINT_AGENT_URL` + `PRINT_AGENT_TOKEN`，或 `XPYUN_USER` + `XPYUN_USER_KEY` + `XPYUN_SN`）
 - `PRINT_WORKER_KEY`（建议）
 
 设置后 Redeploy。

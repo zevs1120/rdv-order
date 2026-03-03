@@ -55,7 +55,12 @@ export default function TablesPage() {
   }
 
   const columns = useMemo(() => {
-    return [1, 2, 3].map((col) => tables.filter((t) => t.column === col));
+    const grouped: TableItem[][] = [[], [], []];
+    for (const table of tables) {
+      const index = Math.min(2, Math.max(0, table.column - 1));
+      grouped[index].push(table);
+    }
+    return grouped;
   }, [tables]);
 
   function enterMenu(tableNo: string, guests: number) {

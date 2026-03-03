@@ -34,8 +34,8 @@ type Payload = {
 
 type PrintHealth = {
   provider: {
-    primary: "cloud" | "agent";
-    fallback: "cloud" | "agent" | null;
+    primary: "cloud" | "agent" | "xpyun";
+    fallback: "cloud" | "agent" | "xpyun" | null;
   };
   config: {
     primary: { url: string; tokenSet: boolean; ready: boolean };

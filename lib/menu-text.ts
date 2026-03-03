@@ -4,6 +4,7 @@ type Pair = { zh: string; en: string };
 
 const pairs: Pair[] = [
   { zh: "早餐", en: "Breakfast" },
+  { zh: "早餐套餐", en: "Breakfast Set" },
   { zh: "套餐", en: "Package" },
   { zh: "鸡尾酒", en: "Cocktail" },
   { zh: "经典鸡尾酒", en: "Classic Cocktails" },
@@ -28,7 +29,16 @@ const pairs: Pair[] = [
   { zh: "早餐套餐 B", en: "Breakfast Set B" },
   { zh: "套餐 A", en: "Package A" },
   { zh: "套餐 B", en: "Package B" },
-  { zh: "经典莫吉托", en: "Mojito" }
+  { zh: "经典莫吉托", en: "Mojito" },
+  { zh: "中式云吞套餐", en: "Chinese Wonton Set" },
+  { zh: "中式粥品套餐", en: "Chinese Congee Set" },
+  { zh: "中式汤面", en: "Chinese Noodle Soup" },
+  { zh: "松饼早餐", en: "Pancake Breakfast" },
+  { zh: "华夫早餐", en: "Waffle Breakfast" },
+  { zh: "水果燕麦", en: "Fruit Oatmeal" },
+  { zh: "酸奶水果杯", en: "Yogurt Parfait" },
+  { zh: "欧陆早餐", en: "Continental Breakfast" },
+  { zh: "菲律宾早餐", en: "Filipino Breakfast" }
 ];
 
 const zhToEn = new Map<string, string>();

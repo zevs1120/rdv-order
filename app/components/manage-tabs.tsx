@@ -2,17 +2,16 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useI18n } from "./i18n-provider";
 
 export default function ManageTabs() {
   const pathname = usePathname();
   const { t } = useI18n();
-  const [role, setRole] = useState("");
-
-  useEffect(() => {
-    setRole(localStorage.getItem("rdv_role") || "");
-  }, []);
+  const [role] = useState(() => {
+    if (typeof window === "undefined") return "";
+    return localStorage.getItem("rdv_role") || "";
+  });
 
   return (
     <div className="row manage-tabs-wrap">

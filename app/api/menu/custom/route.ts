@@ -3,15 +3,25 @@ import { pool } from "../../../../lib/db";
 import { requirePermission } from "../../../../lib/permissions";
 import { writeAuditLogSafe } from "../../../../lib/audit";
 
-type ShiftKey = "breakfast" | "lunch" | "dinner" | "cocktail" | "package";
+type ShiftKey = "breakfast" | "lunch" | "dinner" | "beverage" | "cocktail" | "package";
 type Mode = "temporary" | "permanent";
 
 const SHIFT_MAP: Record<ShiftKey, "breakfast" | "lunch_dinner" | "cocktail" | "set_menu"> = {
   breakfast: "breakfast",
   lunch: "lunch_dinner",
   dinner: "lunch_dinner",
+  beverage: "lunch_dinner",
   cocktail: "cocktail",
   package: "set_menu"
+};
+
+const SHIFT_AVAILABLE: Record<ShiftKey, string[]> = {
+  breakfast: ["breakfast"],
+  lunch: ["lunch", "dinner"],
+  dinner: ["lunch", "dinner"],
+  beverage: ["beverage"],
+  cocktail: ["cocktail"],
+  package: ["package"]
 };
 
 export async function POST(req: Request) {
@@ -39,10 +49,11 @@ export async function POST(req: Request) {
     }
 
     const menuGroup = SHIFT_MAP[shift];
+    const availableShifts = SHIFT_AVAILABLE[shift];
 
     const { rows } = await pool.query(
-      `INSERT INTO menu_items (name, price, category, description, menu_group, item_type, is_active, is_temporary, sort_order)
-       VALUES ($1, $2, $3, $4, $5, 'single', $6, $7, 9999)
+      `INSERT INTO menu_items (name, price, category, description, menu_group, item_type, is_active, is_temporary, sort_order, available_shifts)
+       VALUES ($1, $2, $3, $4, $5, 'single', $6, $7, 9999, $8::text[])
        RETURNING id, name, price, category, description, menu_group, item_type`,
       [
         name,
@@ -51,7 +62,8 @@ export async function POST(req: Request) {
         description || null,
         menuGroup,
         mode === "permanent",
-        mode === "temporary"
+        mode === "temporary",
+        availableShifts
       ]
     );
 

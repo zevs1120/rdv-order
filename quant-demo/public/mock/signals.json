@@ -1,0 +1,178 @@
+[
+  {
+    "signal_id": "SIG-2026-0301-0001",
+    "market": "US",
+    "symbol": "AAPL",
+    "direction": "LONG",
+    "status": "PENDING",
+    "confidence": 5,
+    "generated_at": "2026-03-01T09:30:00Z",
+    "entry_min": 203.2,
+    "entry_max": 205.0,
+    "stop_loss": 198.4,
+    "take_profit": 212.6,
+    "position_size_pct": 3,
+    "validity": "24H",
+    "rationale": [
+      "Momentum resumed after earnings gap consolidation.",
+      "Relative strength vs sector remains elevated.",
+      "Order flow stayed bid through US morning session."
+    ],
+    "model_version": "v0.1",
+    "quick_pnl_pct": null
+  },
+  {
+    "signal_id": "SIG-2026-0301-0002",
+    "market": "US",
+    "symbol": "NVDA",
+    "direction": "SHORT",
+    "status": "TRIGGERED",
+    "confidence": 4,
+    "generated_at": "2026-03-01T08:40:00Z",
+    "entry_min": 865.1,
+    "entry_max": 870.3,
+    "stop_loss": 885,
+    "take_profit": 832,
+    "position_size_pct": 2.5,
+    "validity": "UNTIL_TRIGGERED",
+    "rationale": [
+      "Failed breakout and lower high on intraday trend.",
+      "Option skew shifted defensive before open.",
+      "Macro beta basket showing short-term unwind."
+    ],
+    "model_version": "v0.1",
+    "quick_pnl_pct": 1.6
+  },
+  {
+    "signal_id": "SIG-2026-0228-0018",
+    "market": "US",
+    "symbol": "TSLA",
+    "direction": "LONG",
+    "status": "CLOSED",
+    "confidence": 3,
+    "generated_at": "2026-02-28T18:10:00Z",
+    "entry_min": 214.6,
+    "entry_max": 216.2,
+    "stop_loss": 208,
+    "take_profit": 226.8,
+    "position_size_pct": 2,
+    "validity": "24H",
+    "rationale": [
+      "Support held across two high-volume tests.",
+      "Short-term volatility compressed before expansion.",
+      "Sector peers showing synchronized bid."
+    ],
+    "model_version": "v0.1",
+    "quick_pnl_pct": 3.1
+  },
+  {
+    "signal_id": "SIG-2026-0228-0017",
+    "market": "US",
+    "symbol": "MSFT",
+    "direction": "SHORT",
+    "status": "EXPIRED",
+    "confidence": 2,
+    "generated_at": "2026-02-28T14:15:00Z",
+    "entry_min": 421.2,
+    "entry_max": 424,
+    "stop_loss": 430.4,
+    "take_profit": 410,
+    "position_size_pct": 1.5,
+    "validity": "24H",
+    "rationale": [
+      "Setup invalidated by broad index rebound.",
+      "Downside momentum never confirmed.",
+      "Intraday breadth recovered faster than model baseline."
+    ],
+    "model_version": "v0.1",
+    "quick_pnl_pct": null
+  },
+  {
+    "signal_id": "SIG-2026-0301-1001",
+    "market": "CRYPTO",
+    "symbol": "BTC-USDT",
+    "direction": "LONG",
+    "status": "TRIGGERED",
+    "confidence": 5,
+    "generated_at": "2026-03-01T10:05:00Z",
+    "entry_min": 68420,
+    "entry_max": 68880,
+    "stop_loss": 67200,
+    "take_profit": 70550,
+    "position_size_pct": 4,
+    "validity": "UNTIL_TRIGGERED",
+    "rationale": [
+      "Spot-led breakout with positive basis but controlled leverage.",
+      "Funding remained neutral despite price expansion.",
+      "Liquidity sweep completed, reclaim confirmed."
+    ],
+    "model_version": "v0.1",
+    "quick_pnl_pct": 2.2
+  },
+  {
+    "signal_id": "SIG-2026-0301-1002",
+    "market": "CRYPTO",
+    "symbol": "ETH-USDT",
+    "direction": "SHORT",
+    "status": "PENDING",
+    "confidence": 3,
+    "generated_at": "2026-03-01T09:55:00Z",
+    "entry_min": 3740,
+    "entry_max": 3770,
+    "stop_loss": 3835,
+    "take_profit": 3625,
+    "position_size_pct": 2.2,
+    "validity": "24H",
+    "rationale": [
+      "Failure at prior supply with weakening perpetual premium.",
+      "Alt beta divergence vs BTC upside leg.",
+      "Short-term flow skewed to aggressive taker selling."
+    ],
+    "model_version": "v0.1",
+    "quick_pnl_pct": null
+  },
+  {
+    "signal_id": "SIG-2026-0228-1018",
+    "market": "CRYPTO",
+    "symbol": "SOL-USDT",
+    "direction": "LONG",
+    "status": "CLOSED",
+    "confidence": 4,
+    "generated_at": "2026-02-28T16:40:00Z",
+    "entry_min": 162.2,
+    "entry_max": 163.8,
+    "stop_loss": 156.5,
+    "take_profit": 170.4,
+    "position_size_pct": 2.8,
+    "validity": "24H",
+    "rationale": [
+      "Break and hold above weekly pivot.",
+      "On-chain activity acceleration supported momentum leg.",
+      "Derivatives open interest rise stayed orderly."
+    ],
+    "model_version": "v0.1",
+    "quick_pnl_pct": 4.8
+  },
+  {
+    "signal_id": "SIG-2026-0228-1017",
+    "market": "CRYPTO",
+    "symbol": "BNB-USDT",
+    "direction": "SHORT",
+    "status": "EXPIRED",
+    "confidence": 2,
+    "generated_at": "2026-02-28T13:10:00Z",
+    "entry_min": 608,
+    "entry_max": 612,
+    "stop_loss": 620,
+    "take_profit": 592,
+    "position_size_pct": 1.7,
+    "validity": "24H",
+    "rationale": [
+      "Reversal trigger never confirmed.",
+      "Funding compression faded without spot follow-through.",
+      "Macro beta impulse dominated pair-specific weakness."
+    ],
+    "model_version": "v0.1",
+    "quick_pnl_pct": null
+  }
+]

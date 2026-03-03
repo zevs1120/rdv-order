@@ -1,6 +1,7 @@
+import { createHash } from "crypto";
 import { pool } from "./db";
 
-export type PrintProvider = "cloud" | "agent";
+export type PrintProvider = "cloud" | "agent" | "xpyun";
 type PrintTarget = "kitchen" | "bar";
 
 type DispatchResult = {
@@ -20,6 +21,39 @@ type OrderPrintRow = {
   note: string | null;
 };
 
+type PrintItem = {
+  name: string;
+  qty: number;
+  category: string | null;
+  note: string | null;
+  target: PrintTarget;
+};
+
+type PrintTicket = {
+  target: PrintTarget;
+  items: PrintItem[];
+};
+
+type OrderPrintPayload = {
+  type: "order";
+  printVersion: number;
+  tableNo: string;
+  createdAt: string;
+  waiter: string | null;
+  items: PrintItem[];
+  tickets: PrintTicket[];
+};
+
+type SelfTestPrintPayload = {
+  type: "self_test";
+  printVersion: number;
+  generatedAt: string;
+  tableNo: string;
+  tickets: PrintTicket[];
+};
+
+type PrintPayload = OrderPrintPayload | SelfTestPrintPayload;
+
 export class PrintDispatchError extends Error {
   readonly retryable: boolean;
 
@@ -31,12 +65,16 @@ export class PrintDispatchError extends Error {
 
 function getProvider(): PrintProvider {
   const raw = (process.env.PRINT_PROVIDER || "cloud").toLowerCase();
-  return raw === "agent" ? "agent" : "cloud";
+  if (raw === "agent") return "agent";
+  if (raw === "xpyun") return "xpyun";
+  return "cloud";
 }
 
 function getFallbackProvider(primary: PrintProvider): PrintProvider | null {
   const raw = (process.env.PRINT_FALLBACK_PROVIDER || "").toLowerCase();
-  const parsed: PrintProvider | null = raw === "cloud" ? "cloud" : raw === "agent" ? "agent" : null;
+  const parsed: PrintProvider | null = raw === "cloud" || raw === "agent" || raw === "xpyun"
+    ? raw
+    : null;
   if (!parsed || parsed === primary) return null;
   return parsed;
 }
@@ -63,6 +101,10 @@ function toLowerList(csv: string | undefined) {
     .filter(Boolean);
 }
 
+function shouldSplitByTarget() {
+  return String(process.env.PRINT_SPLIT_BY_TARGET || "").trim().toLowerCase() === "true";
+}
+
 function resolveTarget(
   category: string | null,
   dishName: string,
@@ -82,9 +124,10 @@ function resolveTarget(
   return "kitchen";
 }
 
-async function buildOrderPayload(orderId: string) {
+async function buildOrderPayload(orderId: string): Promise<OrderPrintPayload> {
   const barCategories = toLowerSet(process.env.PRINT_ROUTE_BAR_CATEGORIES);
   const barKeywords = toLowerList(process.env.PRINT_ROUTE_BAR_KEYWORDS);
+  const splitByTarget = shouldSplitByTarget();
 
   const { rows } = await pool.query<OrderPrintRow>(
     `SELECT o.id AS order_id,
@@ -110,7 +153,7 @@ async function buildOrderPayload(orderId: string) {
 
   const base = rows[0];
   const items = rows.map((row) => {
-    const target = resolveTarget(row.category, row.dish_name, barCategories, barKeywords);
+    const target = splitByTarget ? resolveTarget(row.category, row.dish_name, barCategories, barKeywords) : "kitchen";
     return {
       name: row.dish_name,
       qty: row.qty,
@@ -120,31 +163,61 @@ async function buildOrderPayload(orderId: string) {
     };
   });
 
-  const tickets = ["kitchen", "bar"]
-    .map((target) => ({
-      target,
-      items: items.filter((item) => item.target === target)
-    }))
-    .filter((ticket) => ticket.items.length > 0);
+  const tickets: PrintTicket[] = splitByTarget
+    ? (["kitchen", "bar"] as const)
+        .map((target) => ({
+          target,
+          items: items.filter((item) => item.target === target)
+        }))
+        .filter((ticket) => ticket.items.length > 0)
+    : [{ target: "kitchen", items }];
 
   return {
     type: "order",
     printVersion: 2,
-    orderId,
     tableNo: base.table_no,
     createdAt: base.created_at,
     waiter: base.waiter_name || null,
     items,
-    tickets,
-    routeRules: {
-      barCategories: Array.from(barCategories),
-      barKeywords
-    }
+    tickets
   };
 }
 
-function buildSelfTestPayload(target: "kitchen" | "bar" | "both" = "both") {
-  const targets = target === "both" ? (["kitchen", "bar"] as const) : ([target] as const);
+function buildSelfTestPayload(target: "kitchen" | "bar" | "both" = "both"): SelfTestPrintPayload {
+  const splitByTarget = shouldSplitByTarget();
+  const targets = splitByTarget
+    ? (target === "both" ? (["kitchen", "bar"] as const) : ([target] as const))
+    : (["kitchen"] as const);
+  const items = target === "bar"
+    ? [{
+        name: "TEST DRINK",
+        qty: 1,
+        category: "Test Bar",
+        note: "printer self test",
+        target: "bar" as const
+      }]
+    : target === "kitchen"
+      ? [{
+          name: "TEST DISH",
+          qty: 1,
+          category: "Test Kitchen",
+          note: "printer self test",
+          target: "kitchen" as const
+        }]
+      : [{
+          name: "TEST DISH",
+          qty: 1,
+          category: "Test Kitchen",
+          note: "printer self test",
+          target: "kitchen" as const
+        }, {
+          name: "TEST DRINK",
+          qty: 1,
+          category: "Test Bar",
+          note: "printer self test",
+          target: "bar" as const
+        }];
+
   return {
     type: "self_test",
     printVersion: 2,
@@ -152,14 +225,127 @@ function buildSelfTestPayload(target: "kitchen" | "bar" | "both" = "both") {
     tableNo: "TEST",
     tickets: targets.map((ticketTarget) => ({
       target: ticketTarget,
-      items: [{
-        name: ticketTarget === "bar" ? "TEST DRINK" : "TEST DISH",
-        qty: 1,
-        category: ticketTarget === "bar" ? "Test Bar" : "Test Kitchen",
-        note: "printer self test",
-        target: ticketTarget
-      }]
+      items: splitByTarget ? items.filter((item) => item.target === ticketTarget) : items
     }))
+  };
+}
+
+function escapeXpyunText(value: string) {
+  return value
+    .replace(/&/g, "＆")
+    .replace(/</g, "&lt")
+    .replace(/>/g, "&gt");
+}
+
+function line(text = "") {
+  return `${escapeXpyunText(text)}<BR>`;
+}
+
+function formatPrintDateTime(iso: string) {
+  const d = new Date(iso);
+  if (!Number.isFinite(d.valueOf())) return iso;
+  const timezone = process.env.PRINT_TIMEZONE || "Asia/Manila";
+  const parts = new Intl.DateTimeFormat("sv-SE", {
+    timeZone: timezone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false
+  }).formatToParts(d);
+  const get = (type: Intl.DateTimeFormatPartTypes) => parts.find((p) => p.type === type)?.value || "00";
+  return `${get("year")}-${get("month")}-${get("day")} ${get("hour")}:${get("minute")}:${get("second")}`;
+}
+
+function toXpyunContent(payload: PrintPayload) {
+  const items = payload.tickets.flatMap((ticket) => ticket.items);
+  const totalQty = items.reduce((sum, item) => sum + Math.max(0, Number(item.qty) || 0), 0);
+  const headerDate = payload.type === "order" ? payload.createdAt : payload.generatedAt;
+
+  const lines: string[] = [
+    "<CB>RDV ORDER<BR></CB>",
+    line(`桌号: ${payload.tableNo}`),
+    line(`时间: ${formatPrintDateTime(headerDate)}`)
+  ];
+
+  if (payload.type === "order" && payload.waiter) {
+    lines.push(line(`服务员: ${payload.waiter}`));
+  }
+
+  lines.push(line("--------------------------------"));
+  for (const item of items) {
+    lines.push(line(`${item.name} x${item.qty}`));
+    if (item.note) {
+      lines.push(line(`备注: ${item.note}`));
+    }
+    lines.push("<BR>");
+  }
+  lines.push(line("--------------------------------"));
+  lines.push(line(`菜品数: ${items.length}`));
+  lines.push(line(`总份数: ${totalQty}`));
+  lines.push("<BR><BR>");
+
+  let content = lines.join("");
+  const maxBytes = 11_500; // XPYUN content hard limit is 12KB
+  while (Buffer.byteLength(content, "utf8") > maxBytes && lines.length > 8) {
+    lines.splice(Math.max(8, lines.length - 4), 2);
+    content = lines.join("");
+  }
+  return content;
+}
+
+function isRetryableXpyunError(code: number) {
+  return code === 1003 || code === 1006 || code === 2001 || code === 5000;
+}
+
+async function dispatchToXpyun(payload: PrintPayload): Promise<DispatchResult> {
+  const url = process.env.XPYUN_API_URL || "https://open.xpyun.net/api/openapi/xprinter/print";
+  const user = (process.env.XPYUN_USER || "").trim();
+  const userKey = (process.env.XPYUN_USER_KEY || "").trim();
+  const sn = (process.env.XPYUN_SN || "").trim();
+  if (!url || !user || !userKey || !sn) {
+    throw new PrintDispatchError("芯烨云打印配置缺失", false);
+  }
+
+  const timestamp = String(Math.floor(Date.now() / 1000));
+  const sign = createHash("sha1").update(`${user}${userKey}${timestamp}`).digest("hex");
+  const copiesRaw = Number(process.env.XPYUN_COPIES || 1);
+  const copies = Number.isFinite(copiesRaw) ? Math.min(65535, Math.max(1, Math.round(copiesRaw))) : 1;
+  const voiceRaw = Number(process.env.XPYUN_VOICE || 2);
+  const voice = Number.isFinite(voiceRaw) ? Math.min(4, Math.max(0, Math.round(voiceRaw))) : 2;
+  const modeRaw = process.env.XPYUN_MODE;
+  const modeNum = modeRaw === undefined || modeRaw === "" ? null : Number(modeRaw);
+  const mode = Number.isFinite(modeNum) ? Math.max(0, Math.round(modeNum as number)) : null;
+
+  const body: Record<string, unknown> = {
+    user,
+    timestamp,
+    sign,
+    sn,
+    content: toXpyunContent(payload),
+    copies,
+    voice
+  };
+  if (mode !== null) body.mode = mode;
+
+  const result = await postJsonWithTimeout(url, body, {}, getPrintTimeoutMs());
+  if (!result.ok) {
+    const retryable = result.status >= 500 || result.status === 429;
+    throw new PrintDispatchError(`芯烨云打印失败(${result.status})`, retryable);
+  }
+
+  const code = Number(result.data?.code);
+  const msg = typeof result.data?.msg === "string" ? result.data.msg : "xpyun provider error";
+  if (!Number.isFinite(code) || code !== 0) {
+    throw new PrintDispatchError(`芯烨云打印失败(${code}) ${msg}`, isRetryableXpyunError(code));
+  }
+
+  return {
+    provider: "xpyun",
+    slot: "primary",
+    remoteJobId: typeof result.data?.data === "string" ? result.data.data : undefined
   };
 }
 
@@ -289,11 +475,15 @@ async function markDeviceFailure(slot: "primary" | "backup", message: string) {
 
 async function dispatchWithTracking(
   provider: PrintProvider,
-  payload: Record<string, unknown>,
+  payload: PrintPayload,
   slot: "primary" | "backup"
 ): Promise<DispatchResult> {
   try {
-    const result = provider === "agent" ? await dispatchToAgent(payload) : await dispatchToCloud(payload);
+    const result = provider === "agent"
+      ? await dispatchToAgent(payload)
+      : provider === "xpyun"
+        ? await dispatchToXpyun(payload)
+        : await dispatchToCloud(payload);
     await markDeviceSuccess(slot);
     return { ...result, slot };
   } catch (err: any) {
@@ -303,7 +493,7 @@ async function dispatchWithTracking(
   }
 }
 
-async function dispatchWithFallback(payload: Record<string, unknown>) {
+async function dispatchWithFallback(payload: PrintPayload) {
   const primary = getProvider();
   const fallback = getFallbackProvider(primary);
 

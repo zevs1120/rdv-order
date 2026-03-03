@@ -27,6 +27,11 @@ export default function LoginPage() {
     setCheckingSession(false);
   }, [router]);
 
+  useEffect(() => {
+    router.prefetch("/tables");
+    router.prefetch("/manage/orders");
+  }, [router]);
+
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError("");

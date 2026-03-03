@@ -8,7 +8,7 @@ import { useI18n } from "../components/i18n-provider";
 import { localizeMenuText, shortCategoryLabel } from "../../lib/menu-text";
 import { useActionGuard } from "../../lib/use-action-guard";
 
-type ShiftKey = "breakfast" | "lunch" | "dinner" | "cocktail" | "package";
+type ShiftKey = "breakfast" | "lunch" | "dinner" | "beverage" | "cocktail" | "package";
 type CustomDishMode = "temporary" | "permanent";
 type UserRole = "waiter" | "manager" | "";
 
@@ -66,10 +66,13 @@ type OrderDraft = {
   updatedAt: number;
 };
 
+type NoteMode = "more" | "no";
+
 const SHIFT_OPTIONS: Array<{ key: ShiftKey; label: string }> = [
   { key: "breakfast", label: "早餐" },
   { key: "lunch", label: "午餐" },
   { key: "dinner", label: "晚餐" },
+  { key: "beverage", label: "饮品" },
   { key: "cocktail", label: "鸡尾酒" },
   { key: "package", label: "套餐" }
 ];
@@ -105,11 +108,15 @@ export default function OrderPage() {
     category: "",
     description: ""
   });
+  const [noteSheetOpen, setNoteSheetOpen] = useState(false);
+  const [noteSheetItemId, setNoteSheetItemId] = useState("");
+  const [noteMode, setNoteMode] = useState<NoteMode>("no");
 
   const menuCacheRef = useRef<Partial<Record<ShiftKey, MenuItem[]>>>({});
   const menuRequestRef = useRef(0);
   const menuIndexRef = useRef<Map<string, number>>(new Map());
   const draftRef = useRef<OrderDraft | null>(null);
+  const draftSerializedRef = useRef("");
   const isMergedTable = tableNo.includes("+");
   const canRunAction = useActionGuard();
   const deferredKeyword = useDeferredValue(keyword);
@@ -137,6 +144,7 @@ export default function OrderPage() {
 
   useEffect(() => {
     menuCacheRef.current = {};
+    draftSerializedRef.current = "";
     setMenu([]);
   }, [tableNo]);
 
@@ -152,9 +160,11 @@ export default function OrderPage() {
       const parsed = JSON.parse(raw) as OrderDraft;
       if (!parsed || parsed.tableNo !== tableNo) {
         draftRef.current = null;
+        draftSerializedRef.current = "";
         return;
       }
       draftRef.current = parsed;
+      draftSerializedRef.current = raw;
       if (parsed.shift && SHIFT_OPTIONS.some((item) => item.key === parsed.shift)) {
         setShift(parsed.shift);
       }
@@ -166,6 +176,7 @@ export default function OrderPage() {
       }
     } catch {
       draftRef.current = null;
+      draftSerializedRef.current = "";
     }
   }, [paramsReady, tableNo]);
 
@@ -259,34 +270,59 @@ export default function OrderPage() {
           })),
         updatedAt: Date.now()
       };
+      const serialized = JSON.stringify(draft);
+      if (serialized === draftSerializedRef.current) return;
+      draftSerializedRef.current = serialized;
       draftRef.current = draft;
-      localStorage.setItem(key, JSON.stringify(draft));
+      localStorage.setItem(key, serialized);
     }, 120);
 
     return () => window.clearTimeout(timer);
   }, [paramsReady, tableNo, shift, keyword, selectedCategory, menu]);
 
+  const derivedMenu = useMemo(() => menu.map((item) => ({
+    ...item,
+    _search: `${item.name} ${item.category || ""}`.toLowerCase(),
+    _category: item.category || "Uncategorized"
+  })), [menu]);
+
   const filteredMenu = useMemo(() => {
     const key = deferredKeyword.trim().toLowerCase();
-    if (!key) return menu;
-    return menu.filter((item) => {
-      const target = `${item.name} ${item.category || ""}`.toLowerCase();
-      return target.includes(key);
-    });
-  }, [menu, deferredKeyword]);
+    if (!key) return derivedMenu;
+    return derivedMenu.filter((item) => item._search.includes(key));
+  }, [derivedMenu, deferredKeyword]);
 
   const categories = useMemo(
-    () => Array.from(new Set(filteredMenu.map((item) => item.category || "Uncategorized"))),
+    () => Array.from(new Set(filteredMenu.map((item) => item._category))),
     [filteredMenu]
   );
 
   const visibleItems = useMemo(() => {
     if (!selectedCategory) return filteredMenu;
-    return filteredMenu.filter((item) => (item.category || "Uncategorized") === selectedCategory);
+    return filteredMenu.filter((item) => item._category === selectedCategory);
   }, [filteredMenu, selectedCategory]);
 
   const cart = useMemo(() => menu.filter((m) => (m.qty || 0) > 0) as CartItem[], [menu]);
   const total = cart.reduce((sum, item) => sum + item.price * item.qty, 0);
+  const noteSheetItem = useMemo(
+    () => menu.find((item) => item.id === noteSheetItemId) || null,
+    [menu, noteSheetItemId]
+  );
+  const noteIngredients = useMemo(() => {
+    const source = String(noteSheetItem?.description || "");
+    if (!source) return [];
+    return Array.from(new Set(
+      source
+        .split(/[\n,，]/)
+        .map((v) => v.trim())
+        .filter(Boolean)
+        .filter((v) => !/subject to availability/i.test(v))
+    )).slice(0, 20);
+  }, [noteSheetItem?.description]);
+  const noteTokenSet = useMemo(
+    () => new Set(parseNoteTokens(noteSheetItem?.note).map((v) => v.toLowerCase())),
+    [noteSheetItem?.note]
+  );
 
   function setQty(id: string, qty: number) {
     setMenu((prev) => {
@@ -307,14 +343,48 @@ export default function OrderPage() {
     });
   }
 
-  function editItemNote(id: string, current?: string) {
-    const value = window.prompt(
-      t("order.notePrompt", "输入此菜备注（不辣/不要冰等，留空则清空）"),
-      current || ""
-    );
-    if (value === null) return;
-    const nextNote = value.trim().slice(0, 120);
-    setMenu((prev) => prev.map((item) => item.id === id ? { ...item, note: nextNote || undefined } : item));
+  function openNoteSheetFor(itemId: string) {
+    setNoteSheetItemId(itemId);
+    setNoteMode("no");
+    setNoteSheetOpen(true);
+  }
+
+  function parseNoteTokens(note: string | undefined) {
+    return String(note || "")
+      .split(";")
+      .map((v) => v.trim())
+      .filter(Boolean);
+  }
+
+  function serializeNoteTokens(tokens: string[]) {
+    const trimmed: string[] = [];
+    for (const token of tokens) {
+      const next = trimmed.length === 0 ? token : `${trimmed.join("; ")}; ${token}`;
+      if (next.length > 120) break;
+      trimmed.push(token);
+    }
+    return trimmed.join("; ");
+  }
+
+  function applyIngredientNote(itemId: string, ingredient: string) {
+    const clean = ingredient.trim();
+    if (!clean) return;
+    const token = `${noteMode} ${clean}`;
+    setMenu((prev) => prev.map((item) => {
+      if (item.id !== itemId) return item;
+      const tokens = parseNoteTokens(item.note);
+      const exists = tokens.some((v) => v.toLowerCase() === token.toLowerCase());
+      const nextTokens = exists
+        ? tokens.filter((v) => v.toLowerCase() !== token.toLowerCase())
+        : [...tokens, token];
+      const nextNote = serializeNoteTokens(nextTokens);
+      return { ...item, note: nextNote || undefined };
+    }));
+  }
+
+  function increaseQtyAndOpenNote(item: MenuItem) {
+    setQty(item.id, (item.qty || 0) + 1);
+    openNoteSheetFor(item.id);
   }
 
   function shiftLabel(value: ShiftKey) {
@@ -324,6 +394,7 @@ export default function OrderPage() {
       if (value === "breakfast") return "Breakfast";
       if (value === "lunch") return "Lunch";
       if (value === "dinner") return "Dinner";
+      if (value === "beverage") return "Beverage";
       if (value === "package") return "Package";
       return "Cocktail";
     }
@@ -439,6 +510,7 @@ export default function OrderPage() {
 
       setMenu((prev) => prev.map((item) => ({ ...item, qty: 0, note: undefined })));
       localStorage.removeItem(`rdv_order_draft:${tableNo}`);
+      draftSerializedRef.current = "";
       await loadBill();
       setShowBill(true);
       if (body.deduped) {
@@ -470,6 +542,7 @@ export default function OrderPage() {
 
       window.alert(`结账完成\n订单数：${body.orderCount}\n总金额：₱${body.totalAmount}`);
       localStorage.removeItem(`rdv_order_draft:${tableNo}`);
+      draftSerializedRef.current = "";
       router.replace("/tables");
     } catch (err: any) {
       setError(err.message || "结账失败");
@@ -518,6 +591,7 @@ export default function OrderPage() {
       });
       window.alert(`关台完成\n桌号：${body.tableNo}`);
       localStorage.removeItem(`rdv_order_draft:${tableNo}`);
+      draftSerializedRef.current = "";
       router.replace("/tables");
     } catch (err: any) {
       setError(err.message || "关台失败");
@@ -525,6 +599,19 @@ export default function OrderPage() {
       setLoading(false);
     }
   }
+
+  useEffect(() => {
+    if (!noteSheetOpen) return;
+    if (!noteSheetItem) {
+      setNoteSheetOpen(false);
+      setNoteSheetItemId("");
+      return;
+    }
+    if ((noteSheetItem.qty || 0) <= 0) {
+      setNoteSheetOpen(false);
+      setNoteSheetItemId("");
+    }
+  }, [noteSheetOpen, noteSheetItem]);
 
   return (
     <div className="stack">
@@ -728,10 +815,10 @@ export default function OrderPage() {
                       -
                     </button>
                     <div>{item.qty || 0}</div>
-                    <button onClick={() => setQty(item.id, (item.qty || 0) + 1)} type="button">+</button>
+                    <button onClick={() => increaseQtyAndOpenNote(item)} type="button">+</button>
                     <button
                       className="secondary compact-btn"
-                      onClick={() => editItemNote(item.id, item.note)}
+                      onClick={() => openNoteSheetFor(item.id)}
                       type="button"
                     >
                       {t("order.noteAction", "备注")}
@@ -755,6 +842,60 @@ export default function OrderPage() {
         <div>{t("order.total", "当前加购合计")}：₱{total}</div>
         <button onClick={submitOrder} disabled={loading}>{loading ? t("order.submitting", "提交中...") : t("order.submit", "提交订单")}</button>
       </div>
+      {noteSheetOpen && noteSheetItem ? (
+        <>
+          <button
+            type="button"
+            className="note-sheet-backdrop"
+            onClick={() => setNoteSheetOpen(false)}
+            aria-label={t("common.close", "关闭")}
+          />
+          <div className="panel note-sheet">
+            <div className="row" style={{ justifyContent: "space-between" }}>
+              <strong>{localizeMenuText(noteSheetItem.name, lang)}</strong>
+              <button type="button" className="secondary compact-btn" onClick={() => setNoteSheetOpen(false)}>
+                {t("common.done", "完成")}
+              </button>
+            </div>
+            <div className="row note-mode-row">
+              <button
+                type="button"
+                className={noteMode === "more" ? "compact-btn" : "secondary compact-btn"}
+                onClick={() => setNoteMode("more")}
+              >
+                {t("order.noteModeMore", "more")}
+              </button>
+              <button
+                type="button"
+                className={noteMode === "no" ? "compact-btn" : "secondary compact-btn"}
+                onClick={() => setNoteMode("no")}
+              >
+                {t("order.noteModeNo", "no")}
+              </button>
+            </div>
+            <div className="row note-chips">
+              {noteIngredients.map((ingredient) => {
+                const token = `${noteMode} ${ingredient}`.toLowerCase();
+                const active = noteTokenSet.has(token);
+                return (
+                  <button
+                    key={ingredient}
+                    type="button"
+                    className={active ? "compact-btn note-chip active" : "secondary compact-btn note-chip"}
+                    onClick={() => applyIngredientNote(noteSheetItem.id, ingredient)}
+                  >
+                    {ingredient}
+                  </button>
+                );
+              })}
+              {noteIngredients.length === 0 ? <span className="muted">{t("order.noteNoIngredients", "暂无配料可选")}</span> : null}
+            </div>
+            <div className="muted">
+              {t("order.noteLabel", "备注")}: {noteSheetItem.note || "-"}
+            </div>
+          </div>
+        </>
+      ) : null}
       {error && <div className="muted" aria-live="polite">{error}</div>}
 
       <BottomNav />

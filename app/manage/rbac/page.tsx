@@ -52,8 +52,15 @@ export default function ManageRbacPage() {
   const canRunAction = useActionGuard();
 
   const grouped = useMemo(() => {
-    const waiter = rows.filter((row) => row.role === "waiter");
-    const manager = rows.filter((row) => row.role === "manager");
+    const waiter: PermissionRow[] = [];
+    const manager: PermissionRow[] = [];
+    for (const row of rows) {
+      if (row.role === "waiter") {
+        waiter.push(row);
+      } else {
+        manager.push(row);
+      }
+    }
     return { waiter, manager };
   }, [rows]);
 

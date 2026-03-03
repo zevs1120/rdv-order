@@ -15,7 +15,7 @@
 
 ## Menu
 
-### `GET /api/menu?shift=breakfast|lunch|dinner|cocktail|package`
+### `GET /api/menu?shift=breakfast|lunch|dinner|beverage|cocktail|package`
 
 返回当前班次菜单。
 
