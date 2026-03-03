@@ -124,6 +124,9 @@ export default function OrderPage() {
   const cartSelectionsRef = useRef<Record<string, CartSelection>>({});
   const draftRef = useRef<OrderDraft | null>(null);
   const draftSerializedRef = useRef("");
+  const submitInFlightRef = useRef(false);
+  const lastSubmittedSignatureRef = useRef("");
+  const lastSubmittedAtRef = useRef(0);
   const isMergedTable = tableNo.includes("+");
   const canRunAction = useActionGuard();
   const deferredKeyword = useDeferredValue(keyword);
@@ -403,6 +406,12 @@ export default function OrderPage() {
     }
     return picked;
   }, [cartSelections, menu]);
+  const cartSignature = useMemo(() => {
+    return cart
+      .map((item) => `${item.id}:${item.qty}:${String(item.note || "").trim().toLowerCase()}`)
+      .sort()
+      .join("|");
+  }, [cart]);
   const total = cart.reduce((sum, item) => sum + item.price * item.qty, 0);
   const noteSheetItem = useMemo(
     () => menu.find((item) => item.id === noteSheetItemId) || null,
@@ -454,8 +463,8 @@ export default function OrderPage() {
     return trimmed.join("; ");
   }
 
-  function applyManualNote(itemId: string) {
-    const clean = noteInput.trim();
+  function applyManualNote(itemId: string, input = noteInput) {
+    const clean = input.trim();
     if (!clean) return;
     const current = menu.find((item) => item.id === itemId);
     if (!current) return;
@@ -466,7 +475,9 @@ export default function OrderPage() {
     const nextNote = serializeNoteTokens(nextTokens) || undefined;
     setMenu((prev) => prev.map((item) => (item.id === itemId ? { ...item, note: nextNote } : item)));
     updateCartSelection(itemId, current.qty || 0, nextNote);
-    setNoteInput("");
+    if (input === noteInput) {
+      setNoteInput("");
+    }
   }
 
   function clearManualNote(itemId: string) {
@@ -480,6 +491,13 @@ export default function OrderPage() {
   function increaseQtyAndOpenNote(item: MenuItem) {
     setQty(item.id, (item.qty || 0) + 1);
     openNoteSheetFor(item.id);
+  }
+
+  function closeNoteSheet(shouldSaveInput = true) {
+    if (shouldSaveInput && noteSheetItemId && noteInput.trim()) {
+      applyManualNote(noteSheetItemId, noteInput);
+    }
+    setNoteSheetOpen(false);
   }
 
   function shiftLabel(value: ShiftKey) {
@@ -579,6 +597,7 @@ export default function OrderPage() {
 
   async function submitOrder() {
     if (!canRunAction()) return;
+    if (submitInFlightRef.current || loading) return;
     setError("");
     if (!tableNo) {
       setError(t("order.tableMissing", "Table number is missing. Please reselect table."));
@@ -588,13 +607,22 @@ export default function OrderPage() {
       setError(t("order.emptyCart", "Please select at least one dish"));
       return;
     }
+    if (
+      cartSignature &&
+      cartSignature === lastSubmittedSignatureRef.current &&
+      Date.now() - lastSubmittedAtRef.current < 12000
+    ) {
+      setError(t("order.duplicateBlocked", "Duplicate submit blocked. Please wait a moment."));
+      return;
+    }
 
+    submitInFlightRef.current = true;
     setLoading(true);
     try {
       const requestId = typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
         ? crypto.randomUUID()
         : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
-      const body = await apiFetchJson<{ orderId: string; deduped?: boolean }>("/api/orders", {
+      const body = await apiFetchJson<{ orderId: string; deduped?: boolean; dedupeReason?: string }>("/api/orders", {
         method: "POST",
         headers: { "X-Idempotency-Key": requestId },
         body: {
@@ -613,10 +641,16 @@ export default function OrderPage() {
       setCartSheetOpen(false);
       localStorage.removeItem(`rdv_order_draft:${tableNo}`);
       draftSerializedRef.current = "";
+      lastSubmittedSignatureRef.current = cartSignature;
+      lastSubmittedAtRef.current = Date.now();
       await loadBill();
       setShowBill(true);
       if (body.deduped) {
-        alert(t("order.submitDeduped", "Duplicate submission detected. Existing order reused."));
+        if (body.dedupeReason === "recent_duplicate") {
+          alert(t("order.duplicateBlocked", "Duplicate submit blocked. Please wait a moment."));
+        } else {
+          alert(t("order.submitDeduped", "Duplicate submission detected. Existing order reused."));
+        }
       } else {
         alert(t("order.submitSuccess", "Order submitted. Print has been triggered."));
       }
@@ -624,6 +658,7 @@ export default function OrderPage() {
       setError(err.message || t("order.submitFailed", "Failed to submit order"));
     } finally {
       setLoading(false);
+      submitInFlightRef.current = false;
     }
   }
 
@@ -742,7 +777,7 @@ export default function OrderPage() {
   }, [noteSheetOpen, noteSheetItem]);
 
   return (
-    <div className="stack">
+    <div className="stack order-screen">
       <header className="order-header">
         <h1 className="order-title">{t("order.title", "新订单")}</h1>
         <div className="row order-actions" role="toolbar" aria-label={t("order.toolbar", "订单操作栏")}>
@@ -1022,13 +1057,13 @@ export default function OrderPage() {
           <button
             type="button"
             className="note-sheet-backdrop"
-            onClick={() => setNoteSheetOpen(false)}
+            onClick={() => closeNoteSheet(true)}
             aria-label={t("common.close", "关闭")}
           />
           <div className="panel note-sheet">
             <div className="row" style={{ justifyContent: "space-between" }}>
               <strong>{localizeMenuText(noteSheetItem.name, lang)}</strong>
-              <button type="button" className="secondary compact-btn" onClick={() => setNoteSheetOpen(false)}>
+              <button type="button" className="secondary compact-btn" onClick={() => closeNoteSheet(true)}>
                 {t("common.done", "完成")}
               </button>
             </div>
@@ -1054,6 +1089,7 @@ export default function OrderPage() {
                 onChange={(e) => setNoteInput(e.target.value)}
                 placeholder={t("order.noteInputPlaceholder", "Type your note")}
                 maxLength={60}
+                autoFocus
                 onKeyDown={(e) => {
                   if (e.key !== "Enter") return;
                   e.preventDefault();

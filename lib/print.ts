@@ -88,6 +88,11 @@ function getPrintTimeoutMs() {
   return Math.min(Math.round(raw), 15000);
 }
 
+function forceSingleXpyunCopy() {
+  const raw = String(process.env.PRINT_FORCE_SINGLE_COPY || "true").trim().toLowerCase();
+  return raw !== "false";
+}
+
 function toLowerSet(csv: string | undefined) {
   return new Set(
     String(csv || "")
@@ -382,7 +387,7 @@ function toXpyunKitchenContent(payload: PrintPayload) {
     lines.push(xpyunLine(`QTY: ${item.qty}`));
     if (item.note) {
       for (const noteRow of wrapReceiptText(`NOTE: ${item.note}`)) {
-        lines.push(xpyunLine(noteRow));
+        lines.push(xpyunLine(noteRow, { forceTag: "B" }));
       }
     }
     lines.push(xpyunLine(separator, { forceTag: "" }));
@@ -432,7 +437,7 @@ function toXpyunCustomerContent(payload: OrderPrintPayload) {
     lines.push(xpyunLine(formatAmountRow(qty, price, lineAmount)));
     if (item.note) {
       for (const noteRow of wrapReceiptText(`NOTE: ${item.note}`)) {
-        lines.push(xpyunLine(noteRow));
+        lines.push(xpyunLine(noteRow, { forceTag: "B" }));
       }
     }
     lines.push(xpyunLine(separator, { forceTag: "" }));
@@ -474,7 +479,8 @@ function resolveXpyunConfig(): XpyunConfig {
   }
 
   const copiesRaw = Number(process.env.XPYUN_COPIES || 1);
-  const copies = Number.isFinite(copiesRaw) ? Math.min(65535, Math.max(1, Math.round(copiesRaw))) : 1;
+  const parsedCopies = Number.isFinite(copiesRaw) ? Math.min(65535, Math.max(1, Math.round(copiesRaw))) : 1;
+  const copies = forceSingleXpyunCopy() ? 1 : parsedCopies;
   const voiceRaw = process.env.XPYUN_VOICE;
   const voiceNum = voiceRaw === undefined || voiceRaw === "" ? null : Number(voiceRaw);
   const voice = Number.isFinite(voiceNum) ? Math.min(4, Math.max(0, Math.round(voiceNum as number))) : null;

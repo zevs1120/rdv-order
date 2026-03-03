@@ -13,9 +13,24 @@ export type PrintWorkerResult = {
   failed: number;
 };
 
-async function pickJobs(limit: number): Promise<PrintJobRow[]> {
-  const maxRetry = Math.max(1, Number(process.env.PRINT_MAX_RETRY || 8) || 8);
-  const staleSeconds = Math.max(15, Number(process.env.PRINT_STALE_PRINTING_SECONDS || 45) || 45);
+function getMaxRetry() {
+  return Math.max(1, Number(process.env.PRINT_MAX_RETRY || 8) || 8);
+}
+
+function getStalePrintingSeconds() {
+  return Math.max(15, Number(process.env.PRINT_STALE_PRINTING_SECONDS || 45) || 45);
+}
+
+function getRetryDelaySeconds() {
+  return Math.max(3, Number(process.env.PRINT_RETRY_DELAY_SECONDS || 12) || 12);
+}
+
+async function pickJobs(
+  limit: number,
+  maxRetry: number,
+  staleSeconds: number,
+  retryDelaySeconds: number
+): Promise<PrintJobRow[]> {
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
@@ -24,7 +39,8 @@ async function pickJobs(limit: number): Promise<PrintJobRow[]> {
          SELECT id
          FROM print_jobs
          WHERE (
-           status IN ('pending', 'failed')
+           status = 'pending'
+           OR (status = 'failed' AND updated_at < (now() - ($4::int * INTERVAL '1 second')))
            OR (status = 'printing' AND updated_at < (now() - ($3::int * INTERVAL '1 second')))
          )
            AND retry_count < $2
@@ -38,7 +54,7 @@ async function pickJobs(limit: number): Promise<PrintJobRow[]> {
        FROM picked
        WHERE pj.id = picked.id
        RETURNING pj.id, pj.order_id, pj.retry_count`,
-      [limit, maxRetry, staleSeconds]
+      [limit, maxRetry, staleSeconds, retryDelaySeconds]
     );
     await client.query("COMMIT");
     return rows;
@@ -61,20 +77,26 @@ async function markPrinted(id: string) {
   );
 }
 
-async function markFailed(id: string, message: string, bumpRetry: boolean) {
+async function markFailed(id: string, message: string, retryable: boolean, maxRetry: number) {
   await pool.query(
     `UPDATE print_jobs
      SET status = 'failed',
-         retry_count = retry_count + CASE WHEN $2 THEN 1 ELSE 0 END,
-         last_error = $3,
+         retry_count = CASE
+           WHEN $2 THEN retry_count + 1
+           ELSE GREATEST(retry_count + 1, $3)
+         END,
+         last_error = $4,
          updated_at = now()
      WHERE id = $1`,
-    [id, bumpRetry, message.slice(0, 500)]
+    [id, retryable, maxRetry, message.slice(0, 500)]
   );
 }
 
 export async function runPrintWorker(limit = 6): Promise<PrintWorkerResult> {
-  const jobs = await pickJobs(limit);
+  const maxRetry = getMaxRetry();
+  const staleSeconds = getStalePrintingSeconds();
+  const retryDelaySeconds = getRetryDelaySeconds();
+  const jobs = await pickJobs(limit, maxRetry, staleSeconds, retryDelaySeconds);
   if (jobs.length === 0) {
     return { picked: 0, printed: 0, failed: 0 };
   }
@@ -90,7 +112,7 @@ export async function runPrintWorker(limit = 6): Promise<PrintWorkerResult> {
     } catch (err: any) {
       const retryable = err instanceof PrintDispatchError ? err.retryable : true;
       const message = err instanceof Error ? err.message : "打印失败";
-      await markFailed(job.id, message, retryable);
+      await markFailed(job.id, message, retryable, maxRetry);
       failed += 1;
     }
   }

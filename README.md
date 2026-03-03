@@ -77,6 +77,7 @@ cp .env.example .env.local
   - 兼容别名：`USER` + `USERKEY` + `SN`
 - `XPYUN_API_URL`（可选，默认 `https://open.xpyun.net/api/openapi/xprinter/print`）
 - `XPYUN_COPIES`（可选，默认 1）
+- `PRINT_FORCE_SINGLE_COPY`（可选，默认 `true`，强制每次只打 1 份，避免重复票）
 - `XPYUN_VOICE`（可选，默认 2）
 - `XPYUN_FONT_TAG`（可选，默认 `B`，可设 `B2` 进一步放大）
 - `XPYUN_MODE`（可选）
@@ -85,7 +86,9 @@ cp .env.example .env.local
 - `PRINT_SPLIT_BY_TARGET`（可选，默认 `false`；`true` 时按后厨/吧台拆单）
 - `PRINT_TIMEOUT_MS`（可选，默认 3000）
 - `PRINT_STALE_PRINTING_SECONDS`（可选，默认 45，回收卡死 `printing` 任务）
+- `PRINT_RETRY_DELAY_SECONDS`（可选，默认 12，失败任务重试间隔）
 - `PRINT_MAX_RETRY`（可选，默认 8）
+- `ORDER_DEDUPE_WINDOW_SECONDS`（可选，默认 8，防止连续误点产生重复订单）
 - `PRINT_ALERT_FAIL_COUNT`（可选，默认 3，设备失败告警阈值）
 - `PRINT_ALERT_QUEUE_FAILED`（可选，默认 3，失败队列告警阈值）
 - `PRINT_ROUTE_BAR_CATEGORIES`（可选，逗号分隔，命中分类走吧台通道）

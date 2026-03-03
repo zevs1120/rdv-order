@@ -15,13 +15,16 @@
   - 兼容别名：`USER`、`USERKEY`、`SN`
 - 芯烨接口（可选）：`XPYUN_API_URL`（默认 `https://open.xpyun.net/api/openapi/xprinter/print`）
 - 芯烨份数/语音（可选）：`XPYUN_COPIES`、`XPYUN_VOICE`、`XPYUN_MODE`
+- 强制单份（建议）：`PRINT_FORCE_SINGLE_COPY=true`（避免重复打印）
 - 字体放大（可选）：`XPYUN_FONT_TAG`（默认 `B`，太小可改 `B2`）
 - 调度密钥：`PRINT_WORKER_KEY`
 - 设备心跳密钥（建议）：`DEVICE_HEARTBEAT_KEY`
 - 超时时间（可选）：`PRINT_TIMEOUT_MS`
 - 卡死回收（可选）：`PRINT_STALE_PRINTING_SECONDS`（默认 45 秒）
+- 重试间隔（可选）：`PRINT_RETRY_DELAY_SECONDS`（默认 12 秒）
 - 分单开关（可选）：`PRINT_SPLIT_BY_TARGET`（默认关闭，单打印机建议保持关闭）
 - 队列最大重试（可选）：`PRINT_MAX_RETRY`
+- 订单提交去重窗口（可选）：`ORDER_DEDUPE_WINDOW_SECONDS`（默认 8 秒）
 - 失败告警阈值（可选）：`PRINT_ALERT_FAIL_COUNT`、`PRINT_ALERT_QUEUE_FAILED`
 - 吧台路由（可选）：`PRINT_ROUTE_BAR_CATEGORIES`、`PRINT_ROUTE_BAR_KEYWORDS`
   - 单打印机建议留空并保持 `PRINT_SPLIT_BY_TARGET=false`（酒水和菜同单打印）

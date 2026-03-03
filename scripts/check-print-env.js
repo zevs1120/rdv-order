@@ -39,9 +39,12 @@ function run() {
   const workerKey = Boolean(process.env.PRINT_WORKER_KEY);
   const heartbeatKey = Boolean(process.env.DEVICE_HEARTBEAT_KEY);
   const timeoutMs = Number(process.env.PRINT_TIMEOUT_MS || 3000);
+  const retryDelaySeconds = Number(process.env.PRINT_RETRY_DELAY_SECONDS || 12);
   const maxRetry = Number(process.env.PRINT_MAX_RETRY || 8);
   const alertFailCount = Number(process.env.PRINT_ALERT_FAIL_COUNT || 3);
   const alertQueueFailed = Number(process.env.PRINT_ALERT_QUEUE_FAILED || 3);
+  const orderDedupeWindowSeconds = Number(process.env.ORDER_DEDUPE_WINDOW_SECONDS || 8);
+  const forceSingleCopy = String(process.env.PRINT_FORCE_SINGLE_COPY || "true").toLowerCase() !== "false";
   const routeBarCategories = String(process.env.PRINT_ROUTE_BAR_CATEGORIES || "")
     .split(",")
     .map((v) => v.trim())
@@ -77,11 +80,17 @@ function run() {
   if (!Number.isFinite(maxRetry) || maxRetry < 1) {
     problems.push("PRINT_MAX_RETRY should be >= 1");
   }
+  if (!Number.isFinite(retryDelaySeconds) || retryDelaySeconds < 1) {
+    problems.push("PRINT_RETRY_DELAY_SECONDS should be >= 1");
+  }
   if (!Number.isFinite(alertFailCount) || alertFailCount < 1) {
     problems.push("PRINT_ALERT_FAIL_COUNT should be >= 1");
   }
   if (!Number.isFinite(alertQueueFailed) || alertQueueFailed < 1) {
     problems.push("PRINT_ALERT_QUEUE_FAILED should be >= 1");
+  }
+  if (!Number.isFinite(orderDedupeWindowSeconds) || orderDedupeWindowSeconds < 1) {
+    problems.push("ORDER_DEDUPE_WINDOW_SECONDS should be >= 1");
   }
 
   const output = {
@@ -90,9 +99,12 @@ function run() {
     workerKey,
     heartbeatKey,
     timeoutMs,
+    retryDelaySeconds,
     maxRetry,
     alertFailCount,
     alertQueueFailed,
+    orderDedupeWindowSeconds,
+    forceSingleCopy,
     routeBarCategories,
     routeBarKeywords,
     ok: problems.length === 0,

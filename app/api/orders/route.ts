@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import type { PoolClient } from "pg";
 import { pool } from "../../../lib/db";
 import { runPrintWorker } from "../../../lib/print-worker";
 import { requirePermission } from "../../../lib/permissions";
@@ -17,6 +18,7 @@ type OrderBody = {
 
 const UUID_V4_LIKE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const IDEMPOTENCY_KEY = /^[a-zA-Z0-9_-]{8,80}$/;
+const ORDER_DEDUPE_WINDOW_DEFAULT_SECONDS = 8;
 
 function parseItems(raw: unknown): OrderItemInput[] {
   if (!Array.isArray(raw) || raw.length === 0) {
@@ -54,6 +56,55 @@ function parseItems(raw: unknown): OrderItemInput[] {
   }
 
   return Array.from(merged.values());
+}
+
+function normalizeNote(value: string | null) {
+  return String(value || "").trim().toLowerCase();
+}
+
+function buildItemSignature(items: OrderItemInput[]) {
+  return items
+    .map((item) => `${item.menuItemId}:${item.qty}:${normalizeNote(item.note)}`)
+    .sort()
+    .join("|");
+}
+
+function getOrderDedupeWindowSeconds() {
+  const raw = Number(process.env.ORDER_DEDUPE_WINDOW_SECONDS || ORDER_DEDUPE_WINDOW_DEFAULT_SECONDS);
+  if (!Number.isFinite(raw)) return ORDER_DEDUPE_WINDOW_DEFAULT_SECONDS;
+  return Math.min(20, Math.max(3, Math.round(raw)));
+}
+
+async function findRecentDuplicateOrder(
+  client: PoolClient,
+  waiterId: string,
+  tableNo: string,
+  items: OrderItemInput[],
+  windowSeconds: number
+) {
+  const incomingSignature = buildItemSignature(items);
+  if (!incomingSignature) return null;
+  const { rows } = await client.query<{ id: string; signature: string }>(
+    `SELECT o.id,
+            string_agg(
+              oi.menu_item_id::text || ':' || oi.qty::text || ':' || lower(btrim(COALESCE(oi.note, ''))),
+              '|' ORDER BY oi.menu_item_id::text, lower(btrim(COALESCE(oi.note, ''))), oi.qty
+            ) AS signature
+     FROM orders o
+     JOIN order_items oi ON oi.order_id = o.id
+     WHERE o.waiter_id = $1
+       AND o.table_no = $2
+       AND o.cancelled_at IS NULL
+       AND o.merged_into_order_id IS NULL
+       AND o.created_at >= now() - ($3::int * INTERVAL '1 second')
+     GROUP BY o.id, o.created_at
+     ORDER BY o.created_at DESC
+     LIMIT 12`,
+    [waiterId, tableNo, windowSeconds]
+  );
+
+  const hit = rows.find((row) => row.signature === incomingSignature);
+  return hit?.id || null;
 }
 
 async function validateMenuItems(itemIds: string[]) {
@@ -95,6 +146,8 @@ export async function POST(req: Request) {
     let createdOrderId = "";
     let deduped = false;
     let createdNewOrder = false;
+    let dedupeReason: "none" | "idempotency" | "recent_duplicate" = "none";
+    let shouldKickPrintWorker = false;
 
     const client = await pool.connect();
     try {
@@ -114,6 +167,40 @@ export async function POST(req: Request) {
       }
 
       if (requestId) {
+        const existingByRequest = await client.query<{ id: string }>(
+          `SELECT id
+           FROM orders
+           WHERE waiter_id = $1
+             AND client_request_id = $2
+           LIMIT 1
+           FOR UPDATE`,
+          [auth.userId, requestId]
+        );
+        if (existingByRequest.rows[0]?.id) {
+          createdOrderId = existingByRequest.rows[0].id;
+          createdNewOrder = false;
+          deduped = true;
+          dedupeReason = "idempotency";
+        }
+      }
+
+      if (!createdOrderId) {
+        const recentDuplicateOrderId = await findRecentDuplicateOrder(
+          client,
+          auth.userId,
+          tableNo,
+          items,
+          getOrderDedupeWindowSeconds()
+        );
+        if (recentDuplicateOrderId) {
+          createdOrderId = recentDuplicateOrderId;
+          createdNewOrder = false;
+          deduped = true;
+          dedupeReason = "recent_duplicate";
+        }
+      }
+
+      if (!createdOrderId && requestId) {
         const orderRes = await client.query<{ id: string; inserted: boolean }>(
           `INSERT INTO orders (table_no, waiter_id, status, client_request_id)
            VALUES ($1, $2, 'submitted', $3)
@@ -126,7 +213,8 @@ export async function POST(req: Request) {
         createdOrderId = orderRes.rows[0].id;
         createdNewOrder = Boolean(orderRes.rows[0].inserted);
         deduped = !createdNewOrder;
-      } else {
+        dedupeReason = deduped ? "idempotency" : "none";
+      } else if (!createdOrderId) {
         const orderRes = await client.query<{ id: string }>(
           `INSERT INTO orders (table_no, waiter_id, status, client_request_id)
            VALUES ($1, $2, 'submitted', NULL)
@@ -159,8 +247,9 @@ export async function POST(req: Request) {
                updated_at = now()`,
           [createdOrderId]
         );
+        shouldKickPrintWorker = true;
       }
-      if (deduped) {
+      if (deduped && dedupeReason === "idempotency") {
         await client.query(
           `INSERT INTO print_jobs (order_id, status, retry_count)
            VALUES ($1, 'pending', 0)
@@ -169,21 +258,24 @@ export async function POST(req: Request) {
                updated_at = now()`,
           [createdOrderId]
         );
+        shouldKickPrintWorker = true;
       }
 
       await client.query("COMMIT");
       // In serverless environments, fire-and-forget is unreliable.
       // Await one quick worker pass so current order has deterministic print attempt.
-      await runPrintWorker(1).catch(() => undefined);
+      if (shouldKickPrintWorker) {
+        await runPrintWorker(1).catch(() => undefined);
+      }
       await writeAuditLogSafe({
         actorUserId: auth.userId,
         action: deduped ? "order.submit_deduped" : "order.submit",
         entityType: "order",
         entityId: createdOrderId,
-        detail: { tableNo, itemCount: items.length, deduped },
+        detail: { tableNo, itemCount: items.length, deduped, dedupeReason },
         req
       });
-      return NextResponse.json({ orderId: createdOrderId, deduped });
+      return NextResponse.json({ orderId: createdOrderId, deduped, dedupeReason });
     } catch (err) {
       await client.query("ROLLBACK");
       throw err;
