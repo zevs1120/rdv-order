@@ -115,6 +115,7 @@ export default function OrderPage() {
   const [noteSheetItemId, setNoteSheetItemId] = useState("");
   const [noteMode, setNoteMode] = useState<NoteMode>("no");
   const [noteInput, setNoteInput] = useState("");
+  const [cartSheetOpen, setCartSheetOpen] = useState(false);
 
   const menuCacheRef = useRef<Partial<Record<ShiftKey, MenuItem[]>>>({});
   const menuRequestRef = useRef(0);
@@ -609,6 +610,7 @@ export default function OrderPage() {
       setMenu((prev) => prev.map((item) => ({ ...item, qty: 0, note: undefined })));
       setCartSelections({});
       cartSelectionsRef.current = {};
+      setCartSheetOpen(false);
       localStorage.removeItem(`rdv_order_draft:${tableNo}`);
       draftSerializedRef.current = "";
       await loadBill();
@@ -651,6 +653,7 @@ export default function OrderPage() {
       );
       setCartSelections({});
       cartSelectionsRef.current = {};
+      setCartSheetOpen(false);
       localStorage.removeItem(`rdv_order_draft:${tableNo}`);
       draftSerializedRef.current = "";
       router.replace("/tables");
@@ -714,6 +717,7 @@ export default function OrderPage() {
       window.alert(lang === "en" ? `Table closed\nTable: ${body.tableNo}` : `关台完成\n桌号：${body.tableNo}`);
       setCartSelections({});
       cartSelectionsRef.current = {};
+      setCartSheetOpen(false);
       localStorage.removeItem(`rdv_order_draft:${tableNo}`);
       draftSerializedRef.current = "";
       router.replace("/tables");
@@ -883,7 +887,7 @@ export default function OrderPage() {
         </div>
       </div>
 
-      <div className="panel">
+      <div className="panel order-main-panel">
         <div className="row shift-tabs">
           {SHIFT_OPTIONS.map((option) => (
             <button
@@ -965,9 +969,54 @@ export default function OrderPage() {
       ) : null}
 
       <div className="panel row order-submit-bar" style={{ justifyContent: "space-between" }}>
-        <div>{t("order.total", "当前加购合计")}：₱{total}</div>
+        <button
+          type="button"
+          className="secondary compact-btn current-order-trigger"
+          onClick={() => {
+            setNoteSheetOpen(false);
+            setCartSheetOpen(true);
+          }}
+        >
+          {t("order.currentOrder", "当前购物车")} · ₱{total}
+        </button>
         <button onClick={submitOrder} disabled={loading}>{loading ? t("order.submitting", "提交中...") : t("order.submit", "提交订单")}</button>
       </div>
+      {cartSheetOpen ? (
+        <>
+          <button
+            type="button"
+            className="note-sheet-backdrop"
+            onClick={() => setCartSheetOpen(false)}
+            aria-label={t("common.close", "关闭")}
+          />
+          <div className="panel cart-sheet">
+            <div className="row" style={{ justifyContent: "space-between" }}>
+              <strong>{t("order.currentOrder", "当前购物车")}</strong>
+              <button type="button" className="secondary compact-btn" onClick={() => setCartSheetOpen(false)}>
+                {t("common.done", "完成")}
+              </button>
+            </div>
+            <div className="order-list">
+              {cart.map((item) => (
+                <div key={`cart-${item.id}-${item.note || ""}`} className="row" style={{ justifyContent: "space-between", alignItems: "flex-start" }}>
+                  <div className="stack" style={{ gap: 2, flex: "1 1 auto" }}>
+                    <span>{localizeMenuText(item.name, lang)} x{item.qty}</span>
+                    {item.note ? <span className="muted">{t("order.noteLabel", "备注")}: {item.note}</span> : null}
+                  </div>
+                  <strong>₱{item.price * item.qty}</strong>
+                </div>
+              ))}
+              {cart.length === 0 ? <div className="muted">{t("order.currentOrderEmpty", "购物车为空")}</div> : null}
+            </div>
+            <div className="row" style={{ justifyContent: "space-between" }}>
+              <strong>{t("order.total", "当前加购合计")}：₱{total}</strong>
+              <button type="button" onClick={submitOrder} disabled={loading || cart.length === 0}>
+                {loading ? t("order.submitting", "提交中...") : t("order.submit", "提交订单")}
+              </button>
+            </div>
+          </div>
+        </>
+      ) : null}
       {noteSheetOpen && noteSheetItem ? (
         <>
           <button

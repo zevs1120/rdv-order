@@ -7,22 +7,21 @@ import ManageTabs from "../../components/manage-tabs";
 import { apiFetchJson, getStoredAuth } from "../../../lib/client-api";
 import { useI18n } from "../../components/i18n-provider";
 import { type PresetKey, rangeByPreset, toDateInput } from "../../../lib/date-range";
+import { localizeMenuText } from "../../../lib/menu-text";
 
-type IncomeDay = {
-  day: string;
-  order_count: number;
-  amount: number;
+type HotItem = {
+  id: string;
+  name: string;
+  qty: number;
 };
 
-export default function ManageIncomePage() {
+export default function ManageHotPage() {
   const router = useRouter();
   const { t, lang } = useI18n();
   const [preset, setPreset] = useState<PresetKey>("today");
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
-  const [orderCount, setOrderCount] = useState(0);
-  const [totalAmount, setTotalAmount] = useState(0);
-  const [byDay, setByDay] = useState<IncomeDay[]>([]);
+  const [items, setItems] = useState<HotItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -35,7 +34,12 @@ export default function ManageIncomePage() {
     { key: "year", label: t("income.year", "过去一年") }
   ], [t]);
 
-  async function loadIncome(from: Date, to: Date) {
+  const totalQty = useMemo(
+    () => items.reduce((sum, item) => sum + (Number(item.qty) || 0), 0),
+    [items]
+  );
+
+  async function loadHotItems(from: Date, to: Date) {
     setLoading(true);
     setError("");
     try {
@@ -44,14 +48,11 @@ export default function ManageIncomePage() {
         router.replace("/");
         return;
       }
-
-      const body = await apiFetchJson<{ orderCount: number; totalAmount: number; byDay: IncomeDay[] }>(
-        `/api/manage/income?from=${encodeURIComponent(from.toISOString())}&to=${encodeURIComponent(to.toISOString())}`,
+      const body = await apiFetchJson<{ hotItems: HotItem[] }>(
+        `/api/manage/hot-items?from=${encodeURIComponent(from.toISOString())}&to=${encodeURIComponent(to.toISOString())}`,
         { timeoutMs: 6000, retries: 1 }
       );
-      setOrderCount(body.orderCount || 0);
-      setTotalAmount(body.totalAmount || 0);
-      setByDay(body.byDay || []);
+      setItems(body.hotItems || []);
     } catch (err: any) {
       if (err.message === "未登录" || err.message === "Not signed in") {
         router.replace("/");
@@ -61,58 +62,57 @@ export default function ManageIncomePage() {
         router.replace("/manage/orders");
         return;
       }
-      setError(err.message || t("income.loadFailed", "Failed to load revenue"));
+      setError(err.message || t("hot.loadFailed", "Failed to load hot items"));
     } finally {
       setLoading(false);
     }
   }
 
-  useEffect(() => {
-    const r = rangeByPreset("today");
-    setFromDate(toDateInput(r.from));
-    setToDate(toDateInput(r.to));
-    void loadIncome(r.from, r.to);
-  }, []);
-
   async function applyPreset(next: PresetKey) {
     setPreset(next);
-    const r = rangeByPreset(next);
-    setFromDate(toDateInput(r.from));
-    setToDate(toDateInput(r.to));
-    await loadIncome(r.from, r.to);
+    const range = rangeByPreset(next);
+    setFromDate(toDateInput(range.from));
+    setToDate(toDateInput(range.to));
+    await loadHotItems(range.from, range.to);
   }
 
   async function applyCustomRange() {
     if (!fromDate || !toDate) {
-      setError(t("income.needDateRange", "Select start and end dates"));
+      setError(t("hot.needDateRange", "Select start and end dates"));
       return;
     }
     const from = new Date(`${fromDate}T00:00:00`);
     const to = new Date(`${toDate}T23:59:59`);
     if (from > to) {
-      setError(t("income.invalidDateRange", "Start date cannot be after end date"));
+      setError(t("hot.invalidDateRange", "Start date cannot be after end date"));
       return;
     }
-    await loadIncome(from, to);
+    await loadHotItems(from, to);
   }
+
+  useEffect(() => {
+    const range = rangeByPreset("today");
+    setFromDate(toDateInput(range.from));
+    setToDate(toDateInput(range.to));
+    void loadHotItems(range.from, range.to);
+  }, []);
 
   return (
     <div className="stack">
       <header>
-        <h1>{t("income.title", "管理")}</h1>
+        <h1>{t("hot.title", "热销菜")}</h1>
       </header>
 
       <ManageTabs />
 
       <div className="card stack">
-        <h3 style={{ margin: 0 }}>{t("income.section", "收入")}</h3>
         <div className="row" style={{ flexWrap: "wrap" }}>
           {quickButtons.map((btn) => (
             <button
               key={btn.key}
               type="button"
               className={preset === btn.key ? "compact-btn" : "secondary compact-btn"}
-              onClick={() => applyPreset(btn.key)}
+              onClick={() => { void applyPreset(btn.key); }}
             >
               {btn.label}
             </button>
@@ -121,7 +121,9 @@ export default function ManageIncomePage() {
         <div className="row" style={{ flexWrap: "wrap" }}>
           <input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} />
           <input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} />
-          <button type="button" className="compact-btn" onClick={applyCustomRange}>{t("income.custom", "自定时间")}</button>
+          <button type="button" className="compact-btn" onClick={() => { void applyCustomRange(); }}>
+            {t("income.custom", "自定时间")}
+          </button>
         </div>
       </div>
 
@@ -129,16 +131,17 @@ export default function ManageIncomePage() {
         {loading ? <div className="muted">{t("common.loading", "加载中...")}</div> : null}
         {error ? <div className="muted">{error}</div> : null}
         <div className="row" style={{ justifyContent: "space-between", flexWrap: "wrap", rowGap: 4 }}>
-          <strong>{t("income.orderCount", "订单数")}：{orderCount}</strong>
-          <strong>{t("income.total", "收入")}：₱{totalAmount}</strong>
+          <strong>{t("hot.totalQty", "总销量")}：{totalQty}</strong>
+          <strong>{t("income.orderCount", "订单数")}：{items.length}</strong>
         </div>
         <div className="order-list">
-          {byDay.map((row) => (
-            <div key={row.day} className="row" style={{ justifyContent: "space-between", flexWrap: "wrap", rowGap: 4 }}>
-              <div>{new Date(row.day).toLocaleDateString()}</div>
-              <div>{lang === "en" ? `Orders ${row.order_count} · ₱${row.amount}` : `订单 ${row.order_count} · ₱${row.amount}`}</div>
+          {items.map((item) => (
+            <div key={`hot-${item.id}`} className="row" style={{ justifyContent: "space-between", flexWrap: "wrap", rowGap: 4 }}>
+              <div style={{ flex: "1 1 180px" }}>{localizeMenuText(item.name, lang)}</div>
+              <strong>{lang === "en" ? `${item.qty} sold` : `${item.qty} 份`}</strong>
             </div>
           ))}
+          {!loading && items.length === 0 ? <div className="muted">{t("hot.empty", "暂无热销数据")}</div> : null}
         </div>
       </div>
 

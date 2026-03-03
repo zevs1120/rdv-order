@@ -78,6 +78,7 @@ const serverErrorEn: Record<string, string> = {
   "缺少时间范围": "Time range is required",
   "时间格式错误": "Invalid time format",
   "收入查询失败": "Failed to load revenue",
+  "热销查询失败": "Failed to load hot items",
   "订单查询失败": "Failed to load orders",
   "时间范围无效": "Invalid time range",
   "实收金额无效": "Invalid actual received amount",

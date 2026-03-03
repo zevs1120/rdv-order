@@ -24,6 +24,11 @@ export default function ManageTabs() {
         </Link>
       ) : null}
       {role === "manager" ? (
+        <Link href="/manage/hot" className={pathname === "/manage/hot" ? "manage-tab active" : "manage-tab"}>
+          {t("manage.hot", "热销")}
+        </Link>
+      ) : null}
+      {role === "manager" ? (
         <Link href="/manage/devices" className={pathname === "/manage/devices" ? "manage-tab active" : "manage-tab"}>
           {t("manage.devices", "设备")}
         </Link>
