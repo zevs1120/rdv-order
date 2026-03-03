@@ -7,7 +7,7 @@ import { useI18n } from "../components/i18n-provider";
 
 export default function SummaryPage() {
   const router = useRouter();
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
   const [data, setData] = useState<any>(null);
@@ -25,14 +25,14 @@ export default function SummaryPage() {
       });
       setData(body);
     } catch (err: any) {
-      setError(err.message || "加载失败");
+      setError(err.message || t("summary.loadFailed", "Failed to load summary"));
     }
   }
 
   return (
     <div className="stack">
       <header>
-        <h1>{t("manage.income", "汇总")}</h1>
+        <h1>{t("manage.income", "Revenue")}</h1>
         <div className="row">
           <button className="secondary" onClick={() => { router.push("/admin/menu"); }}>{t("manage.menu", "菜单后台")}</button>
           <button className="secondary" onClick={() => { localStorage.clear(); router.replace("/"); }}>{t("common.logout", "退出")}</button>
@@ -47,14 +47,14 @@ export default function SummaryPage() {
           End (ISO)
           <input value={to} onChange={(e) => setTo(e.target.value)} placeholder="2026-02-15T23:59:59+08:00" />
         </label>
-        <button onClick={loadSummary}>{t("common.search", "查询")}</button>
+        <button onClick={loadSummary}>{t("common.search", "Search")}</button>
       </div>
       {error && <div className="muted">{error}</div>}
       {data && (
         <div className="card stack">
           <div className="row">
-            <div className="tag">订单数: {data.orderCount}</div>
-            <div className="tag">总金额: ₱{data.totalAmount}</div>
+            <div className="tag">{lang === "en" ? `Orders: ${data.orderCount}` : `订单数: ${data.orderCount}`}</div>
+            <div className="tag">{lang === "en" ? `Total: ₱${data.totalAmount}` : `总金额: ₱${data.totalAmount}`}</div>
           </div>
           <div className="order-list">
             {data.items.map((item: any) => (

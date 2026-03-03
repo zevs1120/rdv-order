@@ -52,6 +52,7 @@ type BillOrder = {
 };
 
 type CartItem = MenuItem & { qty: number };
+type CartSelection = { qty: number; note?: string };
 
 type OrderDraft = {
   tableNo: string;
@@ -68,18 +69,19 @@ type OrderDraft = {
 
 type NoteMode = "more" | "no";
 
-const SHIFT_OPTIONS: Array<{ key: ShiftKey; label: string }> = [
-  { key: "breakfast", label: "早餐" },
-  { key: "lunch", label: "午餐" },
-  { key: "dinner", label: "晚餐" },
-  { key: "beverage", label: "饮品" },
-  { key: "cocktail", label: "鸡尾酒" },
-  { key: "package", label: "套餐" }
+const SHIFT_OPTIONS: Array<{ key: ShiftKey; zh: string; en: string }> = [
+  { key: "breakfast", zh: "早餐", en: "Breakfast" },
+  { key: "lunch", zh: "午餐", en: "Lunch" },
+  { key: "dinner", zh: "晚餐", en: "Dinner" },
+  { key: "beverage", zh: "饮品", en: "Beverage" },
+  { key: "cocktail", zh: "鸡尾酒", en: "Cocktail" },
+  { key: "package", zh: "套餐", en: "Package" }
 ];
 
 export default function OrderPage() {
   const router = useRouter();
   const { t, lang } = useI18n();
+  const uncategorizedLabel = t("order.uncategorized", "Uncategorized");
   const [role, setRole] = useState<UserRole>("");
   const [tableNo, setTableNo] = useState("");
   const [guests, setGuests] = useState(0);
@@ -91,6 +93,7 @@ export default function OrderPage() {
   const [shift, setShift] = useState<ShiftKey>("lunch");
   const [keyword, setKeyword] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("");
+  const [cartSelections, setCartSelections] = useState<Record<string, CartSelection>>({});
   const [paramsReady, setParamsReady] = useState(false);
 
   const [showBill, setShowBill] = useState(false);
@@ -115,11 +118,61 @@ export default function OrderPage() {
   const menuCacheRef = useRef<Partial<Record<ShiftKey, MenuItem[]>>>({});
   const menuRequestRef = useRef(0);
   const menuIndexRef = useRef<Map<string, number>>(new Map());
+  const menuMetaRef = useRef<Map<string, MenuItem>>(new Map());
+  const cartSelectionsRef = useRef<Record<string, CartSelection>>({});
   const draftRef = useRef<OrderDraft | null>(null);
   const draftSerializedRef = useRef("");
   const isMergedTable = tableNo.includes("+");
   const canRunAction = useActionGuard();
   const deferredKeyword = useDeferredValue(keyword);
+
+  function stripTransientFields(item: MenuItem): MenuItem {
+    return {
+      id: item.id,
+      name: item.name,
+      price: item.price,
+      category: item.category,
+      description: item.description,
+      allergens: item.allergens,
+      menu_group: item.menu_group,
+      item_type: item.item_type
+    };
+  }
+
+  function hydrateMenuItems(items: MenuItem[], selections: Record<string, CartSelection>) {
+    return items.map((item) => {
+      const picked = selections[item.id];
+      return {
+        ...item,
+        qty: picked && picked.qty > 0 ? picked.qty : 0,
+        note: picked?.note || undefined
+      };
+    });
+  }
+
+  function updateCartSelection(id: string, nextQty: number, nextNote?: string) {
+    setCartSelections((prev) => {
+      const current = prev[id];
+      if (nextQty <= 0) {
+        if (!current) return prev;
+        const next = { ...prev };
+        delete next[id];
+        return next;
+      }
+
+      const normalizedNote = nextNote?.trim() || undefined;
+      if (current && current.qty === nextQty && current.note === normalizedNote) {
+        return prev;
+      }
+      return {
+        ...prev,
+        [id]: {
+          qty: nextQty,
+          note: normalizedNote
+        }
+      };
+    });
+  }
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -143,7 +196,14 @@ export default function OrderPage() {
   }, [tableNo, guests, paramsReady, router]);
 
   useEffect(() => {
+    cartSelectionsRef.current = cartSelections;
+  }, [cartSelections]);
+
+  useEffect(() => {
     menuCacheRef.current = {};
+    menuMetaRef.current.clear();
+    cartSelectionsRef.current = {};
+    setCartSelections({});
     draftSerializedRef.current = "";
     setMenu([]);
   }, [tableNo]);
@@ -155,16 +215,35 @@ export default function OrderPage() {
       const raw = localStorage.getItem(key);
       if (!raw) {
         draftRef.current = null;
+        cartSelectionsRef.current = {};
+        setCartSelections({});
         return;
       }
       const parsed = JSON.parse(raw) as OrderDraft;
       if (!parsed || parsed.tableNo !== tableNo) {
         draftRef.current = null;
         draftSerializedRef.current = "";
+        cartSelectionsRef.current = {};
+        setCartSelections({});
         return;
       }
       draftRef.current = parsed;
       draftSerializedRef.current = raw;
+      const restored: Record<string, CartSelection> = {};
+      if (Array.isArray(parsed.items)) {
+        for (const item of parsed.items) {
+          const id = String(item?.id || "").trim();
+          const qty = Number(item?.qty);
+          const note = String(item?.note || "").trim();
+          if (!id || !Number.isInteger(qty) || qty <= 0) continue;
+          restored[id] = {
+            qty,
+            note: note || undefined
+          };
+        }
+      }
+      cartSelectionsRef.current = restored;
+      setCartSelections(restored);
       if (parsed.shift && SHIFT_OPTIONS.some((item) => item.key === parsed.shift)) {
         setShift(parsed.shift);
       }
@@ -177,6 +256,8 @@ export default function OrderPage() {
     } catch {
       draftRef.current = null;
       draftSerializedRef.current = "";
+      cartSelectionsRef.current = {};
+      setCartSelections({});
     }
   }, [paramsReady, tableNo]);
 
@@ -184,7 +265,7 @@ export default function OrderPage() {
     setError("");
     const cached = menuCacheRef.current[shift];
     if (cached) {
-      setMenu(cached);
+      setMenu(hydrateMenuItems(cached, cartSelectionsRef.current));
     }
 
     const controller = new AbortController();
@@ -201,20 +282,11 @@ export default function OrderPage() {
       .then((data) => {
         if (requestId !== menuRequestRef.current) return;
         const items = data.items || [];
-        const draft = draftRef.current;
-        const draftMap = new Map(
-          (draft && draft.shift === shift ? draft.items : []).map((item) => [item.id, item])
-        );
-        const hydrated = items.map((item) => {
-          const picked = draftMap.get(item.id);
-          if (!picked) return item;
-          return {
-            ...item,
-            qty: Number.isInteger(picked.qty) && picked.qty > 0 ? picked.qty : 0,
-            note: picked.note || undefined
-          };
-        });
-        menuCacheRef.current[shift] = hydrated;
+        for (const item of items) {
+          menuMetaRef.current.set(item.id, stripTransientFields(item));
+        }
+        const hydrated = hydrateMenuItems(items, cartSelectionsRef.current);
+        menuCacheRef.current[shift] = items.map((item) => stripTransientFields(item));
         setMenu(hydrated);
       })
       .catch((err: Error) => {
@@ -222,7 +294,7 @@ export default function OrderPage() {
         if (!cached) {
           setMenu([]);
         }
-        setError(err.message || "菜单加载失败");
+        setError(err.message || t("order.menuLoadFailed", "Failed to load menu"));
       })
       .finally(() => {
         if (requestId === menuRequestRef.current) {
@@ -234,7 +306,7 @@ export default function OrderPage() {
   }, [shift]);
 
   useEffect(() => {
-    const categories = Array.from(new Set(menu.map((item) => item.category || "Uncategorized")));
+    const categories = Array.from(new Set(menu.map((item) => item.category || uncategorizedLabel)));
     if (categories.length === 0) {
       setSelectedCategory("");
       return;
@@ -253,6 +325,15 @@ export default function OrderPage() {
   }, [menu]);
 
   useEffect(() => {
+    if (!shift) return;
+    const baseItems = menu.map((item) => stripTransientFields(item));
+    menuCacheRef.current[shift] = baseItems;
+    for (const item of baseItems) {
+      menuMetaRef.current.set(item.id, item);
+    }
+  }, [menu, shift]);
+
+  useEffect(() => {
     if (!paramsReady || !tableNo) return;
     const key = `rdv_order_draft:${tableNo}`;
     const timer = window.setTimeout(() => {
@@ -261,12 +342,12 @@ export default function OrderPage() {
         shift,
         keyword: keyword.trim(),
         selectedCategory,
-        items: menu
-          .filter((item) => (item.qty || 0) > 0)
-          .map((item) => ({
-            id: item.id,
-            qty: item.qty || 0,
-            note: item.note?.trim() || undefined
+        items: Object.entries(cartSelections)
+          .filter(([, selected]) => Number.isInteger(selected.qty) && selected.qty > 0)
+          .map(([id, selected]) => ({
+            id,
+            qty: selected.qty,
+            note: selected.note?.trim() || undefined
           })),
         updatedAt: Date.now()
       };
@@ -278,13 +359,13 @@ export default function OrderPage() {
     }, 120);
 
     return () => window.clearTimeout(timer);
-  }, [paramsReady, tableNo, shift, keyword, selectedCategory, menu]);
+  }, [paramsReady, tableNo, shift, keyword, selectedCategory, cartSelections]);
 
   const derivedMenu = useMemo(() => menu.map((item) => ({
     ...item,
     _search: `${item.name} ${item.category || ""}`.toLowerCase(),
-    _category: item.category || "Uncategorized"
-  })), [menu]);
+    _category: item.category || uncategorizedLabel
+  })), [menu, uncategorizedLabel]);
 
   const filteredMenu = useMemo(() => {
     const key = deferredKeyword.trim().toLowerCase();
@@ -302,7 +383,24 @@ export default function OrderPage() {
     return filteredMenu.filter((item) => item._category === selectedCategory);
   }, [filteredMenu, selectedCategory]);
 
-  const cart = useMemo(() => menu.filter((m) => (m.qty || 0) > 0) as CartItem[], [menu]);
+  const cart = useMemo(() => {
+    const meta = new Map(menuMetaRef.current);
+    for (const item of menu) {
+      meta.set(item.id, stripTransientFields(item));
+    }
+    const picked: CartItem[] = [];
+    for (const [id, selected] of Object.entries(cartSelections)) {
+      if (!selected || !Number.isInteger(selected.qty) || selected.qty <= 0) continue;
+      const base = meta.get(id);
+      if (!base) continue;
+      picked.push({
+        ...base,
+        qty: selected.qty,
+        note: selected.note || undefined
+      });
+    }
+    return picked;
+  }, [cartSelections, menu]);
   const total = cart.reduce((sum, item) => sum + item.price * item.qty, 0);
   const noteSheetItem = useMemo(
     () => menu.find((item) => item.id === noteSheetItemId) || null,
@@ -325,6 +423,7 @@ export default function OrderPage() {
   );
 
   function setQty(id: string, qty: number) {
+    const current = menu.find((item) => item.id === id);
     setMenu((prev) => {
       const hintedIndex = menuIndexRef.current.get(id);
       const index = typeof hintedIndex === "number" && prev[hintedIndex]?.id === id
@@ -341,6 +440,7 @@ export default function OrderPage() {
       };
       return next;
     });
+    updateCartSelection(id, qty, qty > 0 ? current?.note : undefined);
   }
 
   function openNoteSheetFor(itemId: string) {
@@ -369,17 +469,17 @@ export default function OrderPage() {
   function applyIngredientNote(itemId: string, ingredient: string) {
     const clean = ingredient.trim();
     if (!clean) return;
+    const current = menu.find((item) => item.id === itemId);
+    if (!current) return;
     const token = `${noteMode} ${clean}`;
-    setMenu((prev) => prev.map((item) => {
-      if (item.id !== itemId) return item;
-      const tokens = parseNoteTokens(item.note);
-      const exists = tokens.some((v) => v.toLowerCase() === token.toLowerCase());
-      const nextTokens = exists
-        ? tokens.filter((v) => v.toLowerCase() !== token.toLowerCase())
-        : [...tokens, token];
-      const nextNote = serializeNoteTokens(nextTokens);
-      return { ...item, note: nextNote || undefined };
-    }));
+    const tokens = parseNoteTokens(current.note);
+    const exists = tokens.some((v) => v.toLowerCase() === token.toLowerCase());
+    const nextTokens = exists
+      ? tokens.filter((v) => v.toLowerCase() !== token.toLowerCase())
+      : [...tokens, token];
+    const nextNote = serializeNoteTokens(nextTokens) || undefined;
+    setMenu((prev) => prev.map((item) => (item.id === itemId ? { ...item, note: nextNote } : item)));
+    updateCartSelection(itemId, current.qty || 0, nextNote);
   }
 
   function increaseQtyAndOpenNote(item: MenuItem) {
@@ -390,15 +490,7 @@ export default function OrderPage() {
   function shiftLabel(value: ShiftKey) {
     const option = SHIFT_OPTIONS.find((item) => item.key === value);
     if (!option) return value;
-    if (lang === "en") {
-      if (value === "breakfast") return "Breakfast";
-      if (value === "lunch") return "Lunch";
-      if (value === "dinner") return "Dinner";
-      if (value === "beverage") return "Beverage";
-      if (value === "package") return "Package";
-      return "Cocktail";
-    }
-    return option.label;
+    return lang === "en" ? option.en : option.zh;
   }
 
   async function loadBill() {
@@ -414,7 +506,7 @@ export default function OrderPage() {
       setBillTotal(body.totalAmount || 0);
       setBillQty(body.totalQty || 0);
     } catch (err: any) {
-      setError(err.message || "账单加载失败");
+      setError(err.message || t("order.billLoadFailed", "Failed to load bill"));
     } finally {
       setBillLoading(false);
     }
@@ -424,7 +516,7 @@ export default function OrderPage() {
     if (!canRunAction()) return;
     setError("");
     if (!addDishForm.name.trim() || !addDishForm.price.trim()) {
-      setError("请填写菜名和价格");
+      setError(t("order.addDishRequireNamePrice", "Dish name and price are required"));
       return;
     }
     if (addDishMode === "permanent" && role !== "manager") {
@@ -434,7 +526,7 @@ export default function OrderPage() {
 
     const price = Number(addDishForm.price);
     if (!Number.isFinite(price) || price <= 0) {
-      setError("价格必须大于 0");
+      setError(t("order.addDishInvalidPrice", "Price must be greater than 0"));
       return;
     }
 
@@ -458,6 +550,7 @@ export default function OrderPage() {
       );
 
       const item = body.item;
+      menuMetaRef.current.set(item.id, stripTransientFields(item));
       setMenu((prev) => {
         const found = prev.find((it) => it.id === item.id);
         if (found) {
@@ -465,14 +558,25 @@ export default function OrderPage() {
         }
         return [...prev, { ...item, qty: 1 }];
       });
+      setCartSelections((prev) => {
+        const current = prev[item.id];
+        const nextQty = (current?.qty || 0) + 1;
+        return {
+          ...prev,
+          [item.id]: {
+            qty: nextQty,
+            note: current?.note
+          }
+        };
+      });
 
-      const category = item.category || "Uncategorized";
+      const category = item.category || uncategorizedLabel;
       setSelectedCategory(category);
       setShowAddDish(false);
       setAddDishMode("temporary");
       setAddDishForm({ name: "", price: "", category: "", description: "" });
     } catch (err: any) {
-      setError(err.message || "新增菜失败");
+      setError(err.message || t("order.addDishFailed", "Failed to add dish"));
     } finally {
       setAddingDish(false);
     }
@@ -482,11 +586,11 @@ export default function OrderPage() {
     if (!canRunAction()) return;
     setError("");
     if (!tableNo) {
-      setError("桌号缺失，请重新选桌");
+      setError(t("order.tableMissing", "Table number is missing. Please reselect table."));
       return;
     }
     if (cart.length === 0) {
-      setError("请选择菜品");
+      setError(t("order.emptyCart", "Please select at least one dish"));
       return;
     }
 
@@ -509,17 +613,19 @@ export default function OrderPage() {
       });
 
       setMenu((prev) => prev.map((item) => ({ ...item, qty: 0, note: undefined })));
+      setCartSelections({});
+      cartSelectionsRef.current = {};
       localStorage.removeItem(`rdv_order_draft:${tableNo}`);
       draftSerializedRef.current = "";
       await loadBill();
       setShowBill(true);
       if (body.deduped) {
-        alert("检测到重复提交，已使用原订单");
+        alert(t("order.submitDeduped", "Duplicate submission detected. Existing order reused."));
       } else {
-        alert("订单已提交，后厨将自动出单");
+        alert(t("order.submitSuccess", "Order submitted. Print has been triggered."));
       }
     } catch (err: any) {
-      setError(err.message || "提交失败");
+      setError(err.message || t("order.submitFailed", "Failed to submit order"));
     } finally {
       setLoading(false);
     }
@@ -527,7 +633,11 @@ export default function OrderPage() {
 
   async function checkout() {
     if (!canRunAction()) return;
-    const confirmed = window.confirm(`确认结账并关台吗？\n桌号：${tableNo}`);
+    const confirmed = window.confirm(
+      lang === "en"
+        ? `Confirm checkout and close table?\nTable: ${tableNo}`
+        : `确认结账并关台吗？\n桌号：${tableNo}`
+    );
     if (!confirmed) return;
 
     setLoading(true);
@@ -540,12 +650,18 @@ export default function OrderPage() {
         retries: 1
       });
 
-      window.alert(`结账完成\n订单数：${body.orderCount}\n总金额：₱${body.totalAmount}`);
+      window.alert(
+        lang === "en"
+          ? `Checkout complete\nOrders: ${body.orderCount}\nTotal: ₱${body.totalAmount}`
+          : `结账完成\n订单数：${body.orderCount}\n总金额：₱${body.totalAmount}`
+      );
+      setCartSelections({});
+      cartSelectionsRef.current = {};
       localStorage.removeItem(`rdv_order_draft:${tableNo}`);
       draftSerializedRef.current = "";
       router.replace("/tables");
     } catch (err: any) {
-      setError(err.message || "结账失败");
+      setError(err.message || t("order.checkoutFailed", "Checkout failed"));
     } finally {
       setLoading(false);
     }
@@ -554,7 +670,11 @@ export default function OrderPage() {
   async function unmergeTable() {
     if (!canRunAction()) return;
     if (!isMergedTable) return;
-    const confirmed = window.confirm(`确认取消拼桌吗？\n当前桌号：${tableNo}`);
+    const confirmed = window.confirm(
+      lang === "en"
+        ? `Confirm unmerge table?\nCurrent table: ${tableNo}`
+        : `确认取消拼桌吗？\n当前桌号：${tableNo}`
+    );
     if (!confirmed) return;
 
     setLoading(true);
@@ -566,10 +686,14 @@ export default function OrderPage() {
         timeoutMs: 7000,
         retries: 1
       });
-      window.alert(`取消拼桌成功\n当前桌号：${body.tableNo}\n释放桌号：${body.releasedTable}`);
+      window.alert(
+        lang === "en"
+          ? `Unmerge success\nCurrent table: ${body.tableNo}\nReleased table: ${body.releasedTable}`
+          : `取消拼桌成功\n当前桌号：${body.tableNo}\n释放桌号：${body.releasedTable}`
+      );
       router.replace(`/order?tableNo=${encodeURIComponent(body.tableNo)}&guests=${body.guestCount}`);
     } catch (err: any) {
-      setError(err.message || "取消拼桌失败");
+      setError(err.message || t("order.unmergeFailed", "Failed to unmerge table"));
     } finally {
       setLoading(false);
     }
@@ -577,7 +701,11 @@ export default function OrderPage() {
 
   async function closeTable() {
     if (!canRunAction()) return;
-    const confirmed = window.confirm(`确认关台吗？\n桌号：${tableNo}`);
+    const confirmed = window.confirm(
+      lang === "en"
+        ? `Confirm close table?\nTable: ${tableNo}`
+        : `确认关台吗？\n桌号：${tableNo}`
+    );
     if (!confirmed) return;
 
     setLoading(true);
@@ -589,12 +717,14 @@ export default function OrderPage() {
         timeoutMs: 7000,
         retries: 1
       });
-      window.alert(`关台完成\n桌号：${body.tableNo}`);
+      window.alert(lang === "en" ? `Table closed\nTable: ${body.tableNo}` : `关台完成\n桌号：${body.tableNo}`);
+      setCartSelections({});
+      cartSelectionsRef.current = {};
       localStorage.removeItem(`rdv_order_draft:${tableNo}`);
       draftSerializedRef.current = "";
       router.replace("/tables");
     } catch (err: any) {
-      setError(err.message || "关台失败");
+      setError(err.message || t("order.closeFailed", "Failed to close table"));
     } finally {
       setLoading(false);
     }
@@ -746,7 +876,9 @@ export default function OrderPage() {
             <strong>{t("order.billQty", "总数量")}：{billQty}</strong>
             <strong>{t("order.billAmount", "总金额")}：₱{billTotal}</strong>
           </div>
-          <button type="button" onClick={checkout} disabled={loading}>{loading ? "处理中..." : `${t("order.checkout", "结账")} + ${t("order.closeTable", "关台")}`}</button>
+          <button type="button" onClick={checkout} disabled={loading}>
+            {loading ? t("order.processing", "Processing...") : `${t("order.checkout", "结账")} + ${t("order.closeTable", "关台")}`}
+          </button>
         </div>
       ) : null}
 
@@ -758,7 +890,7 @@ export default function OrderPage() {
       </div>
 
       <div className="panel">
-        <div className="row" style={{ flexWrap: "wrap", marginBottom: 12 }}>
+        <div className="row shift-tabs">
           {SHIFT_OPTIONS.map((option) => (
             <button
               key={option.key}
@@ -794,11 +926,11 @@ export default function OrderPage() {
               ) : null}
               {visibleItems.map((item) => (
                 <div key={item.id} className="menu-item stack">
-                  <div>
+                  <div className="menu-item-title">
                     {localizeMenuText(item.name, lang)}
-                    {item.item_type === "set" ? "（Set）" : ""}
+                    {item.item_type === "set" ? (lang === "en" ? " (Set)" : "（套餐）") : ""}
                   </div>
-                  <div className="muted">₱{item.price}</div>
+                  <div className="muted menu-item-price">₱{item.price}</div>
                   {Array.isArray(item.allergens) && item.allergens.length > 0 ? (
                     <div className="muted">{t("order.allergens", "过敏原")}: {item.allergens.join(", ")}</div>
                   ) : null}
@@ -806,18 +938,18 @@ export default function OrderPage() {
                   {item.note && (item.qty || 0) > 0 ? (
                     <div className="muted">{t("order.noteLabel", "备注")}: {item.note}</div>
                   ) : null}
-                  <div className="row">
+                  <div className="row qty-stepper">
                     <button
-                      className="secondary"
+                      className="secondary compact-btn qty-btn"
                       onClick={() => setQty(item.id, Math.max(0, (item.qty || 0) - 1))}
                       type="button"
                     >
                       -
                     </button>
-                    <div>{item.qty || 0}</div>
-                    <button onClick={() => increaseQtyAndOpenNote(item)} type="button">+</button>
+                    <div className="qty-value">{item.qty || 0}</div>
+                    <button className="compact-btn qty-btn" onClick={() => increaseQtyAndOpenNote(item)} type="button">+</button>
                     <button
-                      className="secondary compact-btn"
+                      className="secondary compact-btn note-action"
                       onClick={() => openNoteSheetFor(item.id)}
                       type="button"
                     >

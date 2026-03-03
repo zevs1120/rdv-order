@@ -72,10 +72,26 @@ export async function GET(req: Request) {
       [rangeFrom.toISOString(), rangeTo.toISOString()]
     );
 
+    const hotItems = await pool.query(
+      `SELECT mi.name,
+              COALESCE(SUM(oi.qty), 0)::int AS qty
+       FROM orders o
+       JOIN order_items oi ON oi.order_id = o.id
+       JOIN menu_items mi ON mi.id = oi.menu_item_id
+       WHERE o.created_at >= $1
+         AND o.created_at <= $2
+         AND o.status IN ('paid', 'closed')
+         AND o.cancelled_at IS NULL
+       GROUP BY mi.name
+       ORDER BY qty DESC, mi.name ASC`,
+      [rangeFrom.toISOString(), rangeTo.toISOString()]
+    );
+
     return NextResponse.json({
       orderCount: total.rows[0]?.order_count || 0,
       totalAmount: total.rows[0]?.total_amount || 0,
-      byDay: byDay.rows
+      byDay: byDay.rows,
+      hotItems: hotItems.rows
     });
   } catch (err: any) {
     if (err.message === "UNAUTHORIZED") return NextResponse.json({ error: "未登录" }, { status: 401 });

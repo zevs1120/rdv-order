@@ -19,7 +19,7 @@ const GUEST_OPTIONS = [1, 2, 3, 4, 5, 6, 8, 10, 12];
 
 export default function TablesPage() {
   const router = useRouter();
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
   const [tables, setTables] = useState<TableItem[]>([]);
   const [loadingTables, setLoadingTables] = useState(false);
   const [error, setError] = useState("");
@@ -48,7 +48,7 @@ export default function TablesPage() {
       const body = await apiFetchJson<{ tables: TableItem[] }>("/api/tables", { timeoutMs: 5000, retries: 1 });
       setTables(body.tables || []);
     } catch (err: any) {
-      setError(err.message || "加载桌台失败");
+      setError(err.message || t("tables.loadFailed", "Failed to load tables"));
     } finally {
       setLoadingTables(false);
     }
@@ -82,7 +82,7 @@ export default function TablesPage() {
       setOpeningTable(null);
       enterMenu(body.session.tableNo, body.session.guestCount);
     } catch (err: any) {
-      setError(err.message || "开台失败");
+      setError(err.message || t("tables.openFailed", "Failed to open table"));
     } finally {
       setSubmitting(false);
     }
@@ -91,7 +91,7 @@ export default function TablesPage() {
   async function confirmMerge() {
     if (!canRunAction()) return;
     if (mergeSelection.length !== 2) {
-      setError("请先选择两张桌子");
+      setError(t("tables.selectTwo", "Please select two tables first"));
       return;
     }
 
@@ -113,7 +113,7 @@ export default function TablesPage() {
       setMergeSelection([]);
       enterMenu(body.session.tableNo, body.session.guestCount);
     } catch (err: any) {
-      setError(err.message || "拼桌失败");
+      setError(err.message || t("tables.mergeFailed", "Failed to merge tables"));
     } finally {
       setSubmitting(false);
     }
@@ -182,7 +182,9 @@ export default function TablesPage() {
             {t("tables.guestCount", "用餐人数")}
             <select value={guestCount} onChange={(e) => setGuestCount(Number(e.target.value))}>
               {GUEST_OPTIONS.map((count) => (
-                <option key={count} value={count}>{count} 人</option>
+                <option key={count} value={count}>
+                  {lang === "en" ? `${count} guests` : `${count} 人`}
+                </option>
               ))}
             </select>
           </label>
@@ -205,7 +207,9 @@ export default function TablesPage() {
             <div className="row">
               <select value={mergeGuestCount} onChange={(e) => setMergeGuestCount(Number(e.target.value))}>
                 {GUEST_OPTIONS.map((count) => (
-                  <option key={count} value={count}>{count} 人</option>
+                  <option key={count} value={count}>
+                    {lang === "en" ? `${count} guests` : `${count} 人`}
+                  </option>
                 ))}
               </select>
               <button type="button" onClick={confirmMerge} disabled={submitting || mergeSelection.length !== 2}>
@@ -241,7 +245,9 @@ export default function TablesPage() {
                     <div className="table-name">{table.tableNo}</div>
                     <div className="table-meta">
                       {table.status === "open"
-                        ? `${t("tables.opened", "已开台")} · ${table.guestCount || "?"}人`
+                        ? lang === "en"
+                          ? `${t("tables.opened", "Open")} · ${table.guestCount || "?"} guests`
+                          : `${t("tables.opened", "已开台")} · ${table.guestCount || "?"}人`
                         : t("tables.idle", "空闲")}
                     </div>
                   </button>

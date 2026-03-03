@@ -1,4 +1,4 @@
-const STATIC_CACHE = "rdv-static-v1";
+const STATIC_CACHE = "rdv-static-v2";
 const STATIC_PATH_PREFIXES = ["/_next/static/", "/icons/"];
 const STATIC_EXTENSIONS = [".css", ".js", ".mjs", ".woff2", ".png", ".jpg", ".jpeg", ".webp", ".svg", ".ico"];
 
@@ -59,4 +59,3 @@ self.addEventListener("fetch", (event) => {
     })
   );
 });
-

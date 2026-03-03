@@ -7,12 +7,12 @@ import PwaRegister from "./components/pwa-register";
 import NetworkStatusBar from "./components/network-status-bar";
 
 export const metadata: Metadata = {
-  title: "RDV 点餐",
-  description: "酒店/餐厅手机点餐系统 MVP",
+  title: "RDV Ordering",
+  description: "Mobile ordering system for hotel and restaurant operations",
   manifest: "/manifest.webmanifest",
   appleWebApp: {
     capable: true,
-    title: "RDV 点餐",
+    title: "RDV Ordering",
     statusBarStyle: "default"
   },
   icons: {
@@ -25,12 +25,12 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover",
-  themeColor: "#f7f4ef"
+  themeColor: "#f3ede1"
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="zh-CN">
+    <html lang="en-US">
       <body>
         <I18nProvider>
           <PwaRegister />

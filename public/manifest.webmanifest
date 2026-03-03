@@ -1,12 +1,12 @@
 {
-  "name": "RDV 点餐",
+  "name": "RDV Ordering",
   "short_name": "RDV",
-  "description": "酒店/餐厅手机点餐系统",
+  "description": "Mobile ordering for restaurant service",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
-  "background_color": "#f7f4ef",
-  "theme_color": "#8f1f23",
+  "background_color": "#f3ede1",
+  "theme_color": "#7f0f16",
   "icons": [
     {
       "src": "/icons/icon.svg",
@@ -16,4 +16,3 @@
     }
   ]
 }
-

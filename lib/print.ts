@@ -285,6 +285,67 @@ function formatPhp(amount: number) {
   return `PHP ${Math.max(0, Math.round(amount)).toLocaleString("en-US")}`;
 }
 
+function formatCompactAmount(amount: number) {
+  return Math.max(0, Math.round(amount)).toLocaleString("en-US");
+}
+
+function getReceiptLineWidth() {
+  const raw = Number(process.env.XPYUN_LINE_WIDTH || 32);
+  if (!Number.isFinite(raw)) return 32;
+  return Math.min(48, Math.max(24, Math.round(raw)));
+}
+
+function dividerLine(char = "-") {
+  return char.repeat(getReceiptLineWidth());
+}
+
+function wrapReceiptText(text: string, width = getReceiptLineWidth()) {
+  const value = sanitizeXpyunLine(text);
+  if (!value) return [];
+  const tokens = value.split(/\s+/).filter(Boolean);
+  if (tokens.length === 0) return [];
+  const lines: string[] = [];
+  let current = "";
+  for (const token of tokens) {
+    const parts: string[] = [];
+    if (token.length > width) {
+      for (let i = 0; i < token.length; i += width) {
+        parts.push(token.slice(i, i + width));
+      }
+    } else {
+      parts.push(token);
+    }
+
+    for (const part of parts) {
+      if (!current) {
+        current = part;
+        continue;
+      }
+      const merged = `${current} ${part}`;
+      if (merged.length <= width) {
+        current = merged;
+      } else {
+        lines.push(current);
+        current = part;
+      }
+    }
+  }
+  if (current) {
+    lines.push(current);
+  }
+  return lines;
+}
+
+function formatAmountRow(qty: number, unitPrice: number, amount: number, width = getReceiptLineWidth()) {
+  const left = `${qty} x ${formatCompactAmount(unitPrice)}`;
+  const right = formatCompactAmount(amount);
+  if (left.length + right.length + 1 > width) {
+    return `${left} = ${right}`;
+  }
+  const pad = " ".repeat(Math.max(1, width - left.length - right.length));
+  return `${left}${pad}${right}`;
+}
+
 function finalizeXpyunContent(lines: string[]) {
   let content = lines.join("");
   const maxBytes = 11_500;
@@ -299,10 +360,12 @@ function toXpyunKitchenContent(payload: PrintPayload) {
   const items = payload.tickets.flatMap((ticket) => ticket.items);
   const totalQty = items.reduce((sum, item) => sum + Math.max(0, Number(item.qty) || 0), 0);
   const headerDate = payload.type === "order" ? payload.createdAt : payload.generatedAt;
+  const separator = dividerLine("-");
+  const majorSeparator = dividerLine("=");
 
   const lines: string[] = [
-    "<CB>RDV ORDER</CB><BR>",
-    xpyunLine(`Table: ${payload.tableNo}`),
+    "<CB><B2>RDV KITCHEN COPY</B2></CB><BR>",
+    xpyunLine(`TABLE ${payload.tableNo}`, { center: true, forceTag: "B2" }),
     xpyunLine(`Time: ${formatPrintDateTime(headerDate)}`)
   ];
 
@@ -310,18 +373,25 @@ function toXpyunKitchenContent(payload: PrintPayload) {
     lines.push(xpyunLine(`Server: ${payload.waiter}`));
   }
 
-  lines.push(xpyunLine("--------------------------------", { forceTag: "" }));
+  lines.push(xpyunLine(majorSeparator, { forceTag: "" }));
   for (const item of items) {
-    const itemName = localizeMenuText(item.name, "en");
-    lines.push(xpyunLine(`${itemName} x${item.qty}`));
-    if (item.note) {
-      lines.push(xpyunLine(`Note: ${item.note}`));
+    const itemName = localizeMenuText(item.name, "en").toUpperCase();
+    for (const row of wrapReceiptText(itemName)) {
+      lines.push(xpyunLine(row, { forceTag: "B" }));
     }
-    lines.push("<BR>");
+    lines.push(xpyunLine(`QTY: ${item.qty}`));
+    if (item.note) {
+      for (const noteRow of wrapReceiptText(`NOTE: ${item.note}`)) {
+        lines.push(xpyunLine(noteRow));
+      }
+    }
+    lines.push(xpyunLine(separator, { forceTag: "" }));
   }
-  lines.push(xpyunLine("--------------------------------", { forceTag: "" }));
-  lines.push(xpyunLine(`Items: ${items.length}`));
-  lines.push(xpyunLine(`Total Qty: ${totalQty}`));
+  lines.push(xpyunLine(`ITEM LINES: ${items.length}`));
+  lines.push(xpyunLine(`TOTAL QTY : ${totalQty}`));
+  lines.push(xpyunLine("STATUS    : SENT TO KITCHEN"));
+  lines.push(xpyunLine(majorSeparator, { forceTag: "" }));
+  lines.push("<BR>");
   lines.push("<BR>");
   lines.push("<BR>");
 
@@ -336,10 +406,12 @@ function toXpyunCustomerContent(payload: OrderPrintPayload) {
     const price = Math.max(0, Number(item.unitPrice) || 0);
     return sum + qty * price;
   }, 0);
+  const separator = dividerLine("-");
+  const majorSeparator = dividerLine("=");
 
   const lines: string[] = [
-    "<CB>RDV GUEST COPY</CB><BR>",
-    xpyunLine(`Table: ${payload.tableNo}`),
+    "<CB><B2>RDV GUEST BILL</B2></CB><BR>",
+    xpyunLine(`TABLE ${payload.tableNo}`, { center: true, forceTag: "B2" }),
     xpyunLine(`Time: ${formatPrintDateTime(payload.createdAt)}`)
   ];
 
@@ -347,24 +419,30 @@ function toXpyunCustomerContent(payload: OrderPrintPayload) {
     lines.push(xpyunLine(`Server: ${payload.waiter}`));
   }
 
-  lines.push(xpyunLine("--------------------------------", { forceTag: "" }));
+  lines.push(xpyunLine(majorSeparator, { forceTag: "" }));
   for (const item of items) {
-    const name = localizeMenuText(item.name, "en");
+    const name = localizeMenuText(item.name, "en").toUpperCase();
     const qty = Math.max(0, Number(item.qty) || 0);
     const price = Math.max(0, Number(item.unitPrice) || 0);
     const lineAmount = qty * price;
 
-    lines.push(xpyunLine(name));
-    lines.push(xpyunLine(`${qty} x ${formatPhp(price)} = ${formatPhp(lineAmount)}`));
-    if (item.note) {
-      lines.push(xpyunLine(`Note: ${item.note}`));
+    for (const row of wrapReceiptText(name)) {
+      lines.push(xpyunLine(row, { forceTag: "B" }));
     }
-    lines.push("<BR>");
+    lines.push(xpyunLine(formatAmountRow(qty, price, lineAmount)));
+    if (item.note) {
+      for (const noteRow of wrapReceiptText(`NOTE: ${item.note}`)) {
+        lines.push(xpyunLine(noteRow));
+      }
+    }
+    lines.push(xpyunLine(separator, { forceTag: "" }));
   }
-  lines.push(xpyunLine("--------------------------------", { forceTag: "" }));
-  lines.push(xpyunLine(`Items: ${items.length}`));
-  lines.push(xpyunLine(`Total Qty: ${totalQty}`));
-  lines.push(xpyunLine(`Total: ${formatPhp(totalAmount)}`));
+  lines.push(xpyunLine(`ITEM LINES: ${items.length}`));
+  lines.push(xpyunLine(`TOTAL QTY : ${totalQty}`));
+  lines.push(xpyunLine(`TOTAL     : ${formatPhp(totalAmount)}`, { forceTag: "B2" }));
+  lines.push(xpyunLine(majorSeparator, { forceTag: "" }));
+  lines.push("<C>THANK YOU</C><BR>");
+  lines.push("<BR>");
   lines.push("<BR>");
   lines.push("<BR>");
 

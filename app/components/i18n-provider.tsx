@@ -13,7 +13,7 @@ const I18nContext = createContext<I18nContextValue | null>(null);
 
 export default function I18nProvider({ children }: { children: ReactNode }) {
   const [lang, setLang] = useState<Lang>(() => {
-    if (typeof window === "undefined") return "zh";
+    if (typeof window === "undefined") return "en";
     const stored = localStorage.getItem("rdv_lang");
     if (stored === "zh" || stored === "en") return stored;
     const browserLang = (navigator.language || "").toLowerCase();

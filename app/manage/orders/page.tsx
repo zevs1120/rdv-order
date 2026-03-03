@@ -113,11 +113,11 @@ export default function ManageOrdersPage() {
       }
       setOrders(body.orders || []);
     } catch (err: any) {
-      if (err.message === "未登录") {
+      if (err.message === "未登录" || err.message === "Not signed in") {
         router.replace("/");
         return;
       }
-      setError(err.message || "加载失败");
+      setError(err.message || t("orders.loadFailed", "Failed to load orders"));
     } finally {
       setLoading(false);
     }
@@ -132,7 +132,11 @@ export default function ManageOrdersPage() {
   async function deleteOrder(orderId: string) {
     if (!canRunAction()) return;
     if (role !== "manager") return;
-    const ok = window.confirm(`确认删除订单 ${orderId.slice(0, 8)} 吗？`);
+    const ok = window.confirm(
+      lang === "en"
+        ? `Delete order ${orderId.slice(0, 8)}?`
+        : `确认删除订单 ${orderId.slice(0, 8)} 吗？`
+    );
     if (!ok) return;
 
     setDeletingId(orderId);
@@ -145,7 +149,7 @@ export default function ManageOrdersPage() {
       });
       setOrders((prev) => prev.filter((item) => item.id !== orderId));
     } catch (err: any) {
-      setError(err.message || "删除失败");
+      setError(err.message || t("orders.deleteFailed", "Failed to delete order"));
     } finally {
       setDeletingId("");
     }
@@ -153,7 +157,7 @@ export default function ManageOrdersPage() {
 
   async function cancelOrder(orderId: string) {
     if (!canRunAction()) return;
-    const reason = window.prompt("取消原因");
+    const reason = window.prompt(t("orders.cancelReasonPrompt", "Cancel reason"));
     if (!reason) return;
     setWorkingId(orderId);
     setError("");
@@ -173,7 +177,7 @@ export default function ManageOrdersPage() {
       });
       await reloadWithCurrentRange();
     } catch (err: any) {
-      setError(err.message || "取消失败");
+      setError(err.message || t("orders.cancelFailed", "Failed to cancel order"));
     } finally {
       setWorkingId("");
     }
@@ -193,7 +197,7 @@ export default function ManageOrdersPage() {
       });
       await reloadWithCurrentRange();
     } catch (err: any) {
-      setError(err.message || "调整失败");
+      setError(err.message || t("orders.adjustFailed", "Failed to adjust order"));
     } finally {
       setWorkingId("");
     }
@@ -212,7 +216,7 @@ export default function ManageOrdersPage() {
       });
       await reloadWithCurrentRange();
     } catch (err: any) {
-      setError(err.message || "分单失败");
+      setError(err.message || t("orders.splitFailed", "Failed to split order"));
     } finally {
       setWorkingId("");
     }
@@ -234,7 +238,7 @@ export default function ManageOrdersPage() {
       });
       await reloadWithCurrentRange();
     } catch (err: any) {
-      setError(err.message || "并单失败");
+      setError(err.message || t("orders.mergeFailed", "Failed to merge order"));
     } finally {
       setWorkingId("");
     }
@@ -257,7 +261,7 @@ export default function ManageOrdersPage() {
       });
       await reloadWithCurrentRange();
     } catch (err: any) {
-      setError(err.message || "退菜失败");
+      setError(err.message || t("orders.returnFailed", "Failed to return item"));
     } finally {
       setWorkingId("");
     }
@@ -265,7 +269,7 @@ export default function ManageOrdersPage() {
 
   async function reverseCheckout(tableNo: string) {
     if (!canRunAction()) return;
-    const reason = window.prompt("反结账原因");
+    const reason = window.prompt(t("orders.reverseReasonPrompt", "Reverse checkout reason"));
     if (!reason) return;
     setWorkingId(tableNo);
     setError("");
@@ -278,7 +282,7 @@ export default function ManageOrdersPage() {
       });
       await reloadWithCurrentRange();
     } catch (err: any) {
-      setError(err.message || "反结账失败");
+      setError(err.message || t("orders.reverseFailed", "Failed to reverse checkout"));
     } finally {
       setWorkingId("");
     }
@@ -294,13 +298,13 @@ export default function ManageOrdersPage() {
 
   async function applyCustomRange() {
     if (!fromDate || !toDate) {
-      setError("请选择开始和结束日期");
+      setError(t("orders.needDateRange", "Select start and end dates"));
       return;
     }
     const from = new Date(`${fromDate}T00:00:00`);
     const to = new Date(`${toDate}T23:59:59`);
     if (from > to) {
-      setError("开始日期不能晚于结束日期");
+      setError(t("orders.invalidDateRange", "Start date cannot be after end date"));
       return;
     }
     await loadOrders(from, to);
@@ -415,7 +419,9 @@ export default function ManageOrdersPage() {
                       <span className="tag">₱{order.amount}</span>
                     </div>
                     <div className="muted">#{order.id.slice(0, 8)} · {new Date(order.created_at).toLocaleString()}</div>
-                    <div className="muted">x{order.item_qty} · {statusLabel(order)} · charge {order.charge_amount >= 0 ? "+" : ""}{order.charge_amount}</div>
+                    <div className="muted">
+                      x{order.item_qty} · {statusLabel(order)} · {lang === "en" ? "charge" : "费用"} {order.charge_amount >= 0 ? "+" : ""}{order.charge_amount}
+                    </div>
 
                     <div className="row" style={{ flexWrap: "wrap" }}>
                       <button
@@ -521,7 +527,9 @@ export default function ManageOrdersPage() {
                             className="secondary compact-btn"
                             type="button"
                             onClick={() => {
-                              const target = window.prompt("输入要并入的目标订单ID（完整）");
+                              const target = window.prompt(
+                                t("orders.mergeTargetPrompt", "Enter target order ID (full)")
+                              );
                               if (!target) return;
                               void mergeTo(target, order.id);
                             }}

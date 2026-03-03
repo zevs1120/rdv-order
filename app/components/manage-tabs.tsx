@@ -24,16 +24,6 @@ export default function ManageTabs() {
         </Link>
       ) : null}
       {role === "manager" ? (
-        <Link href="/manage/cashier" className={pathname === "/manage/cashier" ? "manage-tab active" : "manage-tab"}>
-          {t("manage.cashier", "收银")}
-        </Link>
-      ) : null}
-      {role === "manager" ? (
-        <Link href="/manage/ops" className={pathname === "/manage/ops" ? "manage-tab active" : "manage-tab"}>
-          {t("manage.ops", "运营")}
-        </Link>
-      ) : null}
-      {role === "manager" ? (
         <Link href="/manage/devices" className={pathname === "/manage/devices" ? "manage-tab active" : "manage-tab"}>
           {t("manage.devices", "设备")}
         </Link>

@@ -16,6 +16,94 @@ export const NETWORK_POLICY = {
 } as const;
 
 const inflightGet = new Map<string, Promise<unknown>>();
+type UiLang = "zh" | "en";
+
+const serverErrorEn: Record<string, string> = {
+  "未登录": "Not signed in",
+  "无权限": "Insufficient permission",
+  "缺少桌号": "Table number is required",
+  "该桌未开台，请先开台": "Table is not open yet. Open the table first.",
+  "该桌已开台": "Table is already open",
+  "查询桌台失败": "Failed to load tables",
+  "桌号或人数无效": "Invalid table or guest count",
+  "开台失败": "Failed to open table",
+  "查询失败": "Query failed",
+  "存在无效或已下架菜品": "Some items are invalid or unavailable",
+  "提交失败": "Failed to submit order",
+  "桌台未开台": "Table is not open",
+  "账单查询失败": "Failed to load bill",
+  "当前无可结账订单": "No payable orders for this table",
+  "结账失败": "Checkout failed",
+  "当前桌台有未结订单，请先结账": "Table has unpaid orders. Checkout first.",
+  "关台失败": "Failed to close table",
+  "拼桌桌号无效": "Invalid table numbers for merge",
+  "人数无效": "Invalid guest count",
+  "有桌台已开台，无法拼桌": "One selected table is already open",
+  "拼桌失败": "Failed to merge tables",
+  "该桌不是拼桌": "This table is not merged",
+  "拼桌会话不存在": "Merged table session not found",
+  "当前不是有效拼桌": "Invalid merged table state",
+  "该拼桌已有订单，不能取消拼桌，请先结账": "Cannot unmerge because orders exist. Checkout first.",
+  "取消拼桌失败": "Failed to unmerge tables",
+  "请填写反结账原因": "Reverse checkout reason is required",
+  "该桌当前是开台状态，无需反结账": "Table is open; reverse checkout is not needed",
+  "未找到可反结账会话": "No checkout session to reverse",
+  "反结账失败": "Reverse checkout failed",
+  "订单不存在": "Order not found",
+  "请填写取消原因": "Cancel reason is required",
+  "已结账或已关闭订单不能取消": "Paid or closed orders cannot be cancelled",
+  "订单已取消": "Order already cancelled",
+  "取消订单失败": "Failed to cancel order",
+  "参数不完整": "Missing required parameters",
+  "退菜数量无效": "Invalid return quantity",
+  "当前状态不可退菜": "Item return is not allowed in current status",
+  "该订单无此菜品": "Dish not found in order",
+  "退菜数量超过已点数量": "Return quantity exceeds ordered quantity",
+  "退菜失败": "Failed to return item",
+  "分单菜品参数错误": "Invalid split item parameters",
+  "菜品 ID 格式错误": "Invalid dish ID format",
+  "订单没有可分单菜品": "No items available to split",
+  "分单数量超过原订单菜品数量": "Split quantity exceeds source order",
+  "分单失败": "Failed to split order",
+  "并单参数错误": "Invalid merge parameters",
+  "订单 ID 格式错误": "Invalid order ID format",
+  "目标单不能包含在来源单中": "Target order cannot be included in source orders",
+  "存在无效订单 ID": "Some source order IDs are invalid",
+  "仅支持同一桌号并单": "Only orders from the same table can be merged",
+  "仅未结账订单可并单": "Only unpaid orders can be merged",
+  "并单失败": "Failed to merge orders",
+  "仅未结账订单可调整费用": "Only unpaid orders can be adjusted",
+  "折扣不能超过菜品金额": "Discount cannot exceed item amount",
+  "调整费用失败": "Failed to adjust charges",
+  "缺少时间范围": "Time range is required",
+  "时间格式错误": "Invalid time format",
+  "收入查询失败": "Failed to load revenue",
+  "订单查询失败": "Failed to load orders",
+  "时间范围无效": "Invalid time range",
+  "实收金额无效": "Invalid actual received amount",
+  "日结失败": "Failed to submit day close",
+  "日结记录查询失败": "Failed to load day-close records",
+  "菜名或价格无效": "Invalid dish name or price",
+  "新增模式无效": "Invalid add-dish mode",
+  "班次无效": "Invalid shift",
+  "新增菜失败": "Failed to add dish",
+  "缺少必填字段": "Required fields are missing",
+  "菜单分组无效": "Invalid menu group",
+  "菜品类型无效": "Invalid dish type",
+  "参数错误": "Invalid parameters",
+  "菜品不存在": "Dish not found",
+  "更新失败": "Failed to update",
+  "该菜品已有订单记录，不能删除": "Dish has order history and cannot be deleted",
+  "删除失败": "Failed to delete",
+  "创建失败": "Failed to create",
+  "设备状态查询失败": "Failed to load device status",
+  "设备状态更新失败": "Failed to update device status",
+  "设备不存在": "Device not found",
+  "参数无效": "Invalid parameters",
+  "打印自检失败": "Print self-test failed",
+  "打印失败": "Print failed",
+  "请求失败": "Request failed"
+};
 
 function delay(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -31,11 +119,37 @@ function isRetryableStatus(status: number) {
   return status === 408 || status === 429 || status >= 500;
 }
 
-function readErrorMessage(data: unknown, fallback: string) {
-  if (data && typeof data === "object" && typeof (data as { error?: unknown }).error === "string") {
-    return (data as { error: string }).error;
+function getUiLang(): UiLang {
+  if (typeof window === "undefined") {
+    return "en";
   }
-  return fallback;
+  const stored = localStorage.getItem("rdv_lang");
+  if (stored === "zh" || stored === "en") return stored;
+  const browserLang = (navigator.language || "").toLowerCase();
+  return browserLang.startsWith("zh") ? "zh" : "en";
+}
+
+function localizeErrorMessage(input: string, lang: UiLang) {
+  const message = String(input || "").trim();
+  if (!message || lang === "zh") return message;
+  if (serverErrorEn[message]) return serverErrorEn[message];
+  if (message.startsWith("请求超时，请检查网络")) {
+    return "Request timed out. Check network and retry.";
+  }
+  if (message.startsWith("请求失败 (")) {
+    return message.replace("请求失败", "Request failed");
+  }
+  if (message.startsWith("打印失败队列")) {
+    return "Print queue has failures. Please check printer status.";
+  }
+  return message;
+}
+
+function readErrorMessage(data: unknown, fallback: string, lang: UiLang) {
+  if (data && typeof data === "object" && typeof (data as { error?: unknown }).error === "string") {
+    return localizeErrorMessage((data as { error: string }).error, lang);
+  }
+  return localizeErrorMessage(fallback, lang);
 }
 
 function getNetworkProfile() {
@@ -114,6 +228,7 @@ export async function apiFetchJson<T>(url: string, options: ApiFetchOptions = {}
   } = options;
 
   const method = String(rest.method || "GET").toUpperCase();
+  const lang = getUiLang();
   const retryCount = resolveRetryCount(method, retries);
   const effectiveTimeoutMs = resolveTimeout(timeoutMs);
 
@@ -122,7 +237,11 @@ export async function apiFetchJson<T>(url: string, options: ApiFetchOptions = {}
 
     for (let attempt = 0; attempt <= retryCount; attempt += 1) {
       if (typeof navigator !== "undefined" && navigator.onLine === false) {
-        throw new Error("设备离线，请检查网络后重试");
+        throw new Error(
+          lang === "zh"
+            ? "设备离线，请检查网络后重试"
+            : "Device offline. Check network and retry."
+        );
       }
 
       const controller = new AbortController();
@@ -157,12 +276,18 @@ export async function apiFetchJson<T>(url: string, options: ApiFetchOptions = {}
           continue;
         }
 
-        throw new Error(readErrorMessage(data, `请求失败 (${response.status})`));
+        throw new Error(readErrorMessage(data, `Request failed (${response.status})`, lang));
       } catch (err: any) {
         if (err?.name === "AbortError") {
-          lastError = new Error(`请求超时，请检查网络（${url}）`);
+          lastError = new Error(
+            lang === "zh"
+              ? `请求超时，请检查网络（${url}）`
+              : `Request timed out. Check network and retry (${url})`
+          );
         } else {
-          lastError = err instanceof Error ? err : new Error("网络请求失败");
+          lastError = err instanceof Error
+            ? new Error(localizeErrorMessage(err.message, lang))
+            : new Error(lang === "zh" ? "网络请求失败" : "Network request failed");
         }
 
         if (attempt < retryCount) {
@@ -175,7 +300,7 @@ export async function apiFetchJson<T>(url: string, options: ApiFetchOptions = {}
       }
     }
 
-    throw lastError || new Error("请求失败");
+    throw lastError || new Error(lang === "zh" ? "请求失败" : "Request failed");
   };
 
   const canDedupeGet = dedupeGet && method === "GET" && body === undefined && !externalSignal;

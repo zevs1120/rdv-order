@@ -7,6 +7,7 @@ import ManageTabs from "../../components/manage-tabs";
 import { apiFetchJson, getStoredAuth } from "../../../lib/client-api";
 import { useI18n } from "../../components/i18n-provider";
 import { type PresetKey, rangeByPreset, toDateInput } from "../../../lib/date-range";
+import { localizeMenuText } from "../../../lib/menu-text";
 
 type IncomeDay = {
   day: string;
@@ -14,15 +15,21 @@ type IncomeDay = {
   amount: number;
 };
 
+type HotItem = {
+  name: string;
+  qty: number;
+};
+
 export default function ManageIncomePage() {
   const router = useRouter();
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
   const [preset, setPreset] = useState<PresetKey>("today");
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
   const [orderCount, setOrderCount] = useState(0);
   const [totalAmount, setTotalAmount] = useState(0);
   const [byDay, setByDay] = useState<IncomeDay[]>([]);
+  const [hotItems, setHotItems] = useState<HotItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -45,23 +52,24 @@ export default function ManageIncomePage() {
         return;
       }
 
-      const body = await apiFetchJson<{ orderCount: number; totalAmount: number; byDay: IncomeDay[] }>(
+      const body = await apiFetchJson<{ orderCount: number; totalAmount: number; byDay: IncomeDay[]; hotItems: HotItem[] }>(
         `/api/manage/income?from=${encodeURIComponent(from.toISOString())}&to=${encodeURIComponent(to.toISOString())}`,
         { timeoutMs: 6000, retries: 1 }
       );
       setOrderCount(body.orderCount || 0);
       setTotalAmount(body.totalAmount || 0);
       setByDay(body.byDay || []);
+      setHotItems(body.hotItems || []);
     } catch (err: any) {
-      if (err.message === "未登录") {
+      if (err.message === "未登录" || err.message === "Not signed in") {
         router.replace("/");
         return;
       }
-      if (err.message === "无权限") {
+      if (err.message === "无权限" || err.message === "Insufficient permission") {
         router.replace("/manage/orders");
         return;
       }
-      setError(err.message || "加载失败");
+      setError(err.message || t("income.loadFailed", "Failed to load revenue"));
     } finally {
       setLoading(false);
     }
@@ -84,13 +92,13 @@ export default function ManageIncomePage() {
 
   async function applyCustomRange() {
     if (!fromDate || !toDate) {
-      setError("请选择开始和结束日期");
+      setError(t("income.needDateRange", "Select start and end dates"));
       return;
     }
     const from = new Date(`${fromDate}T00:00:00`);
     const to = new Date(`${toDate}T23:59:59`);
     if (from > to) {
-      setError("开始日期不能晚于结束日期");
+      setError(t("income.invalidDateRange", "Start date cannot be after end date"));
       return;
     }
     await loadIncome(from, to);
@@ -128,17 +136,32 @@ export default function ManageIncomePage() {
       <div className="card stack">
         {loading ? <div className="muted">{t("common.loading", "加载中...")}</div> : null}
         {error ? <div className="muted">{error}</div> : null}
-        <div className="row" style={{ justifyContent: "space-between" }}>
+        <div className="row" style={{ justifyContent: "space-between", flexWrap: "wrap", rowGap: 4 }}>
           <strong>{t("income.orderCount", "订单数")}：{orderCount}</strong>
           <strong>{t("income.total", "收入")}：₱{totalAmount}</strong>
         </div>
         <div className="order-list">
           {byDay.map((row) => (
-            <div key={row.day} className="row" style={{ justifyContent: "space-between" }}>
+            <div key={row.day} className="row" style={{ justifyContent: "space-between", flexWrap: "wrap", rowGap: 4 }}>
               <div>{new Date(row.day).toLocaleDateString()}</div>
-              <div>订单 {row.order_count} · ₱{row.amount}</div>
+              <div>{lang === "en" ? `Orders ${row.order_count} · ₱${row.amount}` : `订单 ${row.order_count} · ₱${row.amount}`}</div>
             </div>
           ))}
+        </div>
+      </div>
+
+      <div className="card stack">
+        <h3 style={{ margin: 0 }}>{t("ops.hotItems", "热销")}</h3>
+        <div className="order-list">
+          {hotItems.map((item) => (
+            <div key={`hot-item-${item.name}`} className="row" style={{ justifyContent: "space-between", flexWrap: "wrap", rowGap: 4 }}>
+              <div style={{ flex: "1 1 180px" }}>{localizeMenuText(item.name, lang)}</div>
+              <div>{lang === "en" ? `${item.qty} sold` : `${item.qty} 份`}</div>
+            </div>
+          ))}
+          {!loading && hotItems.length === 0 ? (
+            <div className="muted">{t("orders.empty", "暂无订单")}</div>
+          ) : null}
         </div>
       </div>
 

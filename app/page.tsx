@@ -51,7 +51,7 @@ export default function LoginPage() {
         router.replace("/tables");
       }
     } catch (err: any) {
-      setError(err.message || "登录失败");
+      setError(err.message || t("login.failed", "Sign in failed"));
     } finally {
       setLoading(false);
     }
@@ -59,11 +59,11 @@ export default function LoginPage() {
 
   return (
     <div className="stack">
-      <header>
+      <header className="login-hero">
         <h1>{t("login.title", "RDV 点餐系统")}</h1>
-        <div className="muted">{t("login.subtitle", "稳定 / 简单 / 低成本")}</div>
+        <div className="muted login-subtitle">{t("login.subtitle", "稳定 / 简单 / 低成本")}</div>
       </header>
-      <div className="card">
+      <div className="card login-card">
         {checkingSession ? (
           <div className="stack">
             <div className="skeleton skeleton-row" />
@@ -106,7 +106,7 @@ export default function LoginPage() {
         </form>
         )}
       </div>
-      <div className="muted">{t("login.offlineNote", "没有网络时请使用手写单")}</div>
+      <div className="muted login-footnote">{t("login.offlineNote", "没有网络时请使用手写单")}</div>
     </div>
   );
 }
