@@ -17,6 +17,7 @@ type OrderPrintRow = {
   created_at: string;
   waiter_name: string | null;
   dish_name: string;
+  unit_price: number;
   qty: number;
   category: string | null;
   note: string | null;
@@ -24,6 +25,7 @@ type OrderPrintRow = {
 
 type PrintItem = {
   name: string;
+  unitPrice?: number;
   qty: number;
   category: string | null;
   note: string | null;
@@ -136,6 +138,7 @@ async function buildOrderPayload(orderId: string): Promise<OrderPrintPayload> {
             o.created_at,
             u.username AS waiter_name,
             mi.name AS dish_name,
+            mi.price AS unit_price,
             oi.qty,
             mi.category,
             oi.note
@@ -157,6 +160,7 @@ async function buildOrderPayload(orderId: string): Promise<OrderPrintPayload> {
     const target = splitByTarget ? resolveTarget(row.category, row.dish_name, barCategories, barKeywords) : "kitchen";
     return {
       name: row.dish_name,
+      unitPrice: Number(row.unit_price) || 0,
       qty: row.qty,
       category: row.category,
       note: row.note,
@@ -192,14 +196,16 @@ function buildSelfTestPayload(target: "kitchen" | "bar" | "both" = "both"): Self
   const items = target === "bar"
     ? [{
         name: "TEST DRINK",
+        unitPrice: 0,
         qty: 1,
         category: "Test Bar",
         note: "printer self test",
         target: "bar" as const
       }]
-    : target === "kitchen"
+      : target === "kitchen"
       ? [{
           name: "TEST DISH",
+          unitPrice: 0,
           qty: 1,
           category: "Test Kitchen",
           note: "printer self test",
@@ -207,12 +213,14 @@ function buildSelfTestPayload(target: "kitchen" | "bar" | "both" = "both"): Self
         }]
       : [{
           name: "TEST DISH",
+          unitPrice: 0,
           qty: 1,
           category: "Test Kitchen",
           note: "printer self test",
           target: "kitchen" as const
         }, {
           name: "TEST DRINK",
+          unitPrice: 0,
           qty: 1,
           category: "Test Bar",
           note: "printer self test",
@@ -273,7 +281,21 @@ function formatPrintDateTime(iso: string) {
   return `${get("year")}-${get("month")}-${get("day")} ${get("hour")}:${get("minute")}:${get("second")}`;
 }
 
-function toXpyunContent(payload: PrintPayload) {
+function formatPhp(amount: number) {
+  return `PHP ${Math.max(0, Math.round(amount)).toLocaleString("en-US")}`;
+}
+
+function finalizeXpyunContent(lines: string[]) {
+  let content = lines.join("");
+  const maxBytes = 11_500;
+  while (Buffer.byteLength(content, "utf8") > maxBytes && lines.length > 8) {
+    lines.splice(Math.max(8, lines.length - 4), 2);
+    content = lines.join("");
+  }
+  return content;
+}
+
+function toXpyunKitchenContent(payload: PrintPayload) {
   const items = payload.tickets.flatMap((ticket) => ticket.items);
   const totalQty = items.reduce((sum, item) => sum + Math.max(0, Number(item.qty) || 0), 0);
   const headerDate = payload.type === "order" ? payload.createdAt : payload.generatedAt;
@@ -303,20 +325,67 @@ function toXpyunContent(payload: PrintPayload) {
   lines.push("<BR>");
   lines.push("<BR>");
 
-  let content = lines.join("");
-  const maxBytes = 11_500;
-  while (Buffer.byteLength(content, "utf8") > maxBytes && lines.length > 8) {
-    lines.splice(Math.max(8, lines.length - 4), 2);
-    content = lines.join("");
+  return finalizeXpyunContent(lines);
+}
+
+function toXpyunCustomerContent(payload: OrderPrintPayload) {
+  const items = payload.items;
+  const totalQty = items.reduce((sum, item) => sum + Math.max(0, Number(item.qty) || 0), 0);
+  const totalAmount = items.reduce((sum, item) => {
+    const qty = Math.max(0, Number(item.qty) || 0);
+    const price = Math.max(0, Number(item.unitPrice) || 0);
+    return sum + qty * price;
+  }, 0);
+
+  const lines: string[] = [
+    "<CB>RDV GUEST COPY</CB><BR>",
+    xpyunLine(`Table: ${payload.tableNo}`),
+    xpyunLine(`Time: ${formatPrintDateTime(payload.createdAt)}`)
+  ];
+
+  if (payload.waiter) {
+    lines.push(xpyunLine(`Server: ${payload.waiter}`));
   }
-  return content;
+
+  lines.push(xpyunLine("--------------------------------", { forceTag: "" }));
+  for (const item of items) {
+    const name = localizeMenuText(item.name, "en");
+    const qty = Math.max(0, Number(item.qty) || 0);
+    const price = Math.max(0, Number(item.unitPrice) || 0);
+    const lineAmount = qty * price;
+
+    lines.push(xpyunLine(name));
+    lines.push(xpyunLine(`${qty} x ${formatPhp(price)} = ${formatPhp(lineAmount)}`));
+    if (item.note) {
+      lines.push(xpyunLine(`Note: ${item.note}`));
+    }
+    lines.push("<BR>");
+  }
+  lines.push(xpyunLine("--------------------------------", { forceTag: "" }));
+  lines.push(xpyunLine(`Items: ${items.length}`));
+  lines.push(xpyunLine(`Total Qty: ${totalQty}`));
+  lines.push(xpyunLine(`Total: ${formatPhp(totalAmount)}`));
+  lines.push("<BR>");
+  lines.push("<BR>");
+
+  return finalizeXpyunContent(lines);
 }
 
 function isRetryableXpyunError(code: number) {
   return code === 1003 || code === 1006 || code === 2001 || code === 5000;
 }
 
-async function dispatchToXpyun(payload: PrintPayload): Promise<DispatchResult> {
+type XpyunConfig = {
+  url: string;
+  user: string;
+  userKey: string;
+  sn: string;
+  copies: number;
+  voice: number | null;
+  mode: number | null;
+};
+
+function resolveXpyunConfig(): XpyunConfig {
   const url = process.env.XPYUN_API_URL || "https://open.xpyun.net/api/openapi/xprinter/print";
   const aliasUser = process.env.USERKEY || process.env.XPYUN_USERKEY || process.env.SN ? process.env.USER : "";
   const user = (process.env.XPYUN_USER || aliasUser || "").trim();
@@ -326,8 +395,6 @@ async function dispatchToXpyun(payload: PrintPayload): Promise<DispatchResult> {
     throw new PrintDispatchError("芯烨云打印配置缺失", false);
   }
 
-  const timestamp = String(Math.floor(Date.now() / 1000));
-  const sign = createHash("sha1").update(`${user}${userKey}${timestamp}`).digest("hex");
   const copiesRaw = Number(process.env.XPYUN_COPIES || 1);
   const copies = Number.isFinite(copiesRaw) ? Math.min(65535, Math.max(1, Math.round(copiesRaw))) : 1;
   const voiceRaw = process.env.XPYUN_VOICE;
@@ -337,18 +404,24 @@ async function dispatchToXpyun(payload: PrintPayload): Promise<DispatchResult> {
   const modeNum = modeRaw === undefined || modeRaw === "" ? null : Number(modeRaw);
   const mode = Number.isFinite(modeNum) ? Math.max(0, Math.round(modeNum as number)) : null;
 
+  return { url, user, userKey, sn, copies, voice, mode };
+}
+
+async function dispatchXpyunContent(config: XpyunConfig, content: string) {
+  const timestamp = String(Math.floor(Date.now() / 1000));
+  const sign = createHash("sha1").update(`${config.user}${config.userKey}${timestamp}`).digest("hex");
   const body: Record<string, unknown> = {
-    user,
+    user: config.user,
     timestamp,
     sign,
-    sn,
-    content: toXpyunContent(payload),
-    copies
+    sn: config.sn,
+    content,
+    copies: config.copies
   };
-  if (voice !== null) body.voice = voice;
-  if (mode !== null) body.mode = mode;
+  if (config.voice !== null) body.voice = config.voice;
+  if (config.mode !== null) body.mode = config.mode;
 
-  const result = await postJsonWithTimeout(url, body, {}, getPrintTimeoutMs());
+  const result = await postJsonWithTimeout(config.url, body, {}, getPrintTimeoutMs());
   if (!result.ok) {
     const retryable = result.status >= 500 || result.status === 429;
     throw new PrintDispatchError(`芯烨云打印失败(${result.status})`, retryable);
@@ -360,10 +433,26 @@ async function dispatchToXpyun(payload: PrintPayload): Promise<DispatchResult> {
     throw new PrintDispatchError(`芯烨云打印失败(${code}) ${msg}`, isRetryableXpyunError(code));
   }
 
+  return typeof result.data?.data === "string" ? result.data.data : undefined;
+}
+
+async function dispatchToXpyun(payload: PrintPayload): Promise<DispatchResult> {
+  const config = resolveXpyunConfig();
+  if (payload.type === "order") {
+    const kitchenJobId = await dispatchXpyunContent(config, toXpyunKitchenContent(payload));
+    const customerJobId = await dispatchXpyunContent(config, toXpyunCustomerContent(payload));
+    return {
+      provider: "xpyun",
+      slot: "primary",
+      remoteJobId: [kitchenJobId, customerJobId].filter(Boolean).join(",") || undefined
+    };
+  }
+
+  const testJobId = await dispatchXpyunContent(config, toXpyunKitchenContent(payload));
   return {
     provider: "xpyun",
     slot: "primary",
-    remoteJobId: typeof result.data?.data === "string" ? result.data.data : undefined
+    remoteJobId: testJobId
   };
 }
 
