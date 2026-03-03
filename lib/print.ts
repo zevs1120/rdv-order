@@ -234,7 +234,24 @@ function sanitizeXpyunLine(value: string) {
   return String(value || "")
     .replace(/\r/g, "")
     .replace(/\n/g, " ")
+    .replace(/</g, "＜")
+    .replace(/>/g, "＞")
     .trim();
+}
+
+function getXpyunFontTag() {
+  const raw = String(process.env.XPYUN_FONT_TAG || "B").trim().toUpperCase();
+  if (!raw) return "";
+  const allow = new Set(["N", "HB", "WB", "B", "HB2", "WB2", "B2", "BOLD"]);
+  return allow.has(raw) ? raw : "B";
+}
+
+function xpyunLine(text = "", opts?: { center?: boolean; forceTag?: string }) {
+  const safe = sanitizeXpyunLine(text);
+  const tag = opts?.forceTag ?? getXpyunFontTag();
+  const content = tag ? `<${tag}>${safe}</${tag}>` : safe;
+  if (opts?.center) return `<C>${content}</C><BR>`;
+  return `${content}<BR>`;
 }
 
 function formatPrintDateTime(iso: string) {
@@ -261,34 +278,34 @@ function toXpyunContent(payload: PrintPayload) {
   const headerDate = payload.type === "order" ? payload.createdAt : payload.generatedAt;
 
   const lines: string[] = [
-    "RDV ORDER",
-    `桌号: ${sanitizeXpyunLine(payload.tableNo)}`,
-    `时间: ${formatPrintDateTime(headerDate)}`
+    "<CB>RDV ORDER</CB><BR>",
+    xpyunLine(`桌号: ${payload.tableNo}`),
+    xpyunLine(`时间: ${formatPrintDateTime(headerDate)}`)
   ];
 
   if (payload.type === "order" && payload.waiter) {
-    lines.push(`服务员: ${sanitizeXpyunLine(payload.waiter)}`);
+    lines.push(xpyunLine(`服务员: ${payload.waiter}`));
   }
 
-  lines.push("--------------------------------");
+  lines.push(xpyunLine("--------------------------------", { forceTag: "" }));
   for (const item of items) {
-    lines.push(`${sanitizeXpyunLine(item.name)} x${item.qty}`);
+    lines.push(xpyunLine(`${item.name} x${item.qty}`));
     if (item.note) {
-      lines.push(`备注: ${sanitizeXpyunLine(item.note)}`);
+      lines.push(xpyunLine(`备注: ${item.note}`));
     }
-    lines.push("");
+    lines.push("<BR>");
   }
-  lines.push("--------------------------------");
-  lines.push(`菜品数: ${items.length}`);
-  lines.push(`总份数: ${totalQty}`);
-  lines.push("");
-  lines.push("");
+  lines.push(xpyunLine("--------------------------------", { forceTag: "" }));
+  lines.push(xpyunLine(`菜品数: ${items.length}`));
+  lines.push(xpyunLine(`总份数: ${totalQty}`));
+  lines.push("<BR>");
+  lines.push("<BR>");
 
-  let content = `${lines.join("\n")}\n`;
+  let content = lines.join("");
   const maxBytes = 11_500;
   while (Buffer.byteLength(content, "utf8") > maxBytes && lines.length > 8) {
     lines.splice(Math.max(8, lines.length - 4), 2);
-    content = `${lines.join("\n")}\n`;
+    content = lines.join("");
   }
   return content;
 }

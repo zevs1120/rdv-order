@@ -78,6 +78,7 @@ cp .env.example .env.local
 - `XPYUN_API_URL`（可选，默认 `https://open.xpyun.net/api/openapi/xprinter/print`）
 - `XPYUN_COPIES`（可选，默认 1）
 - `XPYUN_VOICE`（可选，默认 2）
+- `XPYUN_FONT_TAG`（可选，默认 `B`，可设 `B2` 进一步放大）
 - `XPYUN_MODE`（可选）
 - `PRINT_WORKER_KEY`（可选，给调度器调用 `/api/print/dispatch`）
 - `PRINT_FALLBACK_PROVIDER`（可选：`cloud` / `agent` / `xpyun`）

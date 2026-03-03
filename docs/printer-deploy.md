@@ -15,6 +15,7 @@
   - 兼容别名：`USER`、`USERKEY`、`SN`
 - 芯烨接口（可选）：`XPYUN_API_URL`（默认 `https://open.xpyun.net/api/openapi/xprinter/print`）
 - 芯烨份数/语音（可选）：`XPYUN_COPIES`、`XPYUN_VOICE`、`XPYUN_MODE`
+- 字体放大（可选）：`XPYUN_FONT_TAG`（默认 `B`，太小可改 `B2`）
 - 调度密钥：`PRINT_WORKER_KEY`
 - 设备心跳密钥（建议）：`DEVICE_HEARTBEAT_KEY`
 - 超时时间（可选）：`PRINT_TIMEOUT_MS`
