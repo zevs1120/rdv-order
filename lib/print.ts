@@ -1,5 +1,6 @@
 import { createHash } from "crypto";
 import { pool } from "./db";
+import { localizeMenuText } from "./menu-text";
 
 export type PrintProvider = "cloud" | "agent" | "xpyun";
 type PrintTarget = "kitchen" | "bar";
@@ -279,25 +280,26 @@ function toXpyunContent(payload: PrintPayload) {
 
   const lines: string[] = [
     "<CB>RDV ORDER</CB><BR>",
-    xpyunLine(`桌号: ${payload.tableNo}`),
-    xpyunLine(`时间: ${formatPrintDateTime(headerDate)}`)
+    xpyunLine(`Table: ${payload.tableNo}`),
+    xpyunLine(`Time: ${formatPrintDateTime(headerDate)}`)
   ];
 
   if (payload.type === "order" && payload.waiter) {
-    lines.push(xpyunLine(`服务员: ${payload.waiter}`));
+    lines.push(xpyunLine(`Server: ${payload.waiter}`));
   }
 
   lines.push(xpyunLine("--------------------------------", { forceTag: "" }));
   for (const item of items) {
-    lines.push(xpyunLine(`${item.name} x${item.qty}`));
+    const itemName = localizeMenuText(item.name, "en");
+    lines.push(xpyunLine(`${itemName} x${item.qty}`));
     if (item.note) {
-      lines.push(xpyunLine(`备注: ${item.note}`));
+      lines.push(xpyunLine(`Note: ${item.note}`));
     }
     lines.push("<BR>");
   }
   lines.push(xpyunLine("--------------------------------", { forceTag: "" }));
-  lines.push(xpyunLine(`菜品数: ${items.length}`));
-  lines.push(xpyunLine(`总份数: ${totalQty}`));
+  lines.push(xpyunLine(`Items: ${items.length}`));
+  lines.push(xpyunLine(`Total Qty: ${totalQty}`));
   lines.push("<BR>");
   lines.push("<BR>");
 
