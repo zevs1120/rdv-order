@@ -64,7 +64,7 @@
 
 .ui-appbar {
   position: sticky;
-  top: calc(var(--topbar-h) + env(safe-area-inset-top));
+  top: 0;
   z-index: 32;
   background: var(--bg-page);
   border-bottom: var(--border-1) solid var(--line-default);

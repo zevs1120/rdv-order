@@ -1306,12 +1306,13 @@ button:disabled {
 .topbar-shell__inner {
   width: min(var(--app-max), calc(100vw - env(safe-area-inset-left) - env(safe-area-inset-right)));
   margin: 0 auto;
-  height: 100%;
+  height: var(--topbar-h);
+  margin-top: env(safe-area-inset-top);
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: var(--space-2);
-  padding: env(safe-area-inset-top) max(var(--space-3), env(safe-area-inset-right)) 0 max(var(--space-3), env(safe-area-inset-left));
+  padding: 0 max(var(--space-3), env(safe-area-inset-right)) 0 max(var(--space-3), env(safe-area-inset-left));
 }
 
 .topbar-net-pill {
@@ -2018,42 +2019,44 @@ a {
   }
 
   .order-layout {
-    grid-template-columns: 56px minmax(0, 1fr);
+    grid-template-columns: 94px minmax(0, 1fr);
     gap: 6px;
   }
 
   .category-sidebar {
-    width: 56px;
-    min-width: 56px;
-    max-width: 56px;
-    flex-basis: 56px;
+    width: 94px;
+    min-width: 94px;
+    max-width: 94px;
+    flex-basis: 94px;
     gap: 3px;
     padding: 3px;
   }
 
   .category-btn {
-    min-height: 34px;
-    padding: 4px 4px;
-    font-size: 10px;
+    min-height: 36px;
+    padding: 4px 6px;
+    font-size: 11px;
+    white-space: normal;
+    overflow: visible;
+    text-overflow: clip;
+    line-height: 1.16;
+    word-break: break-word;
   }
 
   .order-menu-list {
+    grid-template-columns: 1fr;
     gap: 6px;
   }
 
   .order-dish-row {
-    min-height: 108px;
+    min-height: 114px;
     padding: 7px;
     gap: 6px;
   }
 
   .order-dish-title {
-    font-size: 12px;
+    font-size: 13px;
     line-height: 1.18;
-  }
-
-  .order-dish-subtitle {
-    font-size: 10px;
   }
 
   .order-menu-trailing {
@@ -2061,12 +2064,12 @@ a {
   }
 
   .order-dish-price {
-    font-size: 18px;
+    font-size: 24px;
   }
 
   .order-add-btn {
-    min-height: 30px;
-    min-width: 68px;
+    min-height: 32px;
+    min-width: 74px;
     font-size: 11px;
     padding: 0 8px;
   }
@@ -2094,25 +2097,34 @@ a {
 /* Xiaomi 14 Ultra / common Android 412w bucket */
 @media (min-width: 407px) and (max-width: 430px) {
   .order-layout {
-    grid-template-columns: 60px minmax(0, 1fr);
+    grid-template-columns: 102px minmax(0, 1fr);
     gap: 7px;
   }
 
   .category-sidebar {
-    width: 60px;
-    min-width: 60px;
-    max-width: 60px;
-    flex-basis: 60px;
+    width: 102px;
+    min-width: 102px;
+    max-width: 102px;
+    flex-basis: 102px;
   }
 
   .category-btn {
     min-height: 36px;
-    font-size: 10px;
-    padding: 5px;
+    font-size: 11px;
+    padding: 5px 7px;
+    white-space: normal;
+    overflow: visible;
+    text-overflow: clip;
+    line-height: 1.16;
+    word-break: break-word;
+  }
+
+  .order-menu-list {
+    grid-template-columns: 1fr;
   }
 
   .order-dish-row {
-    min-height: 114px;
+    min-height: 118px;
     padding: 8px;
   }
 
@@ -2121,13 +2133,13 @@ a {
   }
 
   .order-dish-price {
-    font-size: 19px;
+    font-size: 24px;
   }
 
   .order-add-btn {
-    min-height: 31px;
-    min-width: 72px;
-    font-size: 11px;
+    min-height: 32px;
+    min-width: 76px;
+    font-size: 12px;
   }
 }
 
