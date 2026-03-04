@@ -2176,9 +2176,18 @@ a {
 /* LOCKED (owner-approved): keep add button always visible on mobile order cards.
    Do not modify this block without explicit approval. */
 .order-screen .order-menu-list .order-dish-row {
-  display: grid !important;
-  grid-template-rows: minmax(0, 1fr) auto !important;
-  align-content: stretch !important;
+  display: flex !important;
+  flex-direction: column !important;
+  justify-content: flex-start !important;
+  min-height: 128px !important;
+  overflow: hidden !important;
+}
+
+.order-screen .order-menu-list .order-dish-main {
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
+  width: 100% !important;
+  overflow: hidden !important;
 }
 
 .order-screen .order-menu-list .order-dish-footer--locked {
@@ -2188,6 +2197,8 @@ a {
   gap: 8px !important;
   min-height: 34px !important;
   width: 100% !important;
+  margin-top: auto !important;
+  flex-shrink: 0 !important;
 }
 
 .order-screen .order-menu-list .order-dish-footer--locked .order-dish-price {
@@ -2211,6 +2222,20 @@ a {
 }
 
 @media (max-width: 430px) {
+  .order-screen .order-layout,
+  .order-screen .order-list-mode,
+  .order-screen .menu-content,
+  .order-screen .order-menu-list,
+  .order-screen .order-dish-row {
+    overflow-x: hidden !important;
+  }
+
+  .order-screen .order-list-mode,
+  .order-screen .menu-content {
+    padding-bottom: calc(var(--bottombar-h) + env(safe-area-inset-bottom) + 116px) !important;
+    scroll-padding-bottom: calc(var(--bottombar-h) + env(safe-area-inset-bottom) + 116px) !important;
+  }
+
   .order-screen .order-menu-list .order-dish-footer--locked .order-add-btn--locked {
     flex-basis: 74px !important;
     width: 74px !important;
