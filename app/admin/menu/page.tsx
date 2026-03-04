@@ -248,7 +248,7 @@ export default function MenuAdminPage() {
         title={t("admin.title", "菜单管理")}
         left={(
           <Button variant="secondary" onClick={() => router.push("/manage")}>
-            {lang === "en" ? "More" : "更多"}
+            {t("common.back", "返回")}
           </Button>
         )}
         right={(

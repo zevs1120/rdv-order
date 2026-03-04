@@ -329,7 +329,7 @@ export default function ManageOrdersPage() {
         title={t("orders.title", "订单")}
         left={(
           <Button variant="secondary" onClick={() => router.push("/manage")}>
-            {lang === "en" ? "More" : "更多"}
+            {t("common.back", "返回")}
           </Button>
         )}
         right={(

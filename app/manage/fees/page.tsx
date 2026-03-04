@@ -179,7 +179,7 @@ export default function ManageFeesPage() {
         title={t("fees.title", "费用规则")}
         left={(
           <Button variant="secondary" onClick={() => router.push("/manage")}>
-            {lang === "en" ? "More" : "更多"}
+            {t("common.back", "返回")}
           </Button>
         )}
         right={(
