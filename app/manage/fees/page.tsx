@@ -191,7 +191,7 @@ export default function ManageFeesPage() {
       />
 
       <div className="manage-subpage-scroll stack">
-        <div className="panel stack">
+        <div className="panel stack manage-panel">
           <div className="row" style={{ justifyContent: "space-between" }}>
             <h3 style={{ margin: 0 }}>{t("fees.section", "费用设置")}</h3>
             <button
@@ -210,7 +210,7 @@ export default function ManageFeesPage() {
         </div>
 
         {sectionOpen ? (
-          <div className="panel stack">
+          <div className="panel stack manage-panel">
             <div className="row" style={{ justifyContent: "space-between" }}>
               <strong>{t("fees.activeCount", "已启用规则")}：{activeCount}</strong>
               <button className="secondary compact-btn" type="button" onClick={addRule}>

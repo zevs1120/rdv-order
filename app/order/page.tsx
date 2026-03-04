@@ -935,7 +935,7 @@ export default function OrderPage() {
             <div className={styles.topActions}>
               <div className={styles.moreWrap} ref={actionMenuRef}>
                 <Button variant="secondary" onClick={() => setActionMenuOpen((v) => !v)}>
-                  {t("common.more", "More")}
+                  {lang === "en" ? "Actions" : "操作"}
                 </Button>
                 {actionMenuOpen ? (
                   <div className={styles.moreMenu}>
@@ -1041,6 +1041,7 @@ export default function OrderPage() {
                   </div>
                   <strong className={styles.menuPrice}>₱{item.price}</strong>
                   <Button
+                    variant="secondary"
                     type="button"
                     className={styles.addBtn}
                     onClick={() => addFromMenu(item)}

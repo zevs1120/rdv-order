@@ -108,7 +108,7 @@ export default function ManageIncomePage() {
       />
 
       <div className="manage-subpage-scroll stack">
-        <div className="card stack">
+        <div className="card stack manage-panel">
           <h3 style={{ margin: 0 }}>{t("income.section", "收入")}</h3>
           <div className="row" style={{ flexWrap: "wrap" }}>
             {quickButtons.map((btn) => (
@@ -129,20 +129,29 @@ export default function ManageIncomePage() {
           </div>
         </div>
 
-        <div className="card stack">
+        <div className="card stack manage-panel">
           {loading ? <div className="muted">{t("common.loading", "加载中...")}</div> : null}
           {error ? <div className="muted">{error}</div> : null}
-          <div className="row" style={{ justifyContent: "space-between", flexWrap: "wrap", rowGap: 4 }}>
-            <strong>{t("income.orderCount", "订单数")}：{orderCount}</strong>
-            <strong>{t("income.total", "收入")}：₱{totalAmount}</strong>
+          <div className="manage-kpi-grid">
+            <div className="manage-kpi-card">
+              <div className="manage-kpi-label">{t("income.orderCount", "订单数")}</div>
+              <div className="manage-kpi-value">{orderCount}</div>
+            </div>
+            <div className="manage-kpi-card">
+              <div className="manage-kpi-label">{t("income.total", "收入")}</div>
+              <div className="manage-kpi-value">₱{totalAmount}</div>
+            </div>
           </div>
-          <div className="order-list">
+          <div className="order-list manage-order-list">
             {byDay.map((row) => (
               <div key={row.day} className="row" style={{ justifyContent: "space-between", flexWrap: "wrap", rowGap: 4 }}>
                 <div>{new Date(row.day).toLocaleDateString()}</div>
                 <div>{lang === "en" ? `Orders ${row.order_count} · ₱${row.amount}` : `订单 ${row.order_count} · ₱${row.amount}`}</div>
               </div>
             ))}
+            {!loading && byDay.length === 0 ? (
+              <div className="manage-empty-note">{lang === "en" ? "No revenue data for this period" : "当前时段暂无收入数据"}</div>
+            ) : null}
           </div>
         </div>
       </div>

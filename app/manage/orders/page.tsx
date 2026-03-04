@@ -299,7 +299,7 @@ export default function ManageOrdersPage() {
       />
 
       <div className="manage-subpage-scroll stack">
-        <div className="panel stack">
+        <div className="panel stack manage-panel">
           <div className="row" style={{ justifyContent: "space-between" }}>
             <h3 style={{ margin: 0 }}>{t("orders.section", "订单")}</h3>
             <button
@@ -354,15 +354,23 @@ export default function ManageOrdersPage() {
               {loading ? <div className="muted">{t("common.loading", "加载中...")}</div> : null}
               {error ? <div className="muted">{error}</div> : null}
               {!loading && !error ? (
-                <div className="row" style={{ justifyContent: "space-between" }}>
-                  <strong>{t("orders.totalCount", "订单总数")}：{orders.length}</strong>
-                  <strong>{t("orders.totalRevenue", "营业额")}：₱{totalAmount}</strong>
+                <div className="manage-kpi-grid">
+                  <div className="manage-kpi-card">
+                    <div className="manage-kpi-label">{t("orders.totalCount", "订单总数")}</div>
+                    <div className="manage-kpi-value">{orders.length}</div>
+                  </div>
+                  <div className="manage-kpi-card">
+                    <div className="manage-kpi-label">{t("orders.totalRevenue", "营业额")}</div>
+                    <div className="manage-kpi-value">₱{totalAmount}</div>
+                  </div>
                 </div>
               ) : null}
 
-              {!loading && !error && orders.length === 0 ? <div className="muted">{t("orders.empty", "暂无订单")}</div> : null}
+              {!loading && !error && orders.length === 0 ? (
+                <div className="manage-empty-note">{t("orders.empty", "暂无订单")}</div>
+              ) : null}
 
-              <div className="order-list">
+              <div className="order-list manage-order-list">
                 {loading ? (
                   <>
                     <div className="skeleton skeleton-card" />
@@ -376,7 +384,7 @@ export default function ManageOrdersPage() {
                   const canEdit = order.status === "submitted" && !order.cancelled_at;
 
                   return (
-                    <div key={order.id} className="menu-item stack">
+                    <div key={order.id} className="menu-item stack manage-order-card">
                       <div className="row" style={{ justifyContent: "space-between" }}>
                         <strong>{order.table_no}</strong>
                         <span className="tag">₱{order.amount}</span>

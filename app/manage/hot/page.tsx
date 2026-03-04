@@ -109,7 +109,7 @@ export default function ManageHotPage() {
       />
 
       <div className="manage-subpage-scroll stack">
-        <div className="card stack">
+        <div className="card stack manage-panel">
           <div className="row" style={{ flexWrap: "wrap" }}>
             {quickButtons.map((btn) => (
               <button
@@ -131,21 +131,27 @@ export default function ManageHotPage() {
           </div>
         </div>
 
-        <div className="card stack">
+        <div className="card stack manage-panel">
           {loading ? <div className="muted">{t("common.loading", "加载中...")}</div> : null}
           {error ? <div className="muted">{error}</div> : null}
-          <div className="row" style={{ justifyContent: "space-between", flexWrap: "wrap", rowGap: 4 }}>
-            <strong>{t("hot.totalQty", "总销量")}：{totalQty}</strong>
-            <strong>{t("income.orderCount", "订单数")}：{items.length}</strong>
+          <div className="manage-kpi-grid">
+            <div className="manage-kpi-card">
+              <div className="manage-kpi-label">{t("hot.totalQty", "总销量")}</div>
+              <div className="manage-kpi-value">{totalQty}</div>
+            </div>
+            <div className="manage-kpi-card">
+              <div className="manage-kpi-label">{t("income.orderCount", "订单数")}</div>
+              <div className="manage-kpi-value">{items.length}</div>
+            </div>
           </div>
-          <div className="order-list">
+          <div className="order-list manage-order-list">
             {items.map((item) => (
               <div key={`hot-${item.id}`} className="row" style={{ justifyContent: "space-between", flexWrap: "wrap", rowGap: 4 }}>
                 <div style={{ flex: "1 1 180px" }}>{localizeMenuText(item.name, lang)}</div>
                 <strong>{lang === "en" ? `${item.qty} sold` : `${item.qty} 份`}</strong>
               </div>
             ))}
-            {!loading && items.length === 0 ? <div className="muted">{t("hot.empty", "暂无热销数据")}</div> : null}
+            {!loading && items.length === 0 ? <div className="manage-empty-note">{t("hot.empty", "暂无热销数据")}</div> : null}
           </div>
         </div>
       </div>

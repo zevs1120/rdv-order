@@ -195,14 +195,14 @@ export default function TablesPage() {
               {t("common.refresh", "Refresh")}
             </Button>
             <Button
-              variant={selectMode ? "primary" : "secondary"}
+              variant="secondary"
               onClick={() => {
                 setSelectMode((v) => !v);
                 setMergeSelection([]);
               }}
               disabled={submitting || Boolean(openingTable)}
             >
-              {selectMode ? (lang === "en" ? "Done" : "完成") : (lang === "en" ? "Select" : "选择")}
+              {selectMode ? (lang === "en" ? "Done" : "完成") : (lang === "en" ? "Multi-select" : "拼桌选择")}
             </Button>
           </div>
         }
@@ -236,11 +236,19 @@ export default function TablesPage() {
                     className={`table-card ${selected ? "is-selected" : ""} ${table.status === "open" ? "is-open" : ""}`}
                     onClick={() => onTableClick(table)}
                   >
-                    <div className="table-card__title">{table.tableNo}</div>
-                    <div className="table-card__details">
-                      <div className="table-card__line">{tableStatusLabel(table)}</div>
-                      <div className="table-card__line">{lang === "en" ? "Guests" : "人数"}: {table.guestCount || "-"}</div>
-                      <div className="table-card__line">{lang === "en" ? "Time" : "时长"}: {openDuration(table.openedAt)}</div>
+                    <div className="table-card__head">
+                      <div className="table-card__title">{table.tableNo}</div>
+                      <div className="table-card__status">{tableStatusLabel(table)}</div>
+                    </div>
+                    <div className="table-card__meta">
+                      {table.status === "open" ? (
+                        <>
+                          <div className="table-card__line">{lang === "en" ? "Guests" : "人数"}: {table.guestCount || 1}</div>
+                          <div className="table-card__line">{lang === "en" ? "Time" : "时长"}: {openDuration(table.openedAt)}</div>
+                        </>
+                      ) : (
+                        <div className="table-card__idleHint">{lang === "en" ? "Tap to open" : "点击开台"}</div>
+                      )}
                     </div>
                   </Card>
                 );

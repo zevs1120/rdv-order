@@ -48,7 +48,7 @@ export default function ManageIndexPage() {
 
   return (
     <div className="stack manage-home-screen">
-      <AppBar title={lang === "en" ? "More" : "更多"} />
+      <AppBar title={lang === "en" ? "Manage" : "管理"} />
 
       <div className="manage-home-scroll stack">
         <Card className="more-grid-card">

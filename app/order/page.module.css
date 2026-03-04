@@ -235,18 +235,24 @@
 
 .menuPrice {
   white-space: nowrap;
-  font-size: 22px;
+  font-size: 24px;
   line-height: 1;
   letter-spacing: -0.01em;
   color: var(--text-primary);
+  text-align: right;
+  min-width: 72px;
 }
 
 .addBtn {
-  min-width: 82px;
+  min-width: 78px;
   min-height: 36px;
   padding: 0 10px;
   justify-self: end;
   white-space: nowrap;
+  border-color: color-mix(in srgb, var(--brand-500) 30%, #fff) !important;
+  color: var(--brand-500) !important;
+  background: color-mix(in srgb, var(--brand-500) 7%, #fff) !important;
+  font-weight: 640;
 }
 
 .qtyBadge {
@@ -257,6 +263,8 @@
 
 .bottomFixed {
   min-width: 0;
+  position: relative;
+  z-index: 24;
 }
 
 .cartDock {
@@ -265,6 +273,9 @@
   gap: 8px;
   align-items: center;
   padding: 8px;
+  border-color: color-mix(in srgb, var(--line-default) 82%, #fff);
+  background: color-mix(in srgb, #ffffff 92%, #f8fafc);
+  box-shadow: 0 -6px 16px rgba(15, 23, 42, 0.08);
 }
 
 .cartSummaryBtn {
@@ -336,7 +347,7 @@
   }
 
   .menuPrice {
-    font-size: 20px;
+    font-size: 22px;
   }
 
   .addBtn {
