@@ -3,11 +3,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import BottomNav from "../../components/bottom-nav";
-import ManageTabs from "../../components/manage-tabs";
 import { apiFetchJson, getStoredAuth } from "../../../lib/client-api";
 import { useI18n } from "../../components/i18n-provider";
 import { type PresetKey, rangeByPreset, toDateInput } from "../../../lib/date-range";
-import { AppBar } from "../../../components/ui";
+import { AppBar, Button } from "../../../components/ui";
 
 type IncomeDay = {
   day: string;
@@ -99,9 +98,14 @@ export default function ManageIncomePage() {
 
   return (
     <div className="stack">
-      <AppBar title={t("income.section", "收入")} />
-
-      <ManageTabs />
+      <AppBar
+        title={t("income.section", "收入")}
+        left={(
+          <Button variant="secondary" onClick={() => router.push("/manage")}>
+            {lang === "en" ? "More" : "更多"}
+          </Button>
+        )}
+      />
 
       <div className="card stack">
         <h3 style={{ margin: 0 }}>{t("income.section", "收入")}</h3>

@@ -40,7 +40,7 @@ export default function BottomNav() {
         {t("nav.order", "点餐")}
       </button>
       <Link href="/manage" className={manageActive ? "bottom-nav-item active" : "bottom-nav-item"}>
-        {t("nav.manage", "管理")}
+        {t("nav.more", "更多")}
       </Link>
     </nav>
   );

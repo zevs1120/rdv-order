@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import BottomNav from "../../components/bottom-nav";
-import ManageTabs from "../../components/manage-tabs";
 import { apiFetchJson, getStoredAuth } from "../../../lib/client-api";
 import { useI18n } from "../../components/i18n-provider";
 import { useActionGuard } from "../../../lib/use-action-guard";
@@ -178,14 +177,17 @@ export default function ManageFeesPage() {
     <div className="stack">
       <AppBar
         title={t("fees.title", "费用规则")}
+        left={(
+          <Button variant="secondary" onClick={() => router.push("/manage")}>
+            {lang === "en" ? "More" : "更多"}
+          </Button>
+        )}
         right={(
           <Button variant="secondary" onClick={() => { void loadRules(); }}>
             {t("common.refresh", "刷新")}
           </Button>
         )}
       />
-
-      <ManageTabs />
 
       <div className="panel stack">
         <div className="row" style={{ justifyContent: "space-between" }}>

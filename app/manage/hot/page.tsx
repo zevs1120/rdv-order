@@ -3,12 +3,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import BottomNav from "../../components/bottom-nav";
-import ManageTabs from "../../components/manage-tabs";
 import { apiFetchJson, getStoredAuth } from "../../../lib/client-api";
 import { useI18n } from "../../components/i18n-provider";
 import { type PresetKey, rangeByPreset, toDateInput } from "../../../lib/date-range";
 import { localizeMenuText } from "../../../lib/menu-text";
-import { AppBar } from "../../../components/ui";
+import { AppBar, Button } from "../../../components/ui";
 
 type HotItem = {
   id: string;
@@ -100,9 +99,14 @@ export default function ManageHotPage() {
 
   return (
     <div className="stack">
-      <AppBar title={t("hot.title", "热销菜")} />
-
-      <ManageTabs />
+      <AppBar
+        title={t("hot.title", "热销菜")}
+        left={(
+          <Button variant="secondary" onClick={() => router.push("/manage")}>
+            {lang === "en" ? "More" : "更多"}
+          </Button>
+        )}
+      />
 
       <div className="card stack">
         <div className="row" style={{ flexWrap: "wrap" }}>

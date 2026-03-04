@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import BottomNav from "../../components/bottom-nav";
-import ManageTabs from "../../components/manage-tabs";
 import { apiFetchJson, getStoredAuth } from "../../../lib/client-api";
 import { useI18n } from "../../components/i18n-provider";
 import { AppBar, Button } from "../../../components/ui";
@@ -160,6 +159,11 @@ export default function ManageDevicesPage() {
     <div className="stack">
       <AppBar
         title={t("devices.title", "设备状态")}
+        left={(
+          <Button variant="secondary" onClick={() => router.push("/manage")}>
+            {t("nav.more", "更多")}
+          </Button>
+        )}
         right={(
           <div className="row devices-actions">
             <Button variant="secondary" onClick={() => { void loadData(); }}>
@@ -171,8 +175,6 @@ export default function ManageDevicesPage() {
           </div>
         )}
       />
-
-      <ManageTabs />
 
       <div className="panel stack">
         <div className="row" style={{ justifyContent: "space-between" }}>

@@ -4,9 +4,9 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { apiFetchJson, getStoredAuth } from "../../../lib/client-api";
 import { useI18n } from "../../components/i18n-provider";
-import ManageTabs from "../../components/manage-tabs";
 import BottomNav from "../../components/bottom-nav";
 import { localizeMenuText } from "../../../lib/menu-text";
+import { AppBar, Button } from "../../../components/ui";
 
 type MenuGroup = "breakfast" | "lunch_dinner" | "cocktail" | "set_menu";
 type ItemType = "single" | "set";
@@ -244,19 +244,19 @@ export default function MenuAdminPage() {
 
   return (
     <div className="stack">
-      <header>
-        <h1>{t("admin.title", "菜单管理")}</h1>
-        <div className="row">
-          <button type="button" className="secondary compact-btn" onClick={() => { void loadItems(); }}>
+      <AppBar
+        title={t("admin.title", "菜单管理")}
+        left={(
+          <Button variant="secondary" onClick={() => router.push("/manage")}>
+            {lang === "en" ? "More" : "更多"}
+          </Button>
+        )}
+        right={(
+          <Button variant="secondary" onClick={() => { void loadItems(); }}>
             {t("common.refresh", "刷新")}
-          </button>
-          <button type="button" className="secondary compact-btn" onClick={() => { localStorage.clear(); router.replace("/"); }}>
-            {t("common.logout", "退出")}
-          </button>
-        </div>
-      </header>
-
-      <ManageTabs />
+          </Button>
+        )}
+      />
 
       <div className="panel stack">
         <div className="row" style={{ justifyContent: "space-between" }}>
