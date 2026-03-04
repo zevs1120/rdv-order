@@ -389,48 +389,111 @@ button:disabled {
 }
 
 .tables-screen {
+  gap: 8px;
   padding-bottom: 86px;
+}
+
+.tables-appbar {
+  padding-top: 8px;
+  padding-bottom: 8px;
+}
+
+.tables-toolbar {
+  gap: 6px;
+  flex-wrap: nowrap;
+}
+
+.tables-toolbar .ui-btn {
+  min-height: 36px;
+  padding-left: 10px;
+  padding-right: 10px;
+  font-size: 13px;
+}
+
+.tables-filter-row {
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.tables-filter-row::-webkit-scrollbar {
+  display: none;
+}
+
+.tables-filter-row .ui-chip {
+  min-height: 30px;
+  font-size: 12px;
 }
 
 .table-grid-shell {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: var(--space-2);
+  gap: 8px;
+  height: calc(100dvh - var(--topbar-h) - var(--bottombar-h) - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 184px);
+  min-height: 380px;
+  max-height: 640px;
+  align-items: stretch;
 }
 
 .table-column {
   display: grid;
-  gap: 6px;
+  grid-auto-rows: 1fr;
+  gap: 8px;
+  min-height: 0;
 }
 
 .table-card {
   cursor: pointer;
-  min-height: 108px;
+  min-height: 0;
   display: grid;
-  align-content: start;
-  gap: 6px;
-  border: 1px solid var(--line-default);
-  background: #fff;
+  align-content: space-between;
+  gap: 4px;
+  border: 0;
+  border-radius: 14px;
+  padding: 8px;
+  background: linear-gradient(165deg, #2cac72 0%, #1f8f5f 58%, #19704a 100%);
+  color: #fff;
+  box-shadow: 0 8px 20px rgba(17, 89, 58, 0.24);
+  position: relative;
+  overflow: hidden;
+}
+
+.table-card::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.18) 0%, rgba(255, 255, 255, 0.02) 48%, rgba(0, 0, 0, 0.08) 100%);
+  pointer-events: none;
 }
 
 .table-card.is-open {
-  border-color: color-mix(in srgb, var(--warning-500) 48%, var(--line-default));
+  background: linear-gradient(165deg, #b01d2d 0%, #8f1520 56%, #6d0d15 100%);
+  box-shadow: 0 8px 22px rgba(109, 13, 21, 0.28);
 }
 
 .table-card.is-selected {
-  outline: 2px solid var(--brand-500);
-  outline-offset: 1px;
+  outline: 2px solid rgba(15, 23, 42, 0.9);
+  outline-offset: 2px;
 }
 
 .table-card__title {
-  font-size: 18px;
+  font-size: clamp(15px, 2.5vw, 20px);
   font-weight: 720;
   letter-spacing: 0.01em;
+  line-height: 1.05;
+  color: #fff;
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.22);
 }
 
 .table-card__meta {
-  font-size: 12px;
-  color: var(--text-secondary);
+  font-size: 11px;
+  font-weight: 620;
+  line-height: 1.12;
+  color: rgba(255, 255, 255, 0.94);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .table-sheet-stepper {
@@ -1370,6 +1433,46 @@ a {
     padding-right: max(8px, env(safe-area-inset-right));
   }
 
+  .tables-appbar .ui-appbar__title {
+    font-size: 18px;
+  }
+
+  .tables-toolbar .ui-btn {
+    min-height: 34px;
+    padding-left: 8px;
+    padding-right: 8px;
+    font-size: 12px;
+  }
+
+  .tables-filter-row .ui-chip {
+    min-height: 28px;
+    padding: 0 10px;
+    font-size: 11px;
+  }
+
+  .table-grid-shell {
+    gap: 6px;
+    height: calc(100dvh - var(--topbar-h) - var(--bottombar-h) - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 166px);
+    min-height: 330px;
+  }
+
+  .table-column {
+    gap: 6px;
+  }
+
+  .table-card {
+    border-radius: 12px;
+    padding: 7px;
+  }
+
+  .table-card__title {
+    font-size: 14px;
+  }
+
+  .table-card__meta {
+    font-size: 10px;
+  }
+
   .order-main-panel {
     height: clamp(300px, calc(100dvh - 276px), 640px);
     min-height: 300px;
@@ -1444,6 +1547,34 @@ a {
 }
 
 @media (max-width: 390px) {
+  .tables-appbar .ui-appbar__title {
+    font-size: 16px;
+  }
+
+  .tables-toolbar .ui-btn {
+    min-height: 32px;
+    padding-left: 7px;
+    padding-right: 7px;
+    font-size: 11px;
+  }
+
+  .table-grid-shell {
+    height: calc(100dvh - var(--topbar-h) - var(--bottombar-h) - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 160px);
+    min-height: 308px;
+  }
+
+  .table-card {
+    padding: 6px;
+  }
+
+  .table-card__title {
+    font-size: 13px;
+  }
+
+  .table-card__meta {
+    font-size: 9px;
+  }
+
   .order-actions .compact-btn {
     flex-basis: calc(33.333% - 6px);
   }

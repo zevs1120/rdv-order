@@ -6,7 +6,7 @@ import BottomNav from "../components/bottom-nav";
 import { apiFetchJson, getStoredAuth } from "../../lib/client-api";
 import { useI18n } from "../components/i18n-provider";
 import { useActionGuard } from "../../lib/use-action-guard";
-import { AppBar, Badge, BottomSheet, Button, Card, Chip, EmptyState, IconButton, Skeleton } from "../../components/ui";
+import { AppBar, BottomSheet, Button, Card, Chip, EmptyState, IconButton, Skeleton } from "../../components/ui";
 
 type TableItem = {
   tableNo: string;
@@ -147,11 +147,6 @@ export default function TablesPage() {
     setOpeningTable(table);
   }
 
-  function tableTone(table: TableItem) {
-    if (table.status === "open") return "warning" as const;
-    return "success" as const;
-  }
-
   function tableStatusLabel(table: TableItem) {
     if (table.status === "open") return lang === "en" ? "In Service" : "服务中";
     return t("tables.idle", "Idle");
@@ -184,9 +179,10 @@ export default function TablesPage() {
   return (
     <div className="stack tables-screen">
       <AppBar
+        className="tables-appbar"
         title={t("tables.title", "Select Table")}
         right={
-          <div className="row" style={{ gap: 6 }}>
+          <div className="row tables-toolbar">
             <Button variant="secondary" onClick={loadTables} disabled={loadingTables || submitting}>
               {t("common.refresh", "Refresh")}
             </Button>
@@ -203,7 +199,7 @@ export default function TablesPage() {
           </div>
         }
         subline={
-          <div className="row" style={{ flexWrap: "nowrap", overflowX: "auto" }}>
+          <div className="row tables-filter-row">
             <Chip active={filter === "all"} onClick={() => setFilter("all")}>{lang === "en" ? "All" : "全部"}</Chip>
             <Chip active={filter === "open"} onClick={() => setFilter("open")}>{lang === "en" ? "In Service" : "服务中"}</Chip>
             <Chip active={filter === "idle"} onClick={() => setFilter("idle")}>{lang === "en" ? "Idle" : "空闲"}</Chip>
@@ -232,15 +228,9 @@ export default function TablesPage() {
                     className={`table-card ${selected ? "is-selected" : ""} ${table.status === "open" ? "is-open" : ""}`}
                     onClick={() => onTableClick(table)}
                   >
-                    <div className="row" style={{ justifyContent: "space-between", alignItems: "flex-start" }}>
-                      <div className="table-card__title">{table.tableNo}</div>
-                      <Badge tone={tableTone(table)}>{tableStatusLabel(table)}</Badge>
-                    </div>
+                    <div className="table-card__title">{table.tableNo}</div>
                     <div className="table-card__meta">
-                      {lang === "en" ? "Guests" : "人数"}: {table.guestCount || "-"}
-                    </div>
-                    <div className="table-card__meta">
-                      {lang === "en" ? "Duration" : "时长"}: {openDuration(table.openedAt)}
+                      {tableStatusLabel(table)} · {(lang === "en" ? "Guests" : "人数")} {table.guestCount || "-"} · {(lang === "en" ? "Time" : "时长")} {openDuration(table.openedAt)}
                     </div>
                   </Card>
                 );
