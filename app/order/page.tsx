@@ -7,7 +7,7 @@ import { apiFetchJson, getStoredAuth } from "../../lib/client-api";
 import { useI18n } from "../components/i18n-provider";
 import { localizeMenuText, shortCategoryLabel } from "../../lib/menu-text";
 import { useActionGuard } from "../../lib/use-action-guard";
-import { AppBar, Badge, BottomSheet, Button, Card, Chip, EmptyState, ListRow, SearchField, Toast } from "../../components/ui";
+import { AppBar, Badge, BottomSheet, Button, Card, Chip, EmptyState, SearchField, Toast } from "../../components/ui";
 
 type ShiftKey = "breakfast" | "lunch" | "dinner" | "beverage" | "cocktail" | "package";
 type CustomDishMode = "temporary" | "permanent";
@@ -561,9 +561,11 @@ export default function OrderPage() {
     setNoteInput("");
   }
 
-  function increaseQtyAndToast(item: MenuItem) {
+  function addFromMenu(item: MenuItem) {
     const previousQty = item.qty || 0;
     setQty(item.id, previousQty + 1);
+    setNoteSheetOpen(false);
+    setCartSheetOpen(true);
     const label = localizeMenuText(item.name, lang);
     setToast({
       message: lang === "en" ? `Added ${label} x1` : `已添加 ${label} x1`,
@@ -1001,28 +1003,33 @@ export default function OrderPage() {
           {!menuLoading ? (
             <div className="order-menu-list">
               {visibleItems.map((item) => (
-                <ListRow
-                  key={item.id}
-                  title={
-                    <>
+                <div key={item.id} className="order-dish-row">
+                  <div className="order-dish-main">
+                    <div className="order-dish-title">
                       {localizeMenuText(item.name, lang)}
                       {item.item_type === "set" ? (lang === "en" ? " (Set)" : "（套餐）") : ""}
-                    </>
-                  }
-                  subtitle={
-                    <>
+                    </div>
+                    <div className="order-dish-subtitle">
                       {item.description ? item.description : item.category || ""}
-                      {item.note && (item.qty || 0) > 0 ? ` · ${t("order.noteLabel", "Note")}: ${item.note}` : ""}
-                    </>
-                  }
-                  trailing={(
-                    <div className="order-menu-trailing">
-                      <strong>₱{item.price}</strong>
+                    </div>
+                    {item.note && (item.qty || 0) > 0 ? (
+                      <div className="order-dish-note">{t("order.noteLabel", "Note")}: {item.note}</div>
+                    ) : null}
+                  </div>
+                  <div className="order-menu-trailing">
+                    <div className="order-price-line">
+                      <strong className="order-dish-price">₱{item.price}</strong>
                       {(item.qty || 0) > 0 ? <Badge tone="brand">x{item.qty}</Badge> : null}
                     </div>
-                  )}
-                  onClick={() => increaseQtyAndToast(item)}
-                />
+                    <button
+                      type="button"
+                      className="order-add-btn"
+                      onClick={() => addFromMenu(item)}
+                    >
+                      {lang === "en" ? "+ Add" : "+ 加入"}
+                    </button>
+                  </div>
+                </div>
               ))}
             </div>
           ) : null}
