@@ -2180,7 +2180,9 @@ a {
   flex-direction: column !important;
   justify-content: flex-start !important;
   min-height: 128px !important;
-  overflow: hidden !important;
+  overflow: visible !important;
+  position: relative !important;
+  padding-bottom: 50px !important;
 }
 
 .order-screen .order-menu-list .order-dish-main {
@@ -2195,10 +2197,16 @@ a {
   align-items: center !important;
   justify-content: space-between !important;
   gap: 8px !important;
-  min-height: 34px !important;
-  width: 100% !important;
-  margin-top: auto !important;
+  min-height: 32px !important;
+  width: calc(100% - 16px) !important;
+  margin-top: 0 !important;
   flex-shrink: 0 !important;
+  position: absolute !important;
+  left: 8px !important;
+  right: 8px !important;
+  bottom: 8px !important;
+  z-index: 3 !important;
+  background: #fff !important;
 }
 
 .order-screen .order-menu-list .order-dish-footer--locked .order-dish-price {
@@ -2218,7 +2226,7 @@ a {
   min-width: 78px !important;
   min-height: 32px !important;
   position: relative !important;
-  z-index: 2 !important;
+  z-index: 4 !important;
 }
 
 @media (max-width: 430px) {
@@ -2232,8 +2240,13 @@ a {
 
   .order-screen .order-list-mode,
   .order-screen .menu-content {
-    padding-bottom: calc(var(--bottombar-h) + env(safe-area-inset-bottom) + 116px) !important;
-    scroll-padding-bottom: calc(var(--bottombar-h) + env(safe-area-inset-bottom) + 116px) !important;
+    padding-bottom: calc(var(--bottombar-h) + env(safe-area-inset-bottom) + 180px) !important;
+    scroll-padding-bottom: calc(var(--bottombar-h) + env(safe-area-inset-bottom) + 180px) !important;
+  }
+
+  .order-screen .order-menu-list .order-dish-row {
+    min-height: 152px !important;
+    padding-bottom: 52px !important;
   }
 
   .order-screen .order-menu-list .order-dish-footer--locked .order-add-btn--locked {
