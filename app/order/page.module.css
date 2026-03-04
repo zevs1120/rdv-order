@@ -1,0 +1,368 @@
+.page {
+  --sidebar-width: 94px;
+  min-width: 0;
+  height: calc(
+    100dvh - var(--topbar-h) - var(--bottombar-h) - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 16px
+  );
+  min-height: calc(
+    100dvh - var(--topbar-h) - var(--bottombar-h) - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 16px
+  );
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  gap: 8px;
+  overflow: hidden;
+}
+
+.topFixed {
+  min-width: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.appBar {
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  background: transparent !important;
+  position: relative !important;
+  top: auto !important;
+}
+
+.appBar :global(.ui-appbar__row) {
+  border: 1px solid var(--line-default);
+  border-radius: var(--radius-md);
+  background: #fff;
+  padding: 8px;
+  gap: 8px;
+}
+
+.appBar :global(.ui-appbar__title) {
+  text-align: left;
+}
+
+.appBar :global(.ui-appbar__subline) {
+  margin-top: 8px;
+}
+
+.searchCompact {
+  width: 100%;
+}
+
+.searchCompact :global(.ui-search) {
+  min-height: 40px;
+}
+
+.topTitle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.topTitle > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: clamp(15px, 3.8vw, 18px);
+  font-weight: 700;
+}
+
+.topActions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.moreWrap {
+  position: relative;
+}
+
+.moreMenu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 44;
+  min-width: 138px;
+  border: 1px solid var(--line-default);
+  border-radius: var(--radius-md);
+  background: #fff;
+  box-shadow: var(--shadow-2);
+  overflow: hidden;
+}
+
+.moreMenu button {
+  width: 100%;
+  min-height: 38px;
+  border: 0;
+  border-bottom: 1px solid var(--line-default);
+  border-radius: 0;
+  background: #fff;
+  color: var(--text-primary);
+  text-align: left;
+  font-size: 13px;
+  font-weight: 560;
+  padding: 0 10px;
+}
+
+.moreMenu button:last-child {
+  border-bottom: 0;
+}
+
+.shiftPanel {
+  padding: 8px;
+}
+
+.shiftRow {
+  display: flex;
+  align-items: center;
+  flex-wrap: nowrap;
+  gap: 8px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+
+.shiftRow::-webkit-scrollbar {
+  display: none;
+}
+
+.middle {
+  min-width: 0;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: var(--sidebar-width) minmax(0, 1fr);
+  gap: 8px;
+  overflow: hidden;
+}
+
+.sidebar {
+  min-width: 0;
+  min-height: 0;
+  width: var(--sidebar-width);
+  max-width: var(--sidebar-width);
+  padding: 4px;
+  border: 1px solid var(--line-default);
+  border-radius: var(--radius-md);
+  background: #fff;
+  display: grid;
+  gap: 4px;
+  align-content: start;
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+}
+
+.categoryBtn {
+  width: 100%;
+  min-height: 38px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--text-primary);
+  text-align: left;
+  padding: 6px 7px;
+  font-size: 12px;
+  line-height: 1.1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.categoryBtnActive {
+  border-color: var(--line-default);
+  border-left: 2px solid var(--brand-500);
+  color: var(--brand-500);
+  font-weight: 650;
+  background: #fff;
+}
+
+.menuPane {
+  min-width: 0;
+  min-height: 0;
+  border: 1px solid var(--line-default);
+  border-radius: var(--radius-md);
+  background: #fff;
+  padding: 8px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-gutter: stable;
+}
+
+.menuList {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 8px;
+  min-width: 0;
+}
+
+.menuRow {
+  position: relative;
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid var(--line-default);
+  border-radius: var(--radius-md);
+  background: #fff;
+  padding: 10px 12px;
+}
+
+.menuMain {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.menuTitle {
+  font-size: 17px;
+  font-weight: 700;
+  line-height: 1.2;
+  color: var(--text-primary);
+  overflow-wrap: anywhere;
+}
+
+.menuSubtitle {
+  font-size: 12px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.menuPrice {
+  white-space: nowrap;
+  font-size: 22px;
+  line-height: 1;
+  letter-spacing: -0.01em;
+  color: var(--text-primary);
+}
+
+.addBtn {
+  min-width: 82px;
+  min-height: 36px;
+  padding: 0 10px;
+  justify-self: end;
+  white-space: nowrap;
+}
+
+.qtyBadge {
+  position: absolute;
+  top: 6px;
+  right: 8px;
+}
+
+.bottomFixed {
+  min-width: 0;
+}
+
+.cartDock {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+  padding: 8px;
+}
+
+.cartSummaryBtn {
+  min-width: 0;
+}
+
+@media (min-width: 407px) and (max-width: 430px) {
+  .page {
+    --sidebar-width: 102px;
+  }
+}
+
+@media (max-width: 406px) {
+  .page {
+    --sidebar-width: 94px;
+    gap: 6px;
+  }
+
+  .appBar :global(.ui-appbar__row) {
+    padding: 6px;
+  }
+
+  .topTitle > span {
+    font-size: 15px;
+  }
+
+  .shiftPanel {
+    padding: 6px;
+  }
+
+  .middle {
+    gap: 6px;
+  }
+
+  .sidebar {
+    padding: 3px;
+    gap: 3px;
+  }
+
+  .categoryBtn {
+    min-height: 36px;
+    font-size: 11px;
+    padding: 6px;
+    white-space: normal;
+    line-height: 1.12;
+    overflow: hidden;
+    text-overflow: clip;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+  }
+
+  .menuPane {
+    padding: 6px;
+  }
+
+  .menuRow {
+    padding: 8px;
+    gap: 6px;
+    grid-template-columns: minmax(0, 1fr) auto auto;
+  }
+
+  .menuTitle {
+    font-size: 15px;
+  }
+
+  .menuSubtitle {
+    font-size: 11px;
+  }
+
+  .menuPrice {
+    font-size: 20px;
+  }
+
+  .addBtn {
+    min-width: 72px;
+    min-height: 34px;
+    font-size: 12px;
+    padding: 0 8px;
+  }
+
+  .cartDock {
+    gap: 6px;
+    padding: 6px;
+  }
+}
+
+@media (max-width: 360px) {
+  .page {
+    --sidebar-width: 86px;
+  }
+
+  .menuPrice {
+    font-size: 18px;
+  }
+
+  .addBtn {
+    min-width: 68px;
+    font-size: 11px;
+  }
+}

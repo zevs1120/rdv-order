@@ -8,6 +8,7 @@ import { useI18n } from "../components/i18n-provider";
 import { localizeMenuText, shortCategoryLabel } from "../../lib/menu-text";
 import { useActionGuard } from "../../lib/use-action-guard";
 import { AppBar, Badge, BottomSheet, Button, Card, Chip, EmptyState, SearchField, Toast } from "../../components/ui";
+import styles from "./page.module.css";
 
 type ShiftKey = "breakfast" | "lunch" | "dinner" | "beverage" | "cocktail" | "package";
 type CustomDishMode = "temporary" | "permanent";
@@ -915,160 +916,162 @@ export default function OrderPage() {
   }, [noteSheetOpen, noteSheetItem]);
 
   return (
-    <div className="stack order-screen">
-      <AppBar
-        title={
-          <div className="order-top-title">
-            <span>{lang === "en" ? `Table ${tableNo}` : `桌号 ${tableNo}`}</span>
-            <Badge tone="brand">{lang === "en" ? `${guests} Guests` : `${guests} 人`}</Badge>
-          </div>
-        }
-        left={
-          <Button variant="secondary" onClick={() => router.push("/tables")}>
-            {lang === "en" ? "Back" : "返回"}
-          </Button>
-        }
-        right={
-          <div className="order-top-actions">
-            <div className="order-more-wrap" ref={actionMenuRef}>
-              <Button variant="secondary" onClick={() => setActionMenuOpen((v) => !v)}>
-                {t("common.more", "More")}
-              </Button>
-              {actionMenuOpen ? (
-                <div className="order-more-menu">
-                  <button
-                    type="button"
-                    onClick={async () => {
-                      setActionMenuOpen(false);
-                      setShowBill(true);
-                      await loadBill();
-                    }}
-                  >
-                    {t("order.ordered", "Items")}
-                  </button>
-                  <button type="button" onClick={() => { setShowAddDish(true); setActionMenuOpen(false); }}>
-                    {t("order.addDish", "Add")}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setActionMenuOpen(false);
-                      router.push(`/manage/orders?tableNo=${encodeURIComponent(tableNo)}`);
-                    }}
-                  >
-                    {t("orders.title", "Orders")}
-                  </button>
-                  {isMergedTable ? (
-                    <button type="button" onClick={() => { setActionMenuOpen(false); void unmergeTable(); }}>
-                      {t("order.unmerge", "Unmerge")}
-                    </button>
-                  ) : null}
-                  <button type="button" onClick={() => { setActionMenuOpen(false); void checkout(); }}>
-                    {t("order.checkout", "Checkout")}
-                  </button>
-                  <button type="button" onClick={() => { setActionMenuOpen(false); void closeTable(); }}>
-                    {t("order.closeTable", "Close")}
-                  </button>
-                </div>
-              ) : null}
+    <div className={styles.page}>
+      <div className={styles.topFixed}>
+        <AppBar
+          className={styles.appBar}
+          title={
+            <div className={styles.topTitle}>
+              <span>{lang === "en" ? `Table ${tableNo}` : `桌号 ${tableNo}`}</span>
+              <Badge tone="brand">{lang === "en" ? `${guests} Guests` : `${guests} 人`}</Badge>
             </div>
+          }
+          left={
+            <Button variant="secondary" onClick={() => router.push("/tables")}>
+              {lang === "en" ? "Back" : "返回"}
+            </Button>
+          }
+          right={
+            <div className={styles.topActions}>
+              <div className={styles.moreWrap} ref={actionMenuRef}>
+                <Button variant="secondary" onClick={() => setActionMenuOpen((v) => !v)}>
+                  {t("common.more", "More")}
+                </Button>
+                {actionMenuOpen ? (
+                  <div className={styles.moreMenu}>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        setActionMenuOpen(false);
+                        setShowBill(true);
+                        await loadBill();
+                      }}
+                    >
+                      {t("order.ordered", "Items")}
+                    </button>
+                    <button type="button" onClick={() => { setShowAddDish(true); setActionMenuOpen(false); }}>
+                      {t("order.addDish", "Add")}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setActionMenuOpen(false);
+                        router.push(`/manage/orders?tableNo=${encodeURIComponent(tableNo)}`);
+                      }}
+                    >
+                      {t("orders.title", "Orders")}
+                    </button>
+                    {isMergedTable ? (
+                      <button type="button" onClick={() => { setActionMenuOpen(false); void unmergeTable(); }}>
+                        {t("order.unmerge", "Unmerge")}
+                      </button>
+                    ) : null}
+                    <button type="button" onClick={() => { setActionMenuOpen(false); void checkout(); }}>
+                      {t("order.checkout", "Checkout")}
+                    </button>
+                    <button type="button" onClick={() => { setActionMenuOpen(false); void closeTable(); }}>
+                      {t("order.closeTable", "Close")}
+                    </button>
+                  </div>
+                ) : null}
+              </div>
+            </div>
+          }
+          subline={
+            <SearchField
+              value={keyword}
+              onChange={(e) => setKeyword(e.target.value)}
+              placeholder={t("order.searchPlaceholder", "Search dishes")}
+              className={styles.searchCompact}
+            />
+          }
+        />
+
+        <Card className={styles.shiftPanel}>
+          <div className={styles.shiftRow}>
+            {SHIFT_OPTIONS.map((option) => (
+              <Chip key={option.key} active={shift === option.key} onClick={() => setShift(option.key)}>
+                {shiftLabel(option.key)}
+              </Chip>
+            ))}
           </div>
-        }
-        subline={
-          <SearchField
-            value={keyword}
-            onChange={(e) => setKeyword(e.target.value)}
-            placeholder={t("order.searchPlaceholder", "Search dishes")}
-            className="order-search-compact"
-          />
-        }
-      />
+        </Card>
+      </div>
 
-      <Card className="order-shift-panel">
-        <div className="row order-shift-row">
-          {SHIFT_OPTIONS.map((option) => (
-            <Chip key={option.key} active={shift === option.key} onClick={() => setShift(option.key)}>
-              {shiftLabel(option.key)}
-            </Chip>
-          ))}
-        </div>
-      </Card>
-
-      <div className="order-layout">
-        <aside className="category-sidebar">
+      <div className={styles.middle}>
+        <aside className={styles.sidebar}>
           {categories.map((category) => (
             <button
               key={category}
               type="button"
-              className={selectedCategory === category ? "category-btn active" : "category-btn"}
+              className={`${styles.categoryBtn} ${selectedCategory === category ? styles.categoryBtnActive : ""}`}
               onClick={() => setSelectedCategory(category)}
             >
               {shortCategoryLabel(category, lang)}
             </button>
           ))}
         </aside>
-        <div className="menu-content order-list-mode">
+
+        <section className={styles.menuPane}>
           {menuLoading ? (
             <div className="stack">
-              <div className="ui-skeleton" style={{ height: 68 }} />
-              <div className="ui-skeleton" style={{ height: 68 }} />
-              <div className="ui-skeleton" style={{ height: 68 }} />
+              <div className="ui-skeleton" style={{ height: 64 }} />
+              <div className="ui-skeleton" style={{ height: 64 }} />
+              <div className="ui-skeleton" style={{ height: 64 }} />
             </div>
           ) : null}
-          {!menuLoading && visibleItems.length === 0 ? (
+          {!menuLoading && categories.length === 0 ? (
+            <EmptyState title={t("order.menuEmpty", "No menu for this shift")} />
+          ) : null}
+          {!menuLoading && categories.length > 0 && visibleItems.length === 0 ? (
             <EmptyState title={t("order.categoryEmpty", "No dishes in this category")} />
           ) : null}
           {!menuLoading ? (
-            <div className="order-menu-list">
+            <div className={styles.menuList}>
               {visibleItems.map((item) => (
-                <div key={item.id} className="order-dish-row">
-                  <div className="order-dish-main">
-                    <div className="order-dish-title">
+                <div key={item.id} className={styles.menuRow}>
+                  <div className={styles.menuMain}>
+                    <div className={styles.menuTitle}>
                       {localizeMenuText(item.name, lang)}
                       {item.item_type === "set" ? (lang === "en" ? " (Set)" : "（套餐）") : ""}
                     </div>
-                    <div className="order-dish-subtitle">
+                    <div className={styles.menuSubtitle}>
                       {localizeMenuText(item.category || "", lang) || item.description || " "}
                     </div>
                   </div>
-                  <div className="order-menu-trailing order-dish-footer order-dish-footer--locked">
-                    <strong className="order-dish-price">₱{item.price}</strong>
-                    <button
-                      type="button"
-                      className="order-add-btn order-add-btn--locked"
-                      onClick={() => addFromMenu(item)}
-                    >
-                      {lang === "en" ? "Add +" : "加入 +"}
-                    </button>
-                  </div>
-                  {(item.qty || 0) > 0 ? <Badge className="order-dish-qty-badge" tone="brand">x{item.qty}</Badge> : null}
+                  <strong className={styles.menuPrice}>₱{item.price}</strong>
+                  <Button
+                    type="button"
+                    className={styles.addBtn}
+                    onClick={() => addFromMenu(item)}
+                  >
+                    {lang === "en" ? "Add +" : "加入 +"}
+                  </Button>
+                  {(item.qty || 0) > 0 ? <Badge className={styles.qtyBadge} tone="brand">x{item.qty}</Badge> : null}
                 </div>
               ))}
             </div>
           ) : null}
-        </div>
+        </section>
       </div>
 
-      {categories.length === 0 ? (
-        <Card>
-          <div className="muted">{t("order.menuEmpty", "No menu for this shift")}</div>
+      <div className={styles.bottomFixed}>
+        <Card className={styles.cartDock}>
+          <Button
+            variant="secondary"
+            className={styles.cartSummaryBtn}
+            onClick={() => {
+              setNoteSheetOpen(false);
+              setCartSheetOpen(true);
+            }}
+          >
+            {t("order.currentOrder", "Current Order")} · {cart.length} · ₱{total}
+          </Button>
+          <Button onClick={submitOrder} loading={loading} disabled={cart.length === 0}>
+            {loading ? t("order.submitting", "Submitting...") : t("order.submit", "Submit Order")}
+          </Button>
         </Card>
-      ) : null}
-
-      <Card className="order-cart-dock">
-        <Button
-          variant="secondary"
-          onClick={() => {
-            setNoteSheetOpen(false);
-            setCartSheetOpen(true);
-          }}
-        >
-          {t("order.currentOrder", "Current Order")} · {cart.length} · ₱{total}
-        </Button>
-        <Button onClick={submitOrder} loading={loading} disabled={cart.length === 0}>
-          {loading ? t("order.submitting", "Submitting...") : t("order.submit", "Submit Order")}
-        </Button>
-      </Card>
+      </div>
 
       <BottomSheet
         open={showAddDish}
