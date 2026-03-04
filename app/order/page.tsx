@@ -1031,11 +1031,11 @@ export default function OrderPage() {
                       {localizeMenuText(item.category || "", lang) || item.description || " "}
                     </div>
                   </div>
-                  <div className="order-menu-trailing">
+                  <div className="order-menu-trailing order-dish-footer order-dish-footer--locked">
                     <strong className="order-dish-price">₱{item.price}</strong>
                     <button
                       type="button"
-                      className="order-add-btn"
+                      className="order-add-btn order-add-btn--locked"
                       onClick={() => addFromMenu(item)}
                     >
                       {lang === "en" ? "Add +" : "加入 +"}

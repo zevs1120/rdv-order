@@ -2172,3 +2172,49 @@ a {
     gap: 10px;
   }
 }
+
+/* LOCKED (owner-approved): keep add button always visible on mobile order cards.
+   Do not modify this block without explicit approval. */
+.order-screen .order-menu-list .order-dish-row {
+  display: grid !important;
+  grid-template-rows: minmax(0, 1fr) auto !important;
+  align-content: stretch !important;
+}
+
+.order-screen .order-menu-list .order-dish-footer--locked {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 8px !important;
+  min-height: 34px !important;
+  width: 100% !important;
+}
+
+.order-screen .order-menu-list .order-dish-footer--locked .order-dish-price {
+  flex: 1 1 auto !important;
+  min-width: 0 !important;
+  white-space: nowrap !important;
+}
+
+.order-screen .order-menu-list .order-dish-footer--locked .order-add-btn--locked {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  flex: 0 0 78px !important;
+  width: 78px !important;
+  min-width: 78px !important;
+  min-height: 32px !important;
+  position: relative !important;
+  z-index: 2 !important;
+}
+
+@media (max-width: 430px) {
+  .order-screen .order-menu-list .order-dish-footer--locked .order-add-btn--locked {
+    flex-basis: 74px !important;
+    width: 74px !important;
+    min-width: 74px !important;
+    font-size: 11px !important;
+  }
+}
