@@ -229,8 +229,10 @@ export default function TablesPage() {
                     onClick={() => onTableClick(table)}
                   >
                     <div className="table-card__title">{table.tableNo}</div>
-                    <div className="table-card__meta">
-                      {tableStatusLabel(table)} · {(lang === "en" ? "Guests" : "人数")} {table.guestCount || "-"} · {(lang === "en" ? "Time" : "时长")} {openDuration(table.openedAt)}
+                    <div className="table-card__details">
+                      <div className="table-card__line">{tableStatusLabel(table)}</div>
+                      <div className="table-card__line">{lang === "en" ? "Guests" : "人数"}: {table.guestCount || "-"}</div>
+                      <div className="table-card__line">{lang === "en" ? "Time" : "时长"}: {openDuration(table.openedAt)}</div>
                     </div>
                   </Card>
                 );

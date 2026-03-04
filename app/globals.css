@@ -446,7 +446,8 @@ button:disabled {
   cursor: pointer;
   min-height: 0;
   display: grid;
-  align-content: space-between;
+  grid-template-rows: auto 1fr;
+  align-content: stretch;
   gap: 4px;
   border: 0;
   border-radius: 14px;
@@ -486,14 +487,24 @@ button:disabled {
   text-shadow: 0 1px 1px rgba(0, 0, 0, 0.22);
 }
 
-.table-card__meta {
-  font-size: 11px;
-  font-weight: 620;
-  line-height: 1.12;
-  color: rgba(255, 255, 255, 0.94);
+.table-card__details {
+  align-self: center;
+  width: 100%;
+  display: grid;
+  gap: 3px;
+  justify-items: center;
+}
+
+.table-card__line {
+  font-size: 12px;
+  font-weight: 650;
+  line-height: 1.15;
+  color: rgba(255, 255, 255, 0.96);
+  text-align: center;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  max-width: 100%;
 }
 
 .table-sheet-stepper {
@@ -1570,7 +1581,7 @@ a {
     font-size: 14px;
   }
 
-  .table-card__meta {
+  .table-card__line {
     font-size: 10px;
   }
 
@@ -1755,7 +1766,7 @@ a {
     font-size: 13px;
   }
 
-  .table-card__meta {
+  .table-card__line {
     font-size: 9px;
   }
 
