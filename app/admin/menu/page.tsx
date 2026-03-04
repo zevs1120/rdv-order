@@ -248,7 +248,7 @@ export default function MenuAdminPage() {
         title={t("admin.title", "菜单管理")}
         left={(
           <Button variant="secondary" onClick={() => router.push("/manage")}>
-            {t("common.back", "返回")}
+            Back
           </Button>
         )}
         right={(

@@ -169,7 +169,7 @@ export default function ManageRbacPage() {
         title={t("rbac.title", "权限设置")}
         left={(
           <Button variant="secondary" onClick={() => router.push("/manage")}>
-            {t("common.back", "返回")}
+            Back
           </Button>
         )}
         right={(

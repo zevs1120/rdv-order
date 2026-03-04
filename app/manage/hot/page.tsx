@@ -103,7 +103,7 @@ export default function ManageHotPage() {
         title={t("hot.title", "热销菜")}
         left={(
           <Button variant="secondary" onClick={() => router.push("/manage")}>
-            {t("common.back", "返回")}
+            Back
           </Button>
         )}
       />

@@ -102,7 +102,7 @@ export default function ManageIncomePage() {
         title={t("income.section", "收入")}
         left={(
           <Button variant="secondary" onClick={() => router.push("/manage")}>
-            {t("common.back", "返回")}
+            Back
           </Button>
         )}
       />

@@ -161,7 +161,7 @@ export default function ManageDevicesPage() {
         title={t("devices.title", "设备状态")}
         left={(
           <Button variant="secondary" onClick={() => router.push("/manage")}>
-            {t("common.back", "返回")}
+            Back
           </Button>
         )}
         right={(
