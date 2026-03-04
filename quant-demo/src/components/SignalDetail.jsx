@@ -13,20 +13,36 @@ function infoRow(label, value) {
 export default function SignalDetail({ signal, onBack, t }) {
   const [copied, setCopied] = useState(false);
 
+  const entryMin = signal.entry_zone?.low ?? signal.entry_zone?.min ?? signal.entry_min;
+  const entryMax = signal.entry_zone?.high ?? signal.entry_zone?.max ?? signal.entry_max;
+  const stopLossPrice = signal.stop_loss?.price ?? signal.stop_loss_value ?? signal.stop_loss;
+  const takeProfitLevels =
+    signal.take_profit_levels && signal.take_profit_levels.length
+      ? signal.take_profit_levels.map((level) => (typeof level === 'number' ? level : level.price))
+      : [signal.take_profit].filter((value) => value !== null && value !== undefined);
+
   const orderText = useMemo(
     () => [
       `symbol: ${signal.symbol}`,
       `market: ${signal.market}`,
+      `strategy_id: ${signal.strategy_id ?? '--'}`,
+      `timeframe: ${signal.timeframe ?? '--'}`,
+      `regime_id: ${signal.regime_id ?? '--'}`,
       `side: ${signal.direction}`,
-      `entry: ${formatNumber(signal.entry_min)} - ${formatNumber(signal.entry_max)}`,
-      `SL: ${formatNumber(signal.stop_loss)}`,
-      `TP: ${formatNumber(signal.take_profit)}`,
-      `size: ${signal.position_size_pct}%`,
+      `entry: ${formatNumber(entryMin)} - ${formatNumber(entryMax)}`,
+      `invalidation: ${formatNumber(signal.invalidation_level ?? stopLossPrice)}`,
+      `SL: ${formatNumber(stopLossPrice)}`,
+      `TP_levels: ${takeProfitLevels.map((level) => formatNumber(level)).join(' | ')}`,
+      `trailing_rule: ${JSON.stringify(signal.trailing_rule ?? {})}`,
+      `size: ${(signal.position_pct ?? signal.position_size_pct) ?? '--'}%`,
+      `expected_R: ${signal.expected_R ?? '--'}`,
+      `hit_rate_est: ${signal.hit_rate_est ?? '--'}`,
+      `cost_estimate_bps: ${signal.cost_estimate?.total_bps ?? '--'}`,
       `validity: ${signal.validity}`,
       `signal_id: ${signal.signal_id}`,
       `model_version: ${signal.model_version}`
     ].join('\n'),
-    [signal]
+    [signal, entryMin, entryMax, takeProfitLevels, stopLossPrice]
   );
 
   const shareUrl = `${window.location.origin}${window.location.pathname}?signal_id=${signal.signal_id}`;
@@ -83,8 +99,8 @@ export default function SignalDetail({ signal, onBack, t }) {
 
         <div className="detail-list">
           {[
-            [t('signals.entryZone'), `${formatNumber(signal.entry_min)} - ${formatNumber(signal.entry_max)}`],
-            [t('signals.stopLoss'), formatNumber(signal.stop_loss)],
+            [t('signals.entryZone'), `${formatNumber(entryMin)} - ${formatNumber(entryMax)}`],
+            [t('signals.stopLoss'), formatNumber(stopLossPrice)],
             [t('signals.takeProfit'), formatNumber(signal.take_profit)],
             [t('signals.positionSize'), t('signals.positionSizeValue', { value: signal.position_size_pct })],
             [t('signals.validity'), t(`validity.${signal.validity}`, undefined, signal.validity)],
@@ -97,11 +113,22 @@ export default function SignalDetail({ signal, onBack, t }) {
       <article className="glass-card">
         <h3 className="card-title">{t('signals.rationale')}</h3>
         <ul className="bullet-list">
-          {signal.rationale.map((line, index) => (
+          {(signal.rationale || signal.explain_bullets || []).map((line, index) => (
             <li key={`${line}-${index}`}>{line}</li>
           ))}
         </ul>
       </article>
+
+      {signal.execution_checklist?.length ? (
+        <article className="glass-card">
+          <h3 className="card-title">{t('signals.executionChecklist')}</h3>
+          <ul className="bullet-list">
+            {signal.execution_checklist.map((line, index) => (
+              <li key={`${line}-${index}`}>{line}</li>
+            ))}
+          </ul>
+        </article>
+      ) : null}
 
       <div className="action-row">
         <button type="button" className="primary-btn" onClick={handleCopy}>

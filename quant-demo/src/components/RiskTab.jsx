@@ -1,10 +1,23 @@
-export default function RiskTab({ config, t, lang }) {
+function progressValue(current, max) {
+  if (!Number.isFinite(Number(current)) || !Number.isFinite(Number(max)) || Number(max) <= 0) return 0;
+  return Math.min(100, Math.max(0, (Math.abs(Number(current)) / Number(max)) * 100));
+}
+
+export default function RiskTab({ config, t, lang, onExplain }) {
   const riskRules = config.risk_rules ?? {};
   const riskStatus = config.risk_status ?? {};
+  const diagnostics = riskStatus.diagnostics ?? {};
   const lastEvent =
     lang === 'zh'
       ? riskStatus.last_event_zh ?? riskStatus.last_event ?? '--'
       : riskStatus.last_event_en ?? riskStatus.last_event ?? '--';
+  const todayLoss = Math.abs(Number(diagnostics.daily_pnl_pct ?? 0));
+  const todayLossMax = Number(riskRules.daily_loss_pct ?? 0);
+  const drawdown = Number(diagnostics.max_dd_pct ?? 0);
+  const drawdownMax = Number(riskRules.max_dd_pct ?? 0);
+  const todayLossProgress = progressValue(todayLoss, todayLossMax);
+  const ddProgress = progressValue(drawdown, drawdownMax);
+  const bucket = riskStatus.current_risk_bucket || riskStatus.bucket_state || '--';
 
   return (
     <section className="stack-gap">
@@ -44,9 +57,42 @@ export default function RiskTab({ config, t, lang }) {
             <h2>{t(`risk.level.${riskStatus.current_level}`, undefined, riskStatus.current_level ?? '--')}</h2>
           </div>
         </div>
+        <div className="risk-progress-wrap">
+          <div className="risk-progress-item">
+            <div className="detail-row">
+              <span className="detail-label">{t('risk.todayLossProgress')}</span>
+              <span className="detail-value">
+                {todayLoss.toFixed(2)} / {todayLossMax || '--'}%
+              </span>
+            </div>
+            <div className="progress-track">
+              <div className="progress-fill" style={{ width: `${todayLossProgress}%` }} />
+            </div>
+          </div>
+          <div className="risk-progress-item">
+            <div className="detail-row">
+              <span className="detail-label">{t('risk.drawdownProgress')}</span>
+              <span className="detail-value">
+                {drawdown.toFixed(2)} / {drawdownMax || '--'}%
+              </span>
+            </div>
+            <div className="progress-track">
+              <div className="progress-fill" style={{ width: `${ddProgress}%` }} />
+            </div>
+          </div>
+          <div className="detail-row">
+            <span className="detail-label">{t('risk.currentBucket')}</span>
+            <span className="detail-value">{bucket}</span>
+          </div>
+        </div>
         <p className="muted status-line">
           {t('risk.lastEvent')}: {lastEvent}
         </p>
+        <div className="action-row">
+          <button type="button" className="secondary-btn" onClick={onExplain}>
+            {t('risk.explain')}
+          </button>
+        </div>
       </article>
     </section>
   );

@@ -164,7 +164,7 @@ export default function ManageRbacPage() {
   }
 
   return (
-    <div className="stack">
+    <div className="stack manage-subpage-screen">
       <AppBar
         title={t("rbac.title", "权限设置")}
         left={(
@@ -179,31 +179,33 @@ export default function ManageRbacPage() {
         )}
       />
 
-      <div className="panel stack">
-        <div className="row" style={{ justifyContent: "space-between" }}>
-          <h3 style={{ margin: 0 }}>{t("rbac.section", "权限说明")}</h3>
-          <button
-            type="button"
-            className="secondary compact-btn"
-            onClick={() => setSectionOpen((v) => !v)}
-          >
-            {sectionOpen ? t("common.collapse", "收起") : t("common.expand", "展开")}
-          </button>
+      <div className="manage-subpage-scroll stack">
+        <div className="panel stack">
+          <div className="row" style={{ justifyContent: "space-between" }}>
+            <h3 style={{ margin: 0 }}>{t("rbac.section", "权限说明")}</h3>
+            <button
+              type="button"
+              className="secondary compact-btn"
+              onClick={() => setSectionOpen((v) => !v)}
+            >
+              {sectionOpen ? t("common.collapse", "收起") : t("common.expand", "展开")}
+            </button>
+          </div>
+          {sectionOpen ? (
+            <div className="muted">{t("rbac.hint", "开关即时生效，所有修改会写入审计日志。")}</div>
+          ) : null}
         </div>
+
+        {loading ? <div className="muted">{t("common.loading", "加载中...")}</div> : null}
+        {error ? <div className="muted">{error}</div> : null}
+
         {sectionOpen ? (
-          <div className="muted">{t("rbac.hint", "开关即时生效，所有修改会写入审计日志。")}</div>
+          <>
+            {renderRoleBlock("waiter")}
+            {renderRoleBlock("manager")}
+          </>
         ) : null}
       </div>
-
-      {loading ? <div className="muted">{t("common.loading", "加载中...")}</div> : null}
-      {error ? <div className="muted">{error}</div> : null}
-
-      {sectionOpen ? (
-        <>
-          {renderRoleBlock("waiter")}
-          {renderRoleBlock("manager")}
-        </>
-      ) : null}
 
       <BottomNav />
     </div>

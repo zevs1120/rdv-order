@@ -243,7 +243,7 @@ export default function MenuAdminPage() {
   }
 
   return (
-    <div className="stack">
+    <div className="stack manage-subpage-screen">
       <AppBar
         title={t("admin.title", "菜单管理")}
         left={(
@@ -258,7 +258,8 @@ export default function MenuAdminPage() {
         )}
       />
 
-      <div className="panel stack">
+      <div className="manage-subpage-scroll stack">
+        <div className="panel stack">
         <div className="row" style={{ justifyContent: "space-between" }}>
           <h3 style={{ margin: 0 }}>{t("admin.newItem", "新增菜品")}</h3>
           <button
@@ -351,9 +352,9 @@ export default function MenuAdminPage() {
           <div className="muted">{t("admin.allergenHint", "过敏原标记：新增时在输入框填写，已存在菜品可在下方点“过敏原”修改。")}</div>
         </div>
         ) : null}
-      </div>
+        </div>
 
-      <div className="panel stack">
+        <div className="panel stack">
         <div className="row" style={{ justifyContent: "space-between" }}>
           <h3 style={{ margin: 0 }}>{t("admin.allItems", "全部菜品")}</h3>
           <div className="row">
@@ -416,6 +417,7 @@ export default function MenuAdminPage() {
           ))}
         </div>
         ) : null}
+        </div>
       </div>
 
       <div className="menu-save-bar">

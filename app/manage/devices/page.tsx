@@ -156,7 +156,7 @@ export default function ManageDevicesPage() {
   }, []);
 
   return (
-    <div className="stack">
+    <div className="stack manage-subpage-screen">
       <AppBar
         title={t("devices.title", "设备状态")}
         left={(
@@ -176,152 +176,154 @@ export default function ManageDevicesPage() {
         )}
       />
 
-      <div className="panel stack">
-        <div className="row" style={{ justifyContent: "space-between" }}>
-          <strong>{t("devices.deployReadiness", "打印部署就绪")}</strong>
-          <button
-            type="button"
-            className="secondary compact-btn"
-            onClick={() => setHealthOpen((v) => !v)}
-          >
-            {healthOpen ? t("common.collapse", "收起") : t("common.expand", "展开")}
-          </button>
-        </div>
-        {healthOpen ? (
-          <div className="order-list">
-            <div className="row" style={{ justifyContent: "space-between" }}>
-              <span>{t("devices.overall", "整体状态")}</span>
-              <span className="tag">{health?.ready ? t("devices.ready", "就绪") : t("devices.notReady", "未就绪")}</span>
-            </div>
-            <div className="row" style={{ justifyContent: "space-between" }}>
-              <span>Primary: {health?.provider.primary || "-"}</span>
-              <span className="tag">{health?.config.primary.ready ? t("devices.ready", "就绪") : t("devices.notReady", "未就绪")}</span>
-            </div>
-            <div className="row" style={{ justifyContent: "space-between" }}>
-              <span>Fallback: {health?.provider.fallback || "-"}</span>
-              <span className="tag">
-                {health?.provider.fallback
-                  ? (health?.config.fallback?.ready ? t("devices.ready", "就绪") : t("devices.notReady", "未就绪"))
-                  : t("devices.notSet", "未配置")}
-              </span>
-            </div>
-            <div className="row" style={{ justifyContent: "space-between" }}>
-              <span>PRINT_WORKER_KEY</span>
-              <span className="tag">{health?.config.workerKeySet ? t("devices.ready", "就绪") : t("devices.notSet", "未配置")}</span>
-            </div>
-            <div className="row" style={{ justifyContent: "space-between" }}>
-              <span>DEVICE_HEARTBEAT_KEY</span>
-              <span className="tag">{health?.config.heartbeatKeySet ? t("devices.ready", "就绪") : t("devices.notSet", "未配置")}</span>
-            </div>
-            <div className="muted">
-              {t("devices.routeBarCategories", "吧台分类路由")}: {(health?.routes.barCategories || []).join(", ") || "-"}
-            </div>
-            <div className="muted">
-              {t("devices.routeBarKeywords", "吧台关键词路由")}: {(health?.routes.barKeywords || []).join(", ") || "-"}
-            </div>
-            {health?.warnings?.length ? (
-              <div className="stack" style={{ gap: 4 }}>
-                <span className="muted">{t("devices.warnings", "告警")}:</span>
-                {health.warnings.map((warning) => (
-                  <span key={warning} className="muted">- {warning}</span>
-                ))}
+      <div className="manage-subpage-scroll stack">
+        <div className="panel stack">
+          <div className="row" style={{ justifyContent: "space-between" }}>
+            <strong>{t("devices.deployReadiness", "打印部署就绪")}</strong>
+            <button
+              type="button"
+              className="secondary compact-btn"
+              onClick={() => setHealthOpen((v) => !v)}
+            >
+              {healthOpen ? t("common.collapse", "收起") : t("common.expand", "展开")}
+            </button>
+          </div>
+          {healthOpen ? (
+            <div className="order-list">
+              <div className="row" style={{ justifyContent: "space-between" }}>
+                <span>{t("devices.overall", "整体状态")}</span>
+                <span className="tag">{health?.ready ? t("devices.ready", "就绪") : t("devices.notReady", "未就绪")}</span>
               </div>
-            ) : null}
+              <div className="row" style={{ justifyContent: "space-between" }}>
+                <span>Primary: {health?.provider.primary || "-"}</span>
+                <span className="tag">{health?.config.primary.ready ? t("devices.ready", "就绪") : t("devices.notReady", "未就绪")}</span>
+              </div>
+              <div className="row" style={{ justifyContent: "space-between" }}>
+                <span>Fallback: {health?.provider.fallback || "-"}</span>
+                <span className="tag">
+                  {health?.provider.fallback
+                    ? (health?.config.fallback?.ready ? t("devices.ready", "就绪") : t("devices.notReady", "未就绪"))
+                    : t("devices.notSet", "未配置")}
+                </span>
+              </div>
+              <div className="row" style={{ justifyContent: "space-between" }}>
+                <span>PRINT_WORKER_KEY</span>
+                <span className="tag">{health?.config.workerKeySet ? t("devices.ready", "就绪") : t("devices.notSet", "未配置")}</span>
+              </div>
+              <div className="row" style={{ justifyContent: "space-between" }}>
+                <span>DEVICE_HEARTBEAT_KEY</span>
+                <span className="tag">{health?.config.heartbeatKeySet ? t("devices.ready", "就绪") : t("devices.notSet", "未配置")}</span>
+              </div>
+              <div className="muted">
+                {t("devices.routeBarCategories", "吧台分类路由")}: {(health?.routes.barCategories || []).join(", ") || "-"}
+              </div>
+              <div className="muted">
+                {t("devices.routeBarKeywords", "吧台关键词路由")}: {(health?.routes.barKeywords || []).join(", ") || "-"}
+              </div>
+              {health?.warnings?.length ? (
+                <div className="stack" style={{ gap: 4 }}>
+                  <span className="muted">{t("devices.warnings", "告警")}:</span>
+                  {health.warnings.map((warning) => (
+                    <span key={warning} className="muted">- {warning}</span>
+                  ))}
+                </div>
+              ) : null}
+            </div>
+          ) : null}
+        </div>
+
+        <div className="panel stack">
+          <div className="row" style={{ justifyContent: "space-between" }}>
+            <strong>{t("devices.pendingJobs", "待打印")}：{data?.printQueue.pending || 0}</strong>
+            <strong>{t("devices.failedJobs", "打印失败")}：{data?.printQueue.failed || 0}</strong>
+          </div>
+          <div className="row" style={{ flexWrap: "wrap" }}>
+            <button
+              className="secondary compact-btn"
+              type="button"
+              onClick={() => { void runSelfTest("kitchen"); }}
+              disabled={testing !== ""}
+            >
+              {testing === "kitchen" ? t("common.loading", "加载中...") : t("devices.testKitchen", "自检后厨")}
+            </button>
+            <button
+              className="secondary compact-btn"
+              type="button"
+              onClick={() => { void runSelfTest("bar"); }}
+              disabled={testing !== ""}
+            >
+              {testing === "bar" ? t("common.loading", "加载中...") : t("devices.testBar", "自检吧台")}
+            </button>
+            <button
+              className="secondary compact-btn"
+              type="button"
+              onClick={() => { void runSelfTest("both"); }}
+              disabled={testing !== ""}
+            >
+              {testing === "both" ? t("common.loading", "加载中...") : t("devices.testBoth", "双通道自检")}
+            </button>
+          </div>
+        </div>
+
+        {loading ? <div className="muted">{t("common.loading", "加载中...")}</div> : null}
+        {error ? <div className="muted">{error}</div> : null}
+        {(data?.alerts || []).length > 0 ? (
+          <div className="panel stack device-alert-panel">
+            <strong>{t("devices.alertTitle", "打印告警")}</strong>
+            {(data?.alerts || []).map((alert) => (
+              <div key={`${alert.code}-${alert.message}`} className="muted">
+                - {alert.message}
+              </div>
+            ))}
+            <div className="muted">{t("devices.alertHint", "建议优先检查主打印机网络，必要时切换备用通道。")}</div>
           </div>
         ) : null}
-      </div>
 
-      <div className="panel stack">
-        <div className="row" style={{ justifyContent: "space-between" }}>
-          <strong>{t("devices.pendingJobs", "待打印")}：{data?.printQueue.pending || 0}</strong>
-          <strong>{t("devices.failedJobs", "打印失败")}：{data?.printQueue.failed || 0}</strong>
-        </div>
-        <div className="row" style={{ flexWrap: "wrap" }}>
-          <button
-            className="secondary compact-btn"
-            type="button"
-            onClick={() => { void runSelfTest("kitchen"); }}
-            disabled={testing !== ""}
-          >
-            {testing === "kitchen" ? t("common.loading", "加载中...") : t("devices.testKitchen", "自检后厨")}
-          </button>
-          <button
-            className="secondary compact-btn"
-            type="button"
-            onClick={() => { void runSelfTest("bar"); }}
-            disabled={testing !== ""}
-          >
-            {testing === "bar" ? t("common.loading", "加载中...") : t("devices.testBar", "自检吧台")}
-          </button>
-          <button
-            className="secondary compact-btn"
-            type="button"
-            onClick={() => { void runSelfTest("both"); }}
-            disabled={testing !== ""}
-          >
-            {testing === "both" ? t("common.loading", "加载中...") : t("devices.testBoth", "双通道自检")}
-          </button>
-        </div>
-      </div>
-
-      {loading ? <div className="muted">{t("common.loading", "加载中...")}</div> : null}
-      {error ? <div className="muted">{error}</div> : null}
-      {(data?.alerts || []).length > 0 ? (
-        <div className="panel stack device-alert-panel">
-          <strong>{t("devices.alertTitle", "打印告警")}</strong>
-          {(data?.alerts || []).map((alert) => (
-            <div key={`${alert.code}-${alert.message}`} className="muted">
-              - {alert.message}
+        <div className="order-list">
+          {(data?.devices || []).map((device) => (
+            <div key={device.id} className="panel stack">
+              <div className="row" style={{ justifyContent: "space-between" }}>
+                <strong>{device.label}</strong>
+                <span className="tag">
+                  {device.status === "online"
+                    ? t("devices.online", "在线")
+                    : device.status === "degraded"
+                      ? t("devices.degraded", "降级")
+                      : t("devices.offline", "离线")}
+                </span>
+              </div>
+              <div className="muted">{device.device_code} · {device.device_type}{device.is_backup ? " · backup" : ""}</div>
+              <div className="muted">fail={device.fail_count} · lastSeen={device.last_seen_at ? new Date(device.last_seen_at).toLocaleString() : "-"}</div>
+              {device.last_error ? <div className="muted">{device.last_error}</div> : null}
+              <div className="row" style={{ flexWrap: "wrap" }}>
+                <button
+                  type="button"
+                  className="secondary compact-btn"
+                  onClick={() => { void markStatus(device.device_code, "online"); }}
+                  disabled={updating === device.device_code}
+                >
+                  {t("devices.markOnline", "设为在线")}
+                </button>
+                <button
+                  type="button"
+                  className="secondary compact-btn"
+                  onClick={() => { void markStatus(device.device_code, "degraded"); }}
+                  disabled={updating === device.device_code}
+                >
+                  {t("devices.markDegraded", "设为降级")}
+                </button>
+                <button
+                  type="button"
+                  className="secondary compact-btn"
+                  onClick={() => { void markStatus(device.device_code, "offline"); }}
+                  disabled={updating === device.device_code}
+                >
+                  {t("devices.markOffline", "设为离线")}
+                </button>
+              </div>
             </div>
           ))}
-          <div className="muted">{t("devices.alertHint", "建议优先检查主打印机网络，必要时切换备用通道。")}</div>
         </div>
-      ) : null}
-
-      <div className="order-list">
-        {(data?.devices || []).map((device) => (
-          <div key={device.id} className="panel stack">
-            <div className="row" style={{ justifyContent: "space-between" }}>
-              <strong>{device.label}</strong>
-              <span className="tag">
-                {device.status === "online"
-                  ? t("devices.online", "在线")
-                  : device.status === "degraded"
-                    ? t("devices.degraded", "降级")
-                    : t("devices.offline", "离线")}
-              </span>
-            </div>
-            <div className="muted">{device.device_code} · {device.device_type}{device.is_backup ? " · backup" : ""}</div>
-            <div className="muted">fail={device.fail_count} · lastSeen={device.last_seen_at ? new Date(device.last_seen_at).toLocaleString() : "-"}</div>
-            {device.last_error ? <div className="muted">{device.last_error}</div> : null}
-            <div className="row" style={{ flexWrap: "wrap" }}>
-              <button
-                type="button"
-                className="secondary compact-btn"
-                onClick={() => { void markStatus(device.device_code, "online"); }}
-                disabled={updating === device.device_code}
-              >
-                {t("devices.markOnline", "设为在线")}
-              </button>
-              <button
-                type="button"
-                className="secondary compact-btn"
-                onClick={() => { void markStatus(device.device_code, "degraded"); }}
-                disabled={updating === device.device_code}
-              >
-                {t("devices.markDegraded", "设为降级")}
-              </button>
-              <button
-                type="button"
-                className="secondary compact-btn"
-                onClick={() => { void markStatus(device.device_code, "offline"); }}
-                disabled={updating === device.device_code}
-              >
-                {t("devices.markOffline", "设为离线")}
-              </button>
-            </div>
-          </div>
-        ))}
       </div>
 
       <BottomNav />

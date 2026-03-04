@@ -1,0 +1,9 @@
+node_modules/
+dist/
+build-ts/
+.env
+.env.local
+*.log
+coverage/
+data/*.db
+data/*.db-*

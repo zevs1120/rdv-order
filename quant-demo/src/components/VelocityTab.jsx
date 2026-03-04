@@ -1,6 +1,6 @@
 import { formatPercent } from '../utils/format';
 
-export default function VelocityTab({ velocity, t, lang }) {
+export default function VelocityTab({ velocity, t, lang, onExplainRisk }) {
   const regimeLabel = t(`velocity.regime.${velocity.regime}`, undefined, velocity.regime ?? '--');
   const regimeClass = velocity.regime?.toLowerCase?.() ?? '';
   const ruleSummary =
@@ -11,6 +11,12 @@ export default function VelocityTab({ velocity, t, lang }) {
     lang === 'zh'
       ? velocity.how_used_zh ?? velocity.how_used ?? []
       : velocity.how_used_en ?? velocity.how_used ?? [];
+  const stanceText =
+    regimeClass === 'risk_off'
+      ? t('velocity.stanceRiskOff')
+      : regimeClass === 'risk_on'
+        ? t('velocity.stanceRiskOn')
+        : t('velocity.stanceNeutral');
 
   return (
     <section className="stack-gap">
@@ -23,6 +29,7 @@ export default function VelocityTab({ velocity, t, lang }) {
           </span>
           <span className={`badge badge-${regimeClass}`}>{regimeLabel}</span>
         </div>
+        <p className="muted status-line">{t('velocity.systemStance')}: {stanceText}</p>
       </article>
 
       <article className="glass-card">
@@ -44,6 +51,21 @@ export default function VelocityTab({ velocity, t, lang }) {
             <p className="kpi-label">{t('velocity.avgDD')}</p>
             <h3 className="kpi-value">{formatPercent(velocity.stats?.avg_dd ?? null)}</h3>
           </div>
+        </div>
+        <div className="detail-list">
+          <div className="detail-row">
+            <span className="detail-label">{t('velocity.sampleSize')}</span>
+            <span className="detail-value">{velocity.stats?.n_events ?? '--'}</span>
+          </div>
+          <div className="detail-row">
+            <span className="detail-label">{t('velocity.assumptions')}</span>
+            <span className="detail-value">{t('velocity.assumptionText')}</span>
+          </div>
+        </div>
+        <div className="action-row">
+          <button type="button" className="secondary-btn" onClick={onExplainRisk}>
+            {t('velocity.whyRiskReduced')}
+          </button>
         </div>
       </article>
 

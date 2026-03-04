@@ -146,6 +146,7 @@ export default function OrderPage() {
   const submitInFlightRef = useRef(false);
   const lastSubmittedSignatureRef = useRef("");
   const lastSubmittedAtRef = useRef(0);
+  const actionMenuRef = useRef<HTMLDivElement | null>(null);
   const isMergedTable = tableNo.includes("+");
   const canRunAction = useActionGuard();
   const deferredKeyword = useDeferredValue(keyword);
@@ -256,6 +257,16 @@ export default function OrderPage() {
     const timer = window.setTimeout(() => setToast(null), 4200);
     return () => window.clearTimeout(timer);
   }, [toast]);
+
+  useEffect(() => {
+    if (!actionMenuOpen) return;
+    const onPointerDown = (event: MouseEvent) => {
+      if (actionMenuRef.current?.contains(event.target as Node)) return;
+      setActionMenuOpen(false);
+    };
+    window.addEventListener("mousedown", onPointerDown);
+    return () => window.removeEventListener("mousedown", onPointerDown);
+  }, [actionMenuOpen]);
 
   useEffect(() => {
     cartSelectionsRef.current = cartSelections;
@@ -914,30 +925,37 @@ export default function OrderPage() {
         }
         left={
           <Button variant="secondary" onClick={() => router.push("/tables")}>
-            {lang === "en" ? "Tables" : "桌台"}
+            {lang === "en" ? "Back" : "返回"}
           </Button>
         }
         right={
           <div className="order-top-actions">
-            <Button
-              variant="secondary"
-              onClick={async () => {
-                setShowBill(true);
-                await loadBill();
-              }}
-            >
-              {t("order.ordered", "Items")}
-            </Button>
-            <div className="order-more-wrap">
+            <div className="order-more-wrap" ref={actionMenuRef}>
               <Button variant="secondary" onClick={() => setActionMenuOpen((v) => !v)}>
                 {t("common.more", "More")}
               </Button>
               {actionMenuOpen ? (
                 <div className="order-more-menu">
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      setActionMenuOpen(false);
+                      setShowBill(true);
+                      await loadBill();
+                    }}
+                  >
+                    {t("order.ordered", "Items")}
+                  </button>
                   <button type="button" onClick={() => { setShowAddDish(true); setActionMenuOpen(false); }}>
                     {t("order.addDish", "Add")}
                   </button>
-                  <button type="button" onClick={() => { router.push(`/manage/orders?tableNo=${encodeURIComponent(tableNo)}`); }}>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setActionMenuOpen(false);
+                      router.push(`/manage/orders?tableNo=${encodeURIComponent(tableNo)}`);
+                    }}
+                  >
                     {t("orders.title", "Orders")}
                   </button>
                   {isMergedTable ? (
@@ -1010,25 +1028,20 @@ export default function OrderPage() {
                       {item.item_type === "set" ? (lang === "en" ? " (Set)" : "（套餐）") : ""}
                     </div>
                     <div className="order-dish-subtitle">
-                      {item.description ? item.description : item.category || ""}
+                      {localizeMenuText(item.category || "", lang) || item.description || " "}
                     </div>
-                    {item.note && (item.qty || 0) > 0 ? (
-                      <div className="order-dish-note">{t("order.noteLabel", "Note")}: {item.note}</div>
-                    ) : null}
                   </div>
                   <div className="order-menu-trailing">
-                    <div className="order-price-line">
-                      <strong className="order-dish-price">₱{item.price}</strong>
-                      {(item.qty || 0) > 0 ? <Badge tone="brand">x{item.qty}</Badge> : null}
-                    </div>
+                    <strong className="order-dish-price">₱{item.price}</strong>
                     <button
                       type="button"
                       className="order-add-btn"
                       onClick={() => addFromMenu(item)}
                     >
-                      {lang === "en" ? "+ Add" : "+ 加入"}
+                      {lang === "en" ? "Add +" : "加入 +"}
                     </button>
                   </div>
+                  {(item.qty || 0) > 0 ? <Badge className="order-dish-qty-badge" tone="brand">x{item.qty}</Badge> : null}
                 </div>
               ))}
             </div>

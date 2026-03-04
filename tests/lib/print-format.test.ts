@@ -61,6 +61,47 @@ describe("print content formatting", () => {
     const content = __printTestUtils.toXpyunKitchenContent(payload as any);
     expect(content).toContain("<CB><B>RDV KITCHEN COPY</B></CB>");
     expect(content).not.toContain("<CB><B2>RDV KITCHEN COPY</B2></CB>");
+    expect(content).toContain("<B>CHICKEN CURRY</B>");
+  });
+
+  it("customer content should include room and guest name lines", () => {
+    const payload = {
+      type: "order",
+      printVersion: 2,
+      tableNo: "05",
+      createdAt: "2026-03-04T12:00:00.000Z",
+      waiter: "Mercy",
+      items: [
+        {
+          name: "Chicken Curry",
+          unitPrice: 450,
+          qty: 1,
+          category: "Filipino Food",
+          note: "no onion",
+          target: "kitchen"
+        }
+      ],
+      tickets: [
+        {
+          target: "kitchen",
+          items: [
+            {
+              name: "Chicken Curry",
+              unitPrice: 450,
+              qty: 1,
+              category: "Filipino Food",
+              note: "no onion",
+              target: "kitchen"
+            }
+          ]
+        }
+      ]
+    } as const;
+
+    const content = __printTestUtils.toXpyunCustomerContent(payload as any);
+    expect(content).toContain("ROOM NO");
+    expect(content).toContain("PRINT FULL NAME");
+    expect(content).toContain("<B>CHICKEN CURRY</B>");
   });
 
   it("formatAmountRow should keep amount right aligned when possible", () => {

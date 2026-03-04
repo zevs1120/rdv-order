@@ -283,7 +283,7 @@ export default function ManageOrdersPage() {
   const totalAmount = orders.reduce((sum, row) => sum + row.amount, 0);
 
   return (
-    <div className="stack">
+    <div className="stack manage-subpage-screen">
       <AppBar
         title={t("orders.title", "订单")}
         left={(
@@ -298,189 +298,191 @@ export default function ManageOrdersPage() {
         )}
       />
 
-      <div className="panel stack">
-        <div className="row" style={{ justifyContent: "space-between" }}>
-          <h3 style={{ margin: 0 }}>{t("orders.section", "订单")}</h3>
-          <button
-            type="button"
-            className="secondary compact-btn"
-            onClick={() => setSectionOpen((v) => !v)}
-          >
-            {sectionOpen ? t("common.collapse", "收起") : t("common.expand", "展开")}
-          </button>
-        </div>
+      <div className="manage-subpage-scroll stack">
+        <div className="panel stack">
+          <div className="row" style={{ justifyContent: "space-between" }}>
+            <h3 style={{ margin: 0 }}>{t("orders.section", "订单")}</h3>
+            <button
+              type="button"
+              className="secondary compact-btn"
+              onClick={() => setSectionOpen((v) => !v)}
+            >
+              {sectionOpen ? t("common.collapse", "收起") : t("common.expand", "展开")}
+            </button>
+          </div>
 
-        {sectionOpen ? (
-          <>
-            <div className="row" style={{ flexWrap: "wrap" }}>
-              {quickButtons.map((btn) => (
-                <button
-                  key={btn.key}
-                  type="button"
-                  className={preset === btn.key ? "compact-btn" : "secondary compact-btn"}
-                  onClick={() => { void applyPreset(btn.key); }}
-                >
-                  {btn.label}
-                </button>
-              ))}
-            </div>
-
-            <div className="row" style={{ flexWrap: "wrap" }}>
-              <input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} />
-              <input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} />
-              <button type="button" className="compact-btn" onClick={() => { void applyCustomRange(); }}>
-                {t("income.custom", "自定时间")}
-              </button>
-            </div>
-
-            <div className="row" style={{ flexWrap: "wrap" }}>
-              <input
-                value={tableFilter}
-                onChange={(e) => setTableFilter(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    e.preventDefault();
-                    void reloadWithCurrentRange();
-                  }
-                }}
-                placeholder={t("orders.tableFilter", "按桌号筛选（可选）")}
-              />
-              <button type="button" className="secondary compact-btn" onClick={() => { void reloadWithCurrentRange(); }}>
-                {t("common.search", "搜索")}
-              </button>
-            </div>
-
-            {loading ? <div className="muted">{t("common.loading", "加载中...")}</div> : null}
-            {error ? <div className="muted">{error}</div> : null}
-            {!loading && !error ? (
-              <div className="row" style={{ justifyContent: "space-between" }}>
-                <strong>{t("orders.totalCount", "订单总数")}：{orders.length}</strong>
-                <strong>{t("orders.totalRevenue", "营业额")}：₱{totalAmount}</strong>
+          {sectionOpen ? (
+            <>
+              <div className="row" style={{ flexWrap: "wrap" }}>
+                {quickButtons.map((btn) => (
+                  <button
+                    key={btn.key}
+                    type="button"
+                    className={preset === btn.key ? "compact-btn" : "secondary compact-btn"}
+                    onClick={() => { void applyPreset(btn.key); }}
+                  >
+                    {btn.label}
+                  </button>
+                ))}
               </div>
-            ) : null}
 
-            {!loading && !error && orders.length === 0 ? <div className="muted">{t("orders.empty", "暂无订单")}</div> : null}
+              <div className="row" style={{ flexWrap: "wrap" }}>
+                <input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} />
+                <input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} />
+                <button type="button" className="compact-btn" onClick={() => { void applyCustomRange(); }}>
+                  {t("income.custom", "自定时间")}
+                </button>
+              </div>
 
-            <div className="order-list">
-              {loading ? (
-                <>
-                  <div className="skeleton skeleton-card" />
-                  <div className="skeleton skeleton-card" />
-                  <div className="skeleton skeleton-card" />
-                </>
+              <div className="row" style={{ flexWrap: "wrap" }}>
+                <input
+                  value={tableFilter}
+                  onChange={(e) => setTableFilter(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      void reloadWithCurrentRange();
+                    }
+                  }}
+                  placeholder={t("orders.tableFilter", "按桌号筛选（可选）")}
+                />
+                <button type="button" className="secondary compact-btn" onClick={() => { void reloadWithCurrentRange(); }}>
+                  {t("common.search", "搜索")}
+                </button>
+              </div>
+
+              {loading ? <div className="muted">{t("common.loading", "加载中...")}</div> : null}
+              {error ? <div className="muted">{error}</div> : null}
+              {!loading && !error ? (
+                <div className="row" style={{ justifyContent: "space-between" }}>
+                  <strong>{t("orders.totalCount", "订单总数")}：{orders.length}</strong>
+                  <strong>{t("orders.totalRevenue", "营业额")}：₱{totalAmount}</strong>
+                </div>
               ) : null}
 
-              {orders.map((order) => {
-                const opened = Boolean(expanded[order.id]);
-                const canEdit = order.status === "submitted" && !order.cancelled_at;
+              {!loading && !error && orders.length === 0 ? <div className="muted">{t("orders.empty", "暂无订单")}</div> : null}
 
-                return (
-                  <div key={order.id} className="menu-item stack">
-                    <div className="row" style={{ justifyContent: "space-between" }}>
-                      <strong>{order.table_no}</strong>
-                      <span className="tag">₱{order.amount}</span>
-                    </div>
-                    <div className="muted">#{order.id.slice(0, 8)} · {new Date(order.created_at).toLocaleString()}</div>
-                    <div className="muted">
-                      x{order.item_qty} · {statusLabel(order)} · {lang === "en" ? "charge" : "费用"} {order.charge_amount >= 0 ? "+" : ""}{order.charge_amount}
-                    </div>
+              <div className="order-list">
+                {loading ? (
+                  <>
+                    <div className="skeleton skeleton-card" />
+                    <div className="skeleton skeleton-card" />
+                    <div className="skeleton skeleton-card" />
+                  </>
+                ) : null}
 
-                    <div className="row" style={{ flexWrap: "wrap" }}>
-                      <button
-                        className="secondary compact-btn"
-                        type="button"
-                        onClick={() => setExpanded((prev) => ({ ...prev, [order.id]: !opened }))}
-                      >
-                        {opened ? t("orders.hideDetail", "收起") : t("orders.detail", "详情")}
-                      </button>
+                {orders.map((order) => {
+                  const opened = Boolean(expanded[order.id]);
+                  const canEdit = order.status === "submitted" && !order.cancelled_at;
 
-                      {role === "manager" && canEdit ? (
-                        <button
-                          className="secondary compact-btn"
-                          type="button"
-                          onClick={() => { void cancelOrder(order.id); }}
-                          disabled={workingId === order.id}
-                        >
-                          {t("orders.cancel", "取消单")}
-                        </button>
-                      ) : null}
-
-                      {role === "manager" && canEdit ? (
-                        <button
-                          className="secondary compact-btn"
-                          type="button"
-                          onClick={() => { void applyCharge(order.id, "discount"); }}
-                          disabled={workingId === order.id}
-                        >
-                          {t("orders.discount", "折扣")}
-                        </button>
-                      ) : null}
-
-                      {role === "manager" && canEdit ? (
-                        <button
-                          className="secondary compact-btn"
-                          type="button"
-                          onClick={() => { void applyCharge(order.id, "service_fee"); }}
-                          disabled={workingId === order.id}
-                        >
-                          {t("orders.serviceFee", "服务费")}
-                        </button>
-                      ) : null}
-
-                      {role === "manager" && order.status === "closed" && order.amount > 0 ? (
-                        <button
-                          className="secondary compact-btn"
-                          type="button"
-                          onClick={() => { void reverseCheckout(order.table_no); }}
-                          disabled={workingId === order.table_no}
-                        >
-                          {t("orders.reverseCheckout", "反结账")}
-                        </button>
-                      ) : null}
-
-                      {role === "manager" ? (
-                        <button
-                          className="secondary compact-btn"
-                          type="button"
-                          onClick={() => { void deleteOrder(order.id); }}
-                          disabled={deletingId === order.id}
-                        >
-                          {deletingId === order.id ? t("orders.deleting", "删除中...") : t("orders.delete", "删除订单")}
-                        </button>
-                      ) : null}
-                    </div>
-
-                    {opened ? (
-                      <div className="order-detail-list">
-                        {(order.items || []).map((item) => (
-                          <div key={`${order.id}-${item.menu_item_id}-${item.note || ""}`} className="row" style={{ justifyContent: "space-between", flexWrap: "wrap" }}>
-                            <div className="stack" style={{ gap: 2 }}>
-                              <span>{localizeMenuText(item.name, lang)} x{item.qty}</span>
-                              {item.note ? <span className="muted">{t("order.noteLabel", "备注")}: {item.note}</span> : null}
-                            </div>
-                            <div className="row">
-                              <div>₱{item.amount}</div>
-                              {canEdit ? (
-                                <button
-                                  className="secondary compact-btn"
-                                  type="button"
-                                  onClick={() => { void returnOne(order.id, item.menu_item_id); }}
-                                  disabled={workingId === order.id}
-                                >
-                                  {t("orders.returnDish", "退菜")}
-                                </button>
-                              ) : null}
-                            </div>
-                          </div>
-                        ))}
+                  return (
+                    <div key={order.id} className="menu-item stack">
+                      <div className="row" style={{ justifyContent: "space-between" }}>
+                        <strong>{order.table_no}</strong>
+                        <span className="tag">₱{order.amount}</span>
                       </div>
-                    ) : null}
-                  </div>
-                );
-              })}
-            </div>
-          </>
-        ) : null}
+                      <div className="muted">#{order.id.slice(0, 8)} · {new Date(order.created_at).toLocaleString()}</div>
+                      <div className="muted">
+                        x{order.item_qty} · {statusLabel(order)} · {lang === "en" ? "charge" : "费用"} {order.charge_amount >= 0 ? "+" : ""}{order.charge_amount}
+                      </div>
+
+                      <div className="row" style={{ flexWrap: "wrap" }}>
+                        <button
+                          className="secondary compact-btn"
+                          type="button"
+                          onClick={() => setExpanded((prev) => ({ ...prev, [order.id]: !opened }))}
+                        >
+                          {opened ? t("orders.hideDetail", "收起") : t("orders.detail", "详情")}
+                        </button>
+
+                        {role === "manager" && canEdit ? (
+                          <button
+                            className="secondary compact-btn"
+                            type="button"
+                            onClick={() => { void cancelOrder(order.id); }}
+                            disabled={workingId === order.id}
+                          >
+                            {t("orders.cancel", "取消单")}
+                          </button>
+                        ) : null}
+
+                        {role === "manager" && canEdit ? (
+                          <button
+                            className="secondary compact-btn"
+                            type="button"
+                            onClick={() => { void applyCharge(order.id, "discount"); }}
+                            disabled={workingId === order.id}
+                          >
+                            {t("orders.discount", "折扣")}
+                          </button>
+                        ) : null}
+
+                        {role === "manager" && canEdit ? (
+                          <button
+                            className="secondary compact-btn"
+                            type="button"
+                            onClick={() => { void applyCharge(order.id, "service_fee"); }}
+                            disabled={workingId === order.id}
+                          >
+                            {t("orders.serviceFee", "服务费")}
+                          </button>
+                        ) : null}
+
+                        {role === "manager" && order.status === "closed" && order.amount > 0 ? (
+                          <button
+                            className="secondary compact-btn"
+                            type="button"
+                            onClick={() => { void reverseCheckout(order.table_no); }}
+                            disabled={workingId === order.table_no}
+                          >
+                            {t("orders.reverseCheckout", "反结账")}
+                          </button>
+                        ) : null}
+
+                        {role === "manager" ? (
+                          <button
+                            className="secondary compact-btn"
+                            type="button"
+                            onClick={() => { void deleteOrder(order.id); }}
+                            disabled={deletingId === order.id}
+                          >
+                            {deletingId === order.id ? t("orders.deleting", "删除中...") : t("orders.delete", "删除订单")}
+                          </button>
+                        ) : null}
+                      </div>
+
+                      {opened ? (
+                        <div className="order-detail-list">
+                          {(order.items || []).map((item) => (
+                            <div key={`${order.id}-${item.menu_item_id}-${item.note || ""}`} className="row" style={{ justifyContent: "space-between", flexWrap: "wrap" }}>
+                              <div className="stack" style={{ gap: 2 }}>
+                                <span>{localizeMenuText(item.name, lang)} x{item.qty}</span>
+                                {item.note ? <span className="muted">{t("order.noteLabel", "备注")}: {item.note}</span> : null}
+                              </div>
+                              <div className="row">
+                                <div>₱{item.amount}</div>
+                                {canEdit ? (
+                                  <button
+                                    className="secondary compact-btn"
+                                    type="button"
+                                    onClick={() => { void returnOne(order.id, item.menu_item_id); }}
+                                    disabled={workingId === order.id}
+                                  >
+                                    {t("orders.returnDish", "退菜")}
+                                  </button>
+                                ) : null}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : null}
+                    </div>
+                  );
+                })}
+              </div>
+            </>
+          ) : null}
+        </div>
       </div>
 
       <BottomNav />

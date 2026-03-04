@@ -46,7 +46,7 @@ export async function POST(req: Request) {
          FROM orders
          WHERE table_no = $1
            AND created_at >= $2
-           AND status IN ('submitted', 'paid')
+           AND status IN ('submitted', 'preparing', 'served', 'paid')
          FOR UPDATE`,
         [s.table_no, s.opened_at]
       );
@@ -104,7 +104,7 @@ export async function POST(req: Request) {
              paid_at = now()
          WHERE table_no = $1
            AND created_at >= $2
-           AND status = 'submitted'`,
+           AND status IN ('submitted', 'preparing', 'served')`,
         [s.table_no, s.opened_at]
       );
 

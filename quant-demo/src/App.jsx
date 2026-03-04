@@ -1,19 +1,30 @@
 import { useEffect, useMemo, useState } from 'react';
 import AboutModal from './components/AboutModal';
+import AiPage from './components/AiPage';
 import ProofTab from './components/ProofTab';
 import RiskTab from './components/RiskTab';
 import SignalsTab from './components/SignalsTab';
 import VelocityTab from './components/VelocityTab';
 import Skeleton from './components/Skeleton';
+import OnboardingFlow from './components/OnboardingFlow';
 import { useLocalStorage } from './hooks/useLocalStorage';
 import { createTranslator, getDefaultLang, getLocale } from './i18n';
 import { formatDateTime } from './utils/format';
+import { runQuantPipeline } from './engines/pipeline';
 
-const tabs = [
+const screenTabs = [
   { key: 'signals', icon: '◉', labelKey: 'tabs.signals' },
   { key: 'proof', icon: '▦', labelKey: 'tabs.proof' },
   { key: 'risk', icon: '⚑', labelKey: 'tabs.risk' },
   { key: 'velocity', icon: '◍', labelKey: 'tabs.velocity' }
+];
+
+const navTabs = [
+  { type: 'tab', key: 'signals', icon: '◉', labelKey: 'tabs.signals' },
+  { type: 'tab', key: 'proof', icon: '▦', labelKey: 'tabs.proof' },
+  { type: 'route', key: 'ai', icon: '✦', labelKey: 'chat.open' },
+  { type: 'tab', key: 'risk', icon: '⚑', labelKey: 'tabs.risk' },
+  { type: 'tab', key: 'velocity', icon: '◍', labelKey: 'tabs.velocity' }
 ];
 
 const initialData = {
@@ -21,54 +32,128 @@ const initialData = {
   performance: { records: [], last_updated: null, paper_timeline: [] },
   trades: [],
   velocity: {},
-  config: {}
+  config: {},
+  analytics: {}
 };
+
+function mapExecutionToTrade(execution) {
+  const baseTime = execution.created_at || new Date().toISOString();
+  const pnl = Number(execution.pnl_pct ?? execution.pnlPct ?? 0);
+  return {
+    time_in: baseTime,
+    time_out: baseTime,
+    market: execution.market,
+    symbol: execution.symbol,
+    side: execution.side || execution.direction || 'LONG',
+    entry: Number(execution.entry ?? execution.entry_price ?? 0),
+    exit: Number(execution.exit ?? execution.tp_price ?? execution.entry ?? execution.entry_price ?? 0),
+    pnl_pct: pnl,
+    fees: Number(execution.fees ?? 0),
+    signal_id: execution.signal_id || execution.signalId,
+    source: execution.mode || 'PAPER'
+  };
+}
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('signals');
   const [market, setMarket] = useState('US');
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState(initialData);
+  const [rawData, setRawData] = useState(null);
+  const [hasLoaded, setHasLoaded] = useState(false);
   const [now, setNow] = useState(new Date());
   const [aboutOpen, setAboutOpen] = useState(false);
+  const [routePath, setRoutePath] = useState(window.location.pathname || '/');
   const [watchlist, setWatchlist] = useLocalStorage('quant-demo-watchlist', []);
+  const [executions, setExecutions] = useLocalStorage('quant-demo-executions', []);
+  const [riskProfileKey, setRiskProfileKey] = useLocalStorage('quant-demo-risk-profile', 'balanced');
+  const [onboardingDone, setOnboardingDone] = useLocalStorage('quant-demo-onboarding-done', false);
+  const [showOnboarding, setShowOnboarding] = useState(!onboardingDone);
   const [lang, setLang] = useLocalStorage('quant-demo-lang', getDefaultLang());
+  const [chatUserId] = useLocalStorage(
+    'quant-demo-chat-user-id',
+    `guest-${Math.random().toString(36).slice(2, 10)}`
+  );
 
   const t = useMemo(() => createTranslator(lang), [lang]);
   const locale = useMemo(() => getLocale(lang), [lang]);
+  const isAiRoute = routePath.startsWith('/ai') || routePath.startsWith('/assistant');
+
+  const navigate = (to) => {
+    if (window.location.pathname !== to) {
+      window.history.pushState({}, '', to);
+    }
+    setRoutePath(window.location.pathname);
+  };
+
+  useEffect(() => {
+    const onPopState = () => setRoutePath(window.location.pathname);
+    window.addEventListener('popstate', onPopState);
+    return () => window.removeEventListener('popstate', onPopState);
+  }, []);
 
   useEffect(() => {
     let mounted = true;
 
-    async function load() {
-      setLoading(true);
+    async function load({ silent = false } = {}) {
+      if (!silent) setLoading(true);
       try {
-        const [signals, performance, trades, velocity, config] = await Promise.all([
+        const [signals, performance, trades, velocity, config, marketFeatures] = await Promise.all([
           fetch('/mock/signals.json').then((res) => res.json()),
           fetch('/mock/performance.json').then((res) => res.json()),
           fetch('/mock/trades.json').then((res) => res.json()),
           fetch('/mock/velocity.json').then((res) => res.json()),
-          fetch('/mock/config.json').then((res) => res.json())
+          fetch('/mock/config.json').then((res) => res.json()),
+          fetch('/mock/market-features.json')
+            .then((res) => (res.ok ? res.json() : null))
+            .catch(() => null)
         ]);
 
         await new Promise((resolve) => setTimeout(resolve, 500));
 
         if (!mounted) return;
-        setData({ signals, performance, trades, velocity, config });
+        const nextRaw = {
+          signals,
+          performance,
+          trades,
+          velocity,
+          config,
+          market_features: marketFeatures
+        };
+        setRawData(nextRaw);
+        setHasLoaded(true);
       } catch {
         if (!mounted) return;
         setData(initialData);
+        setRawData(null);
+        setHasLoaded(false);
       } finally {
-        if (mounted) setLoading(false);
+        if (mounted && !silent) setLoading(false);
       }
     }
 
     load();
+    const refresh = setInterval(() => load({ silent: true }), 120000);
 
     return () => {
       mounted = false;
+      clearInterval(refresh);
     };
   }, []);
+
+  useEffect(() => {
+    if (!rawData) return;
+    const executionTrades = executions.map(mapExecutionToTrade);
+    const modeled = runQuantPipeline({
+      ...rawData,
+      config: {
+        ...(rawData.config || {}),
+        risk_profile: riskProfileKey
+      },
+      trades: [...(rawData.trades || []), ...executionTrades]
+    });
+    setData(modeled);
+  }, [rawData, executions, riskProfileKey]);
 
   useEffect(() => {
     const timer = setInterval(() => setNow(new Date()), 30000);
@@ -78,6 +163,61 @@ export default function App() {
   const lastUpdated = useMemo(() => {
     return data.config.last_updated || data.performance.last_updated || data.velocity.last_updated || null;
   }, [data]);
+
+  const handleQuickAsk = (intent, signal) => {
+    const promptByIntent = {
+      explain: t('chat.prompt.explain', { symbol: signal.symbol }),
+      execute: t('chat.prompt.execute', { symbol: signal.symbol }),
+      risk: t('chat.prompt.risk', { symbol: signal.symbol })
+    };
+    const q = new URLSearchParams({
+      signalId: signal.signal_id,
+      symbol: signal.symbol,
+      market: signal.market,
+      timeframe: signal.timeframe || '',
+      message: promptByIntent[intent] || promptByIntent.explain
+    });
+    navigate(`/ai?${q.toString()}`);
+  };
+
+  const recordExecution = async ({ signal, mode, action }) => {
+    const payload = {
+      signal_id: signal.signal_id,
+      signalId: signal.signal_id,
+      market: signal.market,
+      symbol: signal.symbol,
+      side: signal.direction,
+      direction: signal.direction,
+      mode,
+      action,
+      created_at: new Date().toISOString(),
+      entry: (signal.entry_zone?.low + signal.entry_zone?.high) / 2 || signal.entry_min,
+      entry_price: (signal.entry_zone?.low + signal.entry_zone?.high) / 2 || signal.entry_min,
+      tp_price: signal.take_profit_levels?.[0]?.price ?? signal.take_profit,
+      pnl_pct: action === 'DONE' ? Number(signal.quick_pnl_pct ?? 0.8) : 0
+    };
+    setExecutions((current) => [payload, ...current].slice(0, 200));
+
+    try {
+      await fetch('/api/executions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: chatUserId,
+          signalId: signal.signal_id,
+          mode,
+          action,
+          pnlPct: payload.pnl_pct
+        })
+      });
+    } catch {
+      // local-first demo: ignore network failures
+    }
+  };
+
+  if (isAiRoute) {
+    return <AiPage userId={chatUserId} t={t} locale={locale} onBack={() => navigate('/')} />;
+  }
 
   const renderScreen = () => {
     if (activeTab === 'signals') {
@@ -89,6 +229,15 @@ export default function App() {
           loading={loading}
           watchlist={watchlist}
           setWatchlist={setWatchlist}
+          onQuickAsk={handleQuickAsk}
+          onPaperExecute={(signal) => {
+            void recordExecution({ signal, mode: 'PAPER', action: 'EXECUTE' });
+          }}
+          onMarkDone={(signal) => {
+            void recordExecution({ signal, mode: 'LIVE', action: 'DONE' });
+          }}
+          riskRules={data.config.risk_rules}
+          riskStatus={data.config.risk_status}
           t={t}
           locale={locale}
         />
@@ -111,10 +260,28 @@ export default function App() {
     }
 
     if (activeTab === 'risk') {
-      return loading ? <Skeleton lines={6} /> : <RiskTab config={data.config} t={t} lang={lang} />;
+      return !hasLoaded && loading ? (
+        <Skeleton lines={6} />
+      ) : (
+        <RiskTab
+          config={data.config}
+          t={t}
+          lang={lang}
+          onExplain={() => navigate(`/ai?mode=risk&market=${market}`)}
+        />
+      );
     }
 
-    return loading ? <Skeleton lines={6} /> : <VelocityTab velocity={data.velocity} t={t} lang={lang} />;
+    return !hasLoaded && loading ? (
+      <Skeleton lines={6} />
+    ) : (
+      <VelocityTab
+        velocity={data.velocity}
+        t={t}
+        lang={lang}
+        onExplainRisk={() => navigate(`/ai?mode=market&market=${market}&symbol=${market === 'US' ? 'QQQ' : 'BTC-USDT'}`)}
+      />
+    );
   };
 
   return (
@@ -123,10 +290,13 @@ export default function App() {
         <header className="top-bar">
           <div>
             <p className="brand">{t('app.brand')}</p>
-            <h1 className="headline">{t(tabs.find((tab) => tab.key === activeTab)?.labelKey)}</h1>
+            <h1 className="headline">{t(screenTabs.find((tab) => tab.key === activeTab)?.labelKey)}</h1>
           </div>
 
           <div className="top-actions">
+            <button type="button" className="ghost-btn" onClick={() => navigate('/ai')}>
+              {t('app.ai')}
+            </button>
             <div className="lang-toggle" role="group" aria-label="Language switch">
               <button
                 type="button"
@@ -160,21 +330,44 @@ export default function App() {
         <main className="main-content">{renderScreen()}</main>
 
         <nav className="bottom-nav">
-          {tabs.map((tab) => (
-            <button
-              key={tab.key}
-              type="button"
-              className={`tab-btn ${activeTab === tab.key ? 'active' : ''}`}
-              onClick={() => setActiveTab(tab.key)}
-            >
-              <span>{tab.icon}</span>
-              <span>{t(tab.labelKey)}</span>
-            </button>
-          ))}
+          {navTabs.map((item) =>
+            item.type === 'route' ? (
+              <button
+                key={item.key}
+                type="button"
+                className={`tab-btn ${isAiRoute ? 'active' : ''}`}
+                onClick={() => navigate('/ai')}
+              >
+                <span>{item.icon}</span>
+                <span>{t(item.labelKey)}</span>
+              </button>
+            ) : (
+              <button
+                key={item.key}
+                type="button"
+                className={`tab-btn ${activeTab === item.key ? 'active' : ''}`}
+                onClick={() => setActiveTab(item.key)}
+              >
+                <span>{item.icon}</span>
+                <span>{t(item.labelKey)}</span>
+              </button>
+            )
+          )}
         </nav>
       </div>
 
       <AboutModal open={aboutOpen} onClose={() => setAboutOpen(false)} config={data.config} t={t} locale={locale} />
+      <OnboardingFlow
+        open={showOnboarding}
+        t={t}
+        onComplete={(payload) => {
+          setMarket(payload.market);
+          setWatchlist(payload.watchlist);
+          setRiskProfileKey(payload.riskProfile);
+          setOnboardingDone(true);
+          setShowOnboarding(false);
+        }}
+      />
     </div>
   );
 }

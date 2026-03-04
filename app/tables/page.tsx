@@ -35,6 +35,7 @@ export default function TablesPage() {
   const [mergeSelection, setMergeSelection] = useState<string[]>([]);
   const [mergeGuestCount, setMergeGuestCount] = useState(4);
   const [filter, setFilter] = useState<FilterKey>("all");
+  const [, setMinuteTick] = useState(0);
   const canRunAction = useActionGuard();
 
   useEffect(() => {
@@ -45,6 +46,13 @@ export default function TablesPage() {
     }
     void loadTables();
   }, [router]);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      setMinuteTick((prev) => prev + 1);
+    }, 60000);
+    return () => window.clearInterval(timer);
+  }, []);
 
   async function loadTables() {
     setLoadingTables(true);

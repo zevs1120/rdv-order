@@ -515,7 +515,7 @@ function toXpyunKitchenContent(payload: OrderPrintPayload | SelfTestPrintPayload
   for (const item of items) {
     const itemName = localizeMenuText(item.name, "en").toUpperCase();
     for (const row of wrapReceiptText(itemName)) {
-      lines.push(xpyunLine(row, { forceTag: "N" }));
+      lines.push(xpyunLine(row, { forceTag: "B" }));
     }
     lines.push(xpyunLine(`QTY: ${item.qty}`));
     if (item.note) {
@@ -556,6 +556,8 @@ function toXpyunCustomerContent(payload: OrderPrintPayload) {
   if (payload.waiter) {
     lines.push(xpyunLine(`Server: ${payload.waiter}`));
   }
+  lines.push(xpyunLine("ROOM NO        : ____________"));
+  lines.push(xpyunLine("PRINT FULL NAME: ____________"));
 
   lines.push(xpyunLine(majorSeparator, { forceTag: "" }));
   for (const item of items) {
@@ -565,7 +567,7 @@ function toXpyunCustomerContent(payload: OrderPrintPayload) {
     const lineAmount = qty * price;
 
     for (const row of wrapReceiptText(name)) {
-      lines.push(xpyunLine(row, { forceTag: "N" }));
+      lines.push(xpyunLine(row, { forceTag: "B" }));
     }
     lines.push(xpyunLine(formatAmountRow(qty, price, lineAmount)));
     if (item.note) {
@@ -597,12 +599,14 @@ function toXpyunTableBillContent(payload: TableBillPrintPayload) {
     xpyunLine(`Opened: ${formatPrintDateTime(payload.openedAt)}`),
     xpyunLine(`Printed: ${formatPrintDateTime(payload.printedAt)}`)
   ];
+  lines.push(xpyunLine("ROOM NO        : ____________"));
+  lines.push(xpyunLine("PRINT FULL NAME: ____________"));
 
   lines.push(xpyunLine(majorSeparator, { forceTag: "" }));
   for (const item of payload.items) {
     const name = localizeMenuText(item.name, "en").toUpperCase();
     for (const row of wrapReceiptText(name)) {
-      lines.push(xpyunLine(row, { forceTag: "N" }));
+      lines.push(xpyunLine(row, { forceTag: "B" }));
     }
     lines.push(xpyunLine(formatAmountRow(item.qty, item.unitPrice, item.amount)));
     if (item.note) {

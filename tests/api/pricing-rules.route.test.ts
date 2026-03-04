@@ -74,7 +74,7 @@ describe("pricing rules route", () => {
     );
     expect(applySqlCall).toBeTruthy();
     const applySql = String(applySqlCall?.[0] || "");
-    expect(applySql).toContain("o.status IN ('submitted', 'paid')");
+    expect(applySql).toContain("o.status IN ('submitted', 'preparing', 'served', 'paid')");
     expect(applySql).toContain("o.merged_into_order_id IS NULL");
     expect(release).toHaveBeenCalledTimes(1);
   });
@@ -115,7 +115,7 @@ describe("pricing rules route", () => {
     );
     expect(removeSqlCall).toBeTruthy();
     const removeSql = String(removeSqlCall?.[0] || "");
-    expect(removeSql).toContain("o.status IN ('submitted', 'paid')");
+    expect(removeSql).toContain("o.status IN ('submitted', 'preparing', 'served', 'paid')");
     expect(removeSql).toContain("o.merged_into_order_id IS NULL");
     expect(release).toHaveBeenCalledTimes(1);
   });

@@ -1,66 +1,313 @@
-# AI Quant Trading Tool H5 Demo
+# Quant Demo + Market Data Pipeline
 
-Mobile-first static SPA demo for:
+This repo now contains:
 
-- Signals -> Proof (backtest vs live/paper) -> Risk controls -> Velocity index
-- Non-custodial positioning statement and compliance modal
-- Fully mock-data driven (no backend)
+1. Consumer-facing H5 quant product demo (Opportunity / Performance / Safety / Market Temperature + standalone AI page).
+2. Public-market data ingestion pipeline for quant research/signals.
 
-## Stack
+The new pipeline downloads, normalizes, stores, validates, and serves OHLCV for:
 
-- React + Vite (static build output)
-- Chart.js (`react-chartjs-2`) for equity curve
-- Mock JSON files in `public/mock`
-- localStorage watchlist support
+- US equities/ETFs/indices (Stooq bulk packs)
+- Crypto futures (Binance public data + Binance incremental REST)
 
-## Run
+## What Was Added
+
+- Database schema + idempotent upsert logic
+- Backfill jobs (Stooq + Binance public data)
+- Incremental updater every 2 minutes (Binance `/fapi/v1/klines`)
+- Validation + gap detection + repair attempts
+- Query APIs:
+  - `GET /api/assets?market=US|CRYPTO`
+  - `GET /api/ohlcv?market=CRYPTO&symbol=BTCUSDT&tf=5m&start=...&end=...`
+- Signal Contract persistence + audit trail tables (`signals`, `signal_events`, `executions`, `market_state`, `performance_snapshots`, `user_risk_profiles`)
+- Opportunity interactions: eligibility check, paper execute, mark-as-done loop
+- Standalone AI cockpit page (`/ai`) + streaming endpoint (`POST /api/ai-chat`)
+- Provider abstraction: `AI_PROVIDER=groq|gemini|openai` (plus optional ollama fallback)
+- Unit tests for parsing and upsert behavior
+- Vercel serverless handlers (`/api/assets`, `/api/ohlcv`)
+
+## Tech
+
+- TypeScript (Node.js)
+- SQLite (`better-sqlite3`) for MVP persistence
+- Express for local REST service
+- Streaming zip + CSV parsing (`unzipper`, `csv-parse`)
+- Vercel/Next.js-compatible API handlers in `/api/*.ts`
+
+## Schema
+
+### `assets`
+
+- `asset_id` (PK)
+- `symbol`
+- `market` (`US|CRYPTO`)
+- `venue`
+- `base`
+- `quote`
+- `status`
+
+### `ohlcv`
+
+- `asset_id` (FK)
+- `timeframe`
+- `ts_open` (UTC ms)
+- `open`, `high`, `low`, `close`, `volume` (stored as text decimals)
+- `source`
+- `ingest_at`
+
+Unique key: `(asset_id, timeframe, ts_open)` (via PK)
+
+### Additional ops tables
+
+- `ingest_cursors` (watermark per asset/timeframe)
+- `ingest_anomalies` (validation findings)
+- placeholder tables for future `funding_rates`, `basis_snapshots`
+- `signals` (normalized SignalContract columns + payload JSON)
+- `signal_events` (audit event stream per signal)
+- `executions` (paper/live user execution records)
+- `user_risk_profiles`
+- `market_state` (temperature/regime snapshots)
+- `performance_snapshots` (overall + by strategy + by regime + deviation)
+
+## Setup
 
 ```bash
 npm install
-npm run dev
-npm run build
+cp .env.example .env
+npm run db:init
+npm run db:migrate
 ```
 
-Build output is generated under `dist/` as pure static assets.
+For AI chat on free tier, `AI_PROVIDER=groq` + `GROQ_API_KEY` is enough (no credit card binding needed).
 
-## Mock Data
+## Config
 
-- `public/mock/signals.json`
-- `public/mock/performance.json`
-- `public/mock/trades.json`
-- `public/mock/velocity.json`
-- `public/mock/config.json`
-- `public/mock/performance-report.pdf`
+Main config file: `config/ingestion.config.json`
 
-## Deployment (China-friendly)
+- symbol lists
+- timeframes
+- Stooq pack codes
+- Binance public/realtime endpoints
+- retry/rate settings
 
-### Option A: Nginx static host
+Env overrides:
 
-1. Upload `dist/` to server path, for example `/var/www/quant-demo`.
-2. Nginx example:
+- `DB_PATH`
+- `INGEST_CONFIG_PATH`
+- `CRYPTO_SYMBOLS`
+- `US_SYMBOLS`
 
-```nginx
-server {
-  listen 80;
-  server_name your-domain.com;
+## Backfill Jobs
 
-  root /var/www/quant-demo;
-  index index.html;
+### US (Stooq bulk)
 
-  location / {
-    try_files $uri $uri/ /index.html;
+```bash
+npm run backfill -- --market US --tf 1d
+npm run backfill -- --market US --tf 1h
+npm run backfill -- --market US --tf 5m
+```
+
+Equivalent direct CLI:
+
+```bash
+node scripts/backfill --market US --tf 1d
+```
+
+### Crypto (Binance public data)
+
+```bash
+npm run backfill -- --market CRYPTO --tf 5m,1h,1d
+```
+
+### All
+
+```bash
+npm run backfill -- --market ALL
+```
+
+Notes:
+
+- Stooq bulk links are built from `stooq.bulkPackCodes` (`d_us_txt`, `h_us_txt`, `5_us_txt`).
+- If Stooq returns `Unauthorized`, rerun later or use an allowed network/session.
+
+## Incremental Updater (every 2 min)
+
+Run once:
+
+```bash
+npm run update:binance
+```
+
+Equivalent direct CLI:
+
+```bash
+node scripts/update-binance --once
+```
+
+Run worker loop:
+
+```bash
+npm run worker:binance
+```
+
+The updater:
+
+- reads cursor/watermark per symbol/timeframe
+- pulls recent bars (`limit=200` by default)
+- retries with exponential backoff
+- upserts idempotently
+
+## Validation Job
+
+```bash
+npm run validate:data -- --lookbackBars 2000 --tf 5m,1h,1d
+```
+
+Equivalent direct CLI:
+
+```bash
+node scripts/validate-data --lookbackBars 2000 --tf 5m,1h,1d
+```
+
+Behavior:
+
+- detects missing bars by timeframe cadence
+- logs anomalies to `ingest_anomalies`
+- attempts repair from Binance REST for crypto assets
+
+## Local Query API
+
+Start API server:
+
+```bash
+npm run api:data
+```
+
+### Example calls
+
+```bash
+curl 'http://localhost:8787/api/assets?market=CRYPTO'
+
+curl 'http://localhost:8787/api/ohlcv?market=CRYPTO&symbol=BTCUSDT&tf=5m&start=2026-03-01T00:00:00Z&end=2026-03-03T00:00:00Z'
+
+curl 'http://localhost:8787/api/signals?market=CRYPTO&status=ALL&limit=20'
+
+curl 'http://localhost:8787/api/signals/SIG-2026-0301-1001?userId=guest-001'
+
+curl -X POST 'http://localhost:8787/api/executions' \
+  -H 'Content-Type: application/json' \
+  -d '{"userId":"guest-001","signalId":"SIG-2026-0301-1001","mode":"PAPER","action":"EXECUTE"}'
+
+curl 'http://localhost:8787/api/market-state?market=CRYPTO&symbol=BTC-USDT'
+
+curl 'http://localhost:8787/api/performance?market=US&range=ALL'
+```
+
+Response order is ascending by `ts_open`.
+
+## Conversational AI Assistant
+
+### Endpoint
+
+`POST /api/ai-chat` (legacy `/api/chat` kept for compatibility)
+
+Request:
+
+```json
+{
+  "userId": "u_demo_1",
+  "message": "How do I execute this setup?",
+  "context": {
+    "signalId": "SIG-2026-0301-1001",
+    "symbol": "BTCUSDT",
+    "market": "CRYPTO",
+    "timeframe": "5m"
   }
 }
 ```
 
-### Option B: OSS/COS + CDN
+Response is streamed as NDJSON lines:
 
-1. Upload all files in `dist/` to bucket root.
-2. Set default index document to `index.html`.
-3. Enable SPA fallback to `index.html` for unknown paths (if your CDN control panel provides routing rules).
+```json
+{"type":"meta","mode":"context-aware","provider":"groq"}
+{"type":"chunk","delta":"..."}
+{"type":"done","mode":"context-aware","provider":"groq"}
+```
 
-## Notes
+### Provider behavior
 
-- The app uses bundled mock files and runs without backend services.
-- PDF download is static demo report (`performance-report.pdf`).
-- CSV download is generated client-side from `trades.json`.
+- Default: Groq (`AI_PROVIDER=groq`) using `GROQ_API_KEY`
+- Optional alternatives: Gemini (`AI_PROVIDER=gemini`, `GEMINI_API_KEY`), OpenAI (`AI_PROVIDER=openai`, `OPENAI_API_KEY`)
+- Optional local fallback: Ollama (`OLLAMA_BASE_URL`)
+- If context is requested but exact internal data is missing, assistant will explicitly say:
+  - `I don’t have your exact signal data yet, so here’s a general guideline.`
+
+### curl examples
+
+General coach mode:
+
+```bash
+curl -N -X POST 'http://localhost:8787/api/ai-chat' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "userId":"u_001",
+    "message":"What are common failure modes in breakout systems?"
+  }'
+```
+
+Context-aware mode:
+
+```bash
+curl -N -X POST 'http://localhost:8787/api/ai-chat' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "userId":"u_001",
+    "message":"How should I execute this?",
+    "context":{"signalId":"SIG-2026-0301-1001","symbol":"BTCUSDT","market":"CRYPTO","timeframe":"5m"}
+  }'
+```
+
+### Safety + audit
+
+- No profit guarantees, no personalized financial advice
+- Per-user rate limiting on server side
+- Request/response metadata logged to `chat_audit_logs` for audit trail
+
+## Vercel / Serverless
+
+Included handlers:
+
+- `api/assets.ts`
+- `api/ohlcv.ts`
+- `api/chat.ts`
+- `api/ai-chat.ts`
+- Next.js App Router equivalent: `app/api/chat/route.ts`
+- Next.js App Router equivalent: `app/api/ai-chat/route.ts`
+
+These use the same repository/query code paths.
+
+For production serverless deployment, prefer external persistent DB (Postgres) instead of ephemeral filesystem SQLite.
+
+## Tests
+
+```bash
+npm run test:data
+```
+
+Covers:
+
+- parser correctness for Stooq/Binance records
+- idempotent upsert and cursor updates
+
+## UI
+
+Run UI as before:
+
+```bash
+npm run dev
+npm run build
+```
+
+Standalone AI cockpit route:
+
+- `http://localhost:5173/ai`

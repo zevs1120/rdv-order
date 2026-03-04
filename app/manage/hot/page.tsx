@@ -98,7 +98,7 @@ export default function ManageHotPage() {
   }, []);
 
   return (
-    <div className="stack">
+    <div className="stack manage-subpage-screen">
       <AppBar
         title={t("hot.title", "热销菜")}
         left={(
@@ -108,43 +108,45 @@ export default function ManageHotPage() {
         )}
       />
 
-      <div className="card stack">
-        <div className="row" style={{ flexWrap: "wrap" }}>
-          {quickButtons.map((btn) => (
-            <button
-              key={btn.key}
-              type="button"
-              className={preset === btn.key ? "compact-btn" : "secondary compact-btn"}
-              onClick={() => { void applyPreset(btn.key); }}
-            >
-              {btn.label}
+      <div className="manage-subpage-scroll stack">
+        <div className="card stack">
+          <div className="row" style={{ flexWrap: "wrap" }}>
+            {quickButtons.map((btn) => (
+              <button
+                key={btn.key}
+                type="button"
+                className={preset === btn.key ? "compact-btn" : "secondary compact-btn"}
+                onClick={() => { void applyPreset(btn.key); }}
+              >
+                {btn.label}
+              </button>
+            ))}
+          </div>
+          <div className="row" style={{ flexWrap: "wrap" }}>
+            <input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} />
+            <input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} />
+            <button type="button" className="compact-btn" onClick={() => { void applyCustomRange(); }}>
+              {t("income.custom", "自定时间")}
             </button>
-          ))}
+          </div>
         </div>
-        <div className="row" style={{ flexWrap: "wrap" }}>
-          <input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} />
-          <input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} />
-          <button type="button" className="compact-btn" onClick={() => { void applyCustomRange(); }}>
-            {t("income.custom", "自定时间")}
-          </button>
-        </div>
-      </div>
 
-      <div className="card stack">
-        {loading ? <div className="muted">{t("common.loading", "加载中...")}</div> : null}
-        {error ? <div className="muted">{error}</div> : null}
-        <div className="row" style={{ justifyContent: "space-between", flexWrap: "wrap", rowGap: 4 }}>
-          <strong>{t("hot.totalQty", "总销量")}：{totalQty}</strong>
-          <strong>{t("income.orderCount", "订单数")}：{items.length}</strong>
-        </div>
-        <div className="order-list">
-          {items.map((item) => (
-            <div key={`hot-${item.id}`} className="row" style={{ justifyContent: "space-between", flexWrap: "wrap", rowGap: 4 }}>
-              <div style={{ flex: "1 1 180px" }}>{localizeMenuText(item.name, lang)}</div>
-              <strong>{lang === "en" ? `${item.qty} sold` : `${item.qty} 份`}</strong>
-            </div>
-          ))}
-          {!loading && items.length === 0 ? <div className="muted">{t("hot.empty", "暂无热销数据")}</div> : null}
+        <div className="card stack">
+          {loading ? <div className="muted">{t("common.loading", "加载中...")}</div> : null}
+          {error ? <div className="muted">{error}</div> : null}
+          <div className="row" style={{ justifyContent: "space-between", flexWrap: "wrap", rowGap: 4 }}>
+            <strong>{t("hot.totalQty", "总销量")}：{totalQty}</strong>
+            <strong>{t("income.orderCount", "订单数")}：{items.length}</strong>
+          </div>
+          <div className="order-list">
+            {items.map((item) => (
+              <div key={`hot-${item.id}`} className="row" style={{ justifyContent: "space-between", flexWrap: "wrap", rowGap: 4 }}>
+                <div style={{ flex: "1 1 180px" }}>{localizeMenuText(item.name, lang)}</div>
+                <strong>{lang === "en" ? `${item.qty} sold` : `${item.qty} 份`}</strong>
+              </div>
+            ))}
+            {!loading && items.length === 0 ? <div className="muted">{t("hot.empty", "暂无热销数据")}</div> : null}
+          </div>
         </div>
       </div>
 

@@ -1,9 +1,10 @@
 const messages = {
   en: {
     app: {
-      brand: 'AI Quant Tool',
+      brand: 'Nova Quant',
       more: 'More',
-      noData: '--'
+      noData: '--',
+      ai: 'AI'
     },
     tabs: {
       signals: 'Signals',
@@ -34,10 +35,12 @@ const messages = {
       fees: 'Fees'
     },
     status: {
+      NEW: 'New',
       PENDING: 'Pending',
       TRIGGERED: 'Triggered',
       CLOSED: 'Closed',
-      EXPIRED: 'Expired'
+      EXPIRED: 'Expired',
+      INVALIDATED: 'Invalidated'
     },
     direction: {
       LONG: 'Long',
@@ -54,8 +57,33 @@ const messages = {
     },
     signals: {
       confShort: 'Conf',
+      confN: 'Conf {value}/5',
       watchlistToggle: 'Toggle watchlist',
       noSignals: 'No {status} signals in {market}.',
+      freshness: 'Freshness',
+      expiresAt: 'Expires',
+      executionSteps: 'Execution Steps',
+      canITrade: 'Can I trade this?',
+      paperExecute: 'Paper Execute',
+      markDone: 'Mark as Done',
+      eligibilityTitle: 'Eligibility Check',
+      checkRisk: 'Risk profile allows it',
+      checkTemp: 'Market temperature allows it',
+      checkValidity: 'Signal validity',
+      reducedSize: 'Execute with reduced size',
+      normalSize: 'Normal sizing allowed',
+      invalidNow: 'Expired or invalidated',
+      validNow: 'Valid',
+      executionChecklist: 'Execution Checklist',
+      strategyDeckTitle: 'Strategy Deck',
+      strategyDeckSub: '{strategies} strategy templates online · {active} active opportunities',
+      coveredStrategies: 'Strategies',
+      activeSignals: 'Active',
+      totalSignals: 'Total',
+      activeCount: 'Active {active}/{total}',
+      avgConf: 'Avg conf {value}',
+      todayOpportunityTitle: 'Today Opportunity Stack',
+      todayOpportunitySub: '{count} cards ranked by readiness and confidence',
       backToSignals: 'Back to Signals',
       detailTitle: 'Signal Detail',
       entryZone: 'Entry zone',
@@ -88,7 +116,14 @@ const messages = {
       chartBacktest: 'Backtest',
       chartLive: 'Live / Paper',
       paperTimeline: 'Paper Trading Status Timeline',
-      paperTimelineSub: 'Execution sync and control actions for trust and auditability.'
+      paperTimelineSub: 'Execution sync and control actions for trust and auditability.',
+      sampleSize: 'Sample size',
+      livePaperLabel: 'Live/Paper label',
+      costAssumptions: 'Cost assumptions',
+      attribution: 'Attribution',
+      byStrategy: 'By strategy',
+      byRegime: 'By regime',
+      deviation: 'Deviation'
     },
     paperStatus: {
       SYNCED: 'Synced',
@@ -110,6 +145,10 @@ const messages = {
       tradingToday: 'Trading status today',
       currentLevel: 'Current risk level',
       lastEvent: 'Last event',
+      todayLossProgress: 'Today loss progress',
+      drawdownProgress: 'Drawdown progress',
+      currentBucket: 'Current risk bucket',
+      explain: 'Explain',
       level: {
         LOW: 'Low',
         MEDIUM: 'Medium',
@@ -125,10 +164,31 @@ const messages = {
       avgMove: 'Avg Move',
       avgDD: 'Avg Drawdown',
       howUsed: 'How We Use It',
+      systemStance: 'System stance today',
+      stanceRiskOn: 'Risk-on bias, follow trend entries.',
+      stanceNeutral: 'Neutral stance, selective execution.',
+      stanceRiskOff: 'Risk-off stance, reduced risk bucket.',
+      sampleSize: 'Sample size',
+      assumptions: 'Assumptions',
+      assumptionText: 'Fees/slippage/funding assumptions included.',
+      whyRiskReduced: 'Why risk reduced?',
       regime: {
         RISK_ON: 'Risk-On',
         NEUTRAL: 'Neutral',
         RISK_OFF: 'Risk-Off'
+      }
+    },
+    onboarding: {
+      title: 'Quick Setup',
+      step: 'Step {n} of 3',
+      next: 'Next',
+      back: 'Back',
+      finish: 'Start',
+      pickWatchlist: 'Pick your starter watchlist',
+      profile: {
+        conservative: 'Conservative',
+        balanced: 'Balanced',
+        aggressive: 'Aggressive'
       }
     },
     about: {
@@ -138,13 +198,63 @@ const messages = {
       dataUpdated: 'Data Last Updated',
       disclaimer:
         'This is a signal & execution tool, not asset management. Funds remain in the user\'s own brokerage/exchange account (non-custodial).'
+    },
+    chat: {
+      title: 'Nova Quant Coach',
+      open: 'AI Coach',
+      close: 'Close',
+      send: 'Send',
+      sending: '...',
+      thinking: 'Thinking...',
+      placeholder: 'Ask about strategy, risk, execution...',
+      emptyHint: 'Ask any quant/market question. Works even without your private signal data.',
+      errorPrefix: 'Unable to complete:',
+      errorFallback: 'Network issue, please try again.',
+      quick: {
+        explain: 'Explain',
+        execute: 'How to execute',
+        risk: 'Risk check'
+      },
+      prompt: {
+        explain: 'Explain this signal for {symbol} in plain English.',
+        execute: 'How should I execute this signal for {symbol} step by step?',
+        risk: 'Do a risk check for this {symbol} signal and tell me when not to trade.'
+      },
+      suggest: {
+        quantBasics: 'What is a good quant workflow?',
+        riskSizing: 'How should I size positions?',
+        executeChecklist: 'Give me a pre-trade checklist.'
+      }
+    },
+    ai: {
+      brand: 'Nova Quant AI',
+      title: 'Assistant Cockpit',
+      back: 'Back',
+      empty: 'Ask for signal execution, risk checks, or market interpretation.',
+      emptySub: 'When exact context is missing, you will still get general quant guidance.',
+      inputPlaceholder: 'Ask with context-aware intent...',
+      contextTitle: 'Context Panel',
+      timeframe: 'Timeframe',
+      riskBucket: 'Risk bucket',
+      tempPct: 'Temperature %ile',
+      volPct: 'Volatility %ile',
+      keyParams: 'Key Params',
+      profile: 'Risk profile',
+      quick: {
+        explainSignal: 'Explain this signal',
+        execute: 'How do I execute?',
+        failureModes: 'What can go wrong?',
+        adjustRisk: 'Adjust for my risk profile',
+        summary3: 'Summarize in 3 steps'
+      }
     }
   },
   zh: {
     app: {
-      brand: 'AI 量化工具',
+      brand: 'Nova Quant',
       more: '更多',
-      noData: '--'
+      noData: '--',
+      ai: 'AI'
     },
     tabs: {
       signals: '信号',
@@ -175,10 +285,12 @@ const messages = {
       fees: '费用'
     },
     status: {
+      NEW: '新信号',
       PENDING: '待触发',
       TRIGGERED: '已触发',
       CLOSED: '已平仓',
-      EXPIRED: '已过期'
+      EXPIRED: '已过期',
+      INVALIDATED: '已失效'
     },
     direction: {
       LONG: '做多',
@@ -195,8 +307,33 @@ const messages = {
     },
     signals: {
       confShort: '置信',
+      confN: '置信 {value}/5',
       watchlistToggle: '切换自选',
       noSignals: '{market}暂无{status}信号。',
+      freshness: '新鲜度',
+      expiresAt: '失效时间',
+      executionSteps: '执行步骤',
+      canITrade: '我现在能做吗？',
+      paperExecute: '模拟执行',
+      markDone: '标记已执行',
+      eligibilityTitle: '可交易性检查',
+      checkRisk: '风控额度是否允许',
+      checkTemp: '市场温度是否允许',
+      checkValidity: '信号是否有效',
+      reducedSize: '降仓执行',
+      normalSize: '可按常规仓位执行',
+      invalidNow: '已过期或失效',
+      validNow: '当前有效',
+      executionChecklist: '执行清单',
+      strategyDeckTitle: '策略矩阵',
+      strategyDeckSub: '已上线 {strategies} 套策略模板 · 当前可执行机会 {active} 条',
+      coveredStrategies: '策略数',
+      activeSignals: '活跃',
+      totalSignals: '总信号',
+      activeCount: '活跃 {active}/{total}',
+      avgConf: '平均置信 {value}',
+      todayOpportunityTitle: '今日机会堆栈',
+      todayOpportunitySub: '按可执行度与置信度排序，共 {count} 张行动卡',
       backToSignals: '返回信号列表',
       detailTitle: '信号详情',
       entryZone: '入场区间',
@@ -229,7 +366,14 @@ const messages = {
       chartBacktest: '回测',
       chartLive: '实盘/模拟',
       paperTimeline: '模拟盘状态时间线',
-      paperTimelineSub: '展示执行同步和风控动作，增强可审计性。'
+      paperTimelineSub: '展示执行同步和风控动作，增强可审计性。',
+      sampleSize: '样本量',
+      livePaperLabel: '实盘/模拟标签',
+      costAssumptions: '成本假设',
+      attribution: '归因分析',
+      byStrategy: '按策略',
+      byRegime: '按状态',
+      deviation: '偏差'
     },
     paperStatus: {
       SYNCED: '已同步',
@@ -251,6 +395,10 @@ const messages = {
       tradingToday: '今日交易状态',
       currentLevel: '当前风险级别',
       lastEvent: '最近事件',
+      todayLossProgress: '今日亏损进度',
+      drawdownProgress: '当前回撤进度',
+      currentBucket: '当前风险桶',
+      explain: '解释',
       level: {
         LOW: '低',
         MEDIUM: '中',
@@ -266,10 +414,31 @@ const messages = {
       avgMove: '平均涨跌幅',
       avgDD: '平均回撤',
       howUsed: '如何使用',
+      systemStance: '今日系统立场',
+      stanceRiskOn: '偏风险，顺势参与。',
+      stanceNeutral: '中性，择优执行。',
+      stanceRiskOff: '避险，降低风险桶。',
+      sampleSize: '样本量',
+      assumptions: '假设',
+      assumptionText: '已计入手续费/滑点/资金费率假设。',
+      whyRiskReduced: '为什么降风险？',
       regime: {
         RISK_ON: '偏风险',
         NEUTRAL: '中性',
         RISK_OFF: '避险'
+      }
+    },
+    onboarding: {
+      title: '快速设置',
+      step: '第 {n} / 3 步',
+      next: '下一步',
+      back: '上一步',
+      finish: '开始使用',
+      pickWatchlist: '选择你的初始自选池',
+      profile: {
+        conservative: '保守型',
+        balanced: '均衡型',
+        aggressive: '进取型'
       }
     },
     about: {
@@ -279,6 +448,55 @@ const messages = {
       dataUpdated: '数据更新时间',
       disclaimer:
         '本工具为信号与执行辅助，不属于资产管理。资金始终保留在用户本人券商/交易所账户（非托管）。'
+    },
+    chat: {
+      title: 'Nova Quant 助手',
+      open: 'AI 助手',
+      close: '关闭',
+      send: '发送',
+      sending: '...',
+      thinking: '思考中...',
+      placeholder: '可提问策略、风控、执行...',
+      emptyHint: '你可以直接问量化和市场问题，即使没有私有信号数据也可回答。',
+      errorPrefix: '请求失败：',
+      errorFallback: '网络异常，请稍后重试。',
+      quick: {
+        explain: '解释信号',
+        execute: '如何执行',
+        risk: '风险检查'
+      },
+      prompt: {
+        explain: '请用通俗语言解释一下 {symbol} 这个信号。',
+        execute: '请给我 {symbol} 这个信号的分步执行方法。',
+        risk: '请对 {symbol} 这个信号做风险检查，并告诉我什么情况下不该交易。'
+      },
+      suggest: {
+        quantBasics: '一个好的量化交易流程是什么？',
+        riskSizing: '仓位应该怎么分配？',
+        executeChecklist: '给我一份交易前检查清单。'
+      }
+    },
+    ai: {
+      brand: 'Nova Quant AI',
+      title: '助手驾驶舱',
+      back: '返回',
+      empty: '你可以问信号解释、执行步骤、风控判断。',
+      emptySub: '若缺少内部数据，会自动给你通用量化建议。',
+      inputPlaceholder: '输入你的问题（支持上下文）...',
+      contextTitle: '上下文面板',
+      timeframe: '周期',
+      riskBucket: '风险桶',
+      tempPct: '温度分位',
+      volPct: '波动分位',
+      keyParams: '关键参数',
+      profile: '风险画像',
+      quick: {
+        explainSignal: '解释这个信号',
+        execute: '怎么执行',
+        failureModes: '可能失败在哪里',
+        adjustRisk: '按我的风险级别调整',
+        summary3: '3 步总结'
+      }
     }
   }
 };

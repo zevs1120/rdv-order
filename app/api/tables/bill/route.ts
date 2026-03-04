@@ -50,7 +50,7 @@ export async function GET(req: Request) {
        JOIN menu_items mi ON mi.id = oi.menu_item_id
        WHERE o.table_no = $1
          AND o.created_at >= $2
-         AND o.status IN ('submitted', 'paid')
+         AND o.status IN ('submitted', 'preparing', 'served', 'paid')
        GROUP BY mi.id, mi.name, oi.note
        ORDER BY mi.name ASC, oi.note ASC NULLS FIRST`,
       [s.table_no, s.opened_at]
@@ -141,7 +141,7 @@ export async function GET(req: Request) {
          FROM orders o
          WHERE o.table_no = $1
            AND o.created_at >= $2
-           AND o.status IN ('submitted', 'paid')
+           AND o.status IN ('submitted', 'preparing', 'served', 'paid')
            AND o.cancelled_at IS NULL
        ),
        item_total AS (

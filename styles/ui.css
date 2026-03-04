@@ -79,6 +79,11 @@
   gap: var(--space-2);
 }
 
+.ui-appbar__left,
+.ui-appbar__right {
+  min-width: 0;
+}
+
 .ui-appbar__title {
   min-width: 0;
   font-size: var(--font-section);
@@ -411,6 +416,27 @@
 }
 
 @media (max-width: 420px) {
+  .ui-appbar {
+    margin: 0;
+    border-radius: var(--radius-md);
+    padding-left: var(--space-2);
+    padding-right: var(--space-2);
+  }
+
+  .ui-appbar__row {
+    gap: 6px;
+  }
+
+  .ui-appbar .ui-btn {
+    min-height: 38px;
+    padding-left: 10px;
+    padding-right: 10px;
+  }
+
+  .ui-appbar__title {
+    font-size: 15px;
+  }
+
   .ui-list-row {
     padding-left: var(--space-2);
     padding-right: var(--space-2);

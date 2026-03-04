@@ -50,20 +50,25 @@ export default function ManageIndexPage() {
     <div className="stack manage-home-screen">
       <AppBar title={lang === "en" ? "More" : "更多"} />
 
-      <Card className="more-grid-card">
-        <div className="more-grid">
-          {entries.map((entry) => (
-            <Button
-              key={entry.href}
-              variant="secondary"
-              className="more-grid-btn"
-              onClick={() => router.push(entry.href)}
-            >
-              {lang === "en" ? entry.labelEn : entry.labelZh}
-            </Button>
-          ))}
+      <div className="manage-home-scroll stack">
+        <Card className="more-grid-card">
+          <div className="more-grid">
+            {entries.map((entry) => (
+              <Button
+                key={entry.href}
+                variant="secondary"
+                className="more-grid-btn"
+                onClick={() => router.push(entry.href)}
+              >
+                {lang === "en" ? entry.labelEn : entry.labelZh}
+              </Button>
+            ))}
+          </div>
+        </Card>
+        <div className="muted">
+          {lang === "en" ? "Tap one module to enter detailed management page." : "点击模块进入对应的详细管理子页面。"}
         </div>
-      </Card>
+      </div>
 
       <BottomNav />
     </div>

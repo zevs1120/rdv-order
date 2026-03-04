@@ -97,7 +97,7 @@ export default function ManageIncomePage() {
   }
 
   return (
-    <div className="stack">
+    <div className="stack manage-subpage-screen">
       <AppBar
         title={t("income.section", "收入")}
         left={(
@@ -107,41 +107,43 @@ export default function ManageIncomePage() {
         )}
       />
 
-      <div className="card stack">
-        <h3 style={{ margin: 0 }}>{t("income.section", "收入")}</h3>
-        <div className="row" style={{ flexWrap: "wrap" }}>
-          {quickButtons.map((btn) => (
-            <button
-              key={btn.key}
-              type="button"
-              className={preset === btn.key ? "compact-btn" : "secondary compact-btn"}
-              onClick={() => applyPreset(btn.key)}
-            >
-              {btn.label}
-            </button>
-          ))}
+      <div className="manage-subpage-scroll stack">
+        <div className="card stack">
+          <h3 style={{ margin: 0 }}>{t("income.section", "收入")}</h3>
+          <div className="row" style={{ flexWrap: "wrap" }}>
+            {quickButtons.map((btn) => (
+              <button
+                key={btn.key}
+                type="button"
+                className={preset === btn.key ? "compact-btn" : "secondary compact-btn"}
+                onClick={() => applyPreset(btn.key)}
+              >
+                {btn.label}
+              </button>
+            ))}
+          </div>
+          <div className="row" style={{ flexWrap: "wrap" }}>
+            <input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} />
+            <input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} />
+            <button type="button" className="compact-btn" onClick={applyCustomRange}>{t("income.custom", "自定时间")}</button>
+          </div>
         </div>
-        <div className="row" style={{ flexWrap: "wrap" }}>
-          <input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} />
-          <input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} />
-          <button type="button" className="compact-btn" onClick={applyCustomRange}>{t("income.custom", "自定时间")}</button>
-        </div>
-      </div>
 
-      <div className="card stack">
-        {loading ? <div className="muted">{t("common.loading", "加载中...")}</div> : null}
-        {error ? <div className="muted">{error}</div> : null}
-        <div className="row" style={{ justifyContent: "space-between", flexWrap: "wrap", rowGap: 4 }}>
-          <strong>{t("income.orderCount", "订单数")}：{orderCount}</strong>
-          <strong>{t("income.total", "收入")}：₱{totalAmount}</strong>
-        </div>
-        <div className="order-list">
-          {byDay.map((row) => (
-            <div key={row.day} className="row" style={{ justifyContent: "space-between", flexWrap: "wrap", rowGap: 4 }}>
-              <div>{new Date(row.day).toLocaleDateString()}</div>
-              <div>{lang === "en" ? `Orders ${row.order_count} · ₱${row.amount}` : `订单 ${row.order_count} · ₱${row.amount}`}</div>
-            </div>
-          ))}
+        <div className="card stack">
+          {loading ? <div className="muted">{t("common.loading", "加载中...")}</div> : null}
+          {error ? <div className="muted">{error}</div> : null}
+          <div className="row" style={{ justifyContent: "space-between", flexWrap: "wrap", rowGap: 4 }}>
+            <strong>{t("income.orderCount", "订单数")}：{orderCount}</strong>
+            <strong>{t("income.total", "收入")}：₱{totalAmount}</strong>
+          </div>
+          <div className="order-list">
+            {byDay.map((row) => (
+              <div key={row.day} className="row" style={{ justifyContent: "space-between", flexWrap: "wrap", rowGap: 4 }}>
+                <div>{new Date(row.day).toLocaleDateString()}</div>
+                <div>{lang === "en" ? `Orders ${row.order_count} · ₱${row.amount}` : `订单 ${row.order_count} · ₱${row.amount}`}</div>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
 

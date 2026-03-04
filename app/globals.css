@@ -35,7 +35,7 @@ body {
   font-family: var(--font-family);
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
-  overflow-x: clip;
+  overflow-x: hidden;
   overscroll-behavior-x: none;
   overscroll-behavior-y: contain;
 }
@@ -61,7 +61,7 @@ main {
   background: transparent;
   border-left: 1px solid rgba(148, 163, 184, 0.22);
   border-right: 1px solid rgba(148, 163, 184, 0.22);
-  overflow-x: clip;
+  overflow-x: hidden;
   min-height: 100dvh;
 }
 
@@ -236,13 +236,11 @@ button:disabled {
 }
 
 .order-layout {
-  display: grid;
-  grid-template-columns: clamp(58px, 20vw, 72px) minmax(0, 1fr);
+  display: flex;
   gap: 8px;
-  min-height: clamp(380px, calc(100dvh - 300px), 760px);
-  max-height: clamp(380px, calc(100dvh - 240px), 780px);
+  min-height: 0;
+  height: 100%;
   min-width: 0;
-  height: auto;
   align-items: stretch;
   overflow: hidden;
 }
@@ -251,22 +249,23 @@ button:disabled {
   display: grid;
   gap: 4px;
   align-content: start;
-  width: 72px;
-  min-width: 72px;
-  max-width: 72px;
+  width: clamp(56px, 18vw, 74px);
+  min-width: clamp(56px, 18vw, 74px);
+  max-width: clamp(56px, 18vw, 74px);
   height: 100%;
-  max-height: none;
   overflow-y: auto;
   overflow-x: hidden;
   -webkit-overflow-scrolling: touch;
   scrollbar-gutter: stable;
-  position: relative;
+  position: sticky;
+  top: 0;
   align-self: stretch;
   padding: 4px;
   border: 1px solid var(--line-strong);
   background: #fff;
   box-shadow: var(--shadow);
   flex-shrink: 0;
+  flex: 0 0 clamp(56px, 18vw, 74px);
 }
 
 .category-btn {
@@ -294,10 +293,10 @@ button:disabled {
 }
 
 .menu-content {
+  flex: 1 1 auto;
   min-width: 0;
   min-height: 0;
   height: 100%;
-  max-height: none;
   overflow-y: auto;
   overflow-x: hidden;
   -webkit-overflow-scrolling: touch;
@@ -575,12 +574,21 @@ button:disabled {
   display: inline-flex;
   align-items: center;
   gap: var(--space-2);
+  min-width: 0;
+}
+
+.order-top-title > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .order-top-actions {
   display: inline-flex;
   align-items: center;
   gap: var(--space-2);
+  flex-shrink: 0;
 }
 
 .order-more-wrap {
@@ -623,10 +631,8 @@ button:disabled {
 }
 
 .order-shift-panel {
-  position: sticky;
-  top: calc(var(--topbar-h) + env(safe-area-inset-top) + 64px);
-  z-index: 30;
   padding: var(--space-2);
+  border-radius: var(--radius-md);
 }
 
 .order-shift-row {
@@ -644,24 +650,31 @@ button:disabled {
   border-radius: var(--radius-md);
   background: #fff;
   padding: var(--space-2);
+  min-height: 0;
+  height: 100%;
+  overflow-x: hidden;
 }
 
 .order-menu-list {
   display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: var(--space-2);
   padding-bottom: 6px;
+  min-width: 0;
+  overflow-x: hidden;
 }
 
 .order-dish-row {
   display: grid;
-  grid-template-columns: 1fr;
-  align-content: space-between;
-  gap: var(--space-2);
+  grid-template-rows: minmax(0, 1fr) auto;
+  gap: 8px;
   border: 1px solid var(--line-default);
   border-radius: var(--radius-md);
   background: #fff;
   padding: 9px;
-  min-height: 118px;
+  min-height: 126px;
+  position: relative;
+  min-width: 0;
 }
 
 .order-dish-main {
@@ -669,8 +682,8 @@ button:disabled {
 }
 
 .order-dish-title {
-  font-size: 18px;
-  font-weight: 700;
+  font-size: 16px;
+  font-weight: 680;
   line-height: 1.18;
   color: var(--text-primary);
   overflow-wrap: anywhere;
@@ -682,8 +695,11 @@ button:disabled {
 
 .order-dish-subtitle {
   margin-top: 2px;
-  font-size: 14px;
+  font-size: 12px;
   color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .order-dish-note {
@@ -697,10 +713,10 @@ button:disabled {
 
 .order-menu-trailing {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  justify-items: stretch;
-  align-items: center;
-  gap: 6px;
+  grid-template-columns: 1fr;
+  justify-items: start;
+  align-items: start;
+  gap: 4px;
   width: 100%;
   min-width: 0;
 }
@@ -713,35 +729,89 @@ button:disabled {
 }
 
 .order-dish-price {
-  font-size: 17px;
+  font-size: 28px;
   line-height: 1;
+  letter-spacing: -0.02em;
   color: var(--text-primary);
 }
 
-.order-add-btn {
-  min-height: 34px;
-  min-width: 76px;
-  border: 1px solid var(--brand);
-  border-radius: 10px;
-  background: var(--brand);
-  color: #fff;
-  font-size: 13px;
-  font-weight: 680;
-  padding: 0 10px;
+.order-dish-qty-badge {
+  position: absolute;
+  top: 8px;
+  right: 8px;
 }
 
-.order-add-btn:active {
-  transform: scale(0.98);
+.order-screen {
+  min-height: calc(100dvh - var(--topbar-h) - var(--bottombar-h) - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 16px);
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr) auto;
+  align-content: stretch;
+  gap: 8px;
+  overflow: hidden;
+}
+
+.order-screen .ui-appbar {
+  margin-bottom: 0;
+}
+
+.order-screen .ui-appbar__subline {
+  margin-top: 8px;
+}
+
+.order-search-compact {
+  width: 100%;
+}
+
+.order-search-compact .ui-search {
+  min-height: 40px;
+}
+
+.order-more-wrap .ui-btn {
+  min-width: 74px;
 }
 
 .order-cart-dock {
   position: sticky;
-  bottom: calc(var(--bottombar-h) + env(safe-area-inset-bottom) + var(--space-2));
+  bottom: calc(var(--bottombar-h) + env(safe-area-inset-bottom) + 4px);
   z-index: 34;
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   gap: var(--space-2);
   align-items: center;
+  margin-top: 2px;
+  background: color-mix(in srgb, #fff 92%, var(--bg-page));
+  border-radius: var(--radius-md);
+  padding: 8px;
+  border: 1px solid var(--line-default);
+  box-shadow: var(--shadow-2);
+}
+
+.order-cart-dock .ui-btn {
+  min-height: 42px;
+}
+
+.order-cart-dock .ui-btn:first-child {
+  justify-content: flex-start;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.order-add-btn {
+  min-height: 32px;
+  min-width: 0;
+  border: 1px solid var(--brand);
+  border-radius: 9px;
+  background: var(--brand);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 0 9px;
+  width: 100%;
+  max-width: 100%;
+}
+
+.order-add-btn:active {
+  transform: scale(0.98);
 }
 
 .cart-row {
@@ -981,10 +1051,6 @@ button:disabled {
   overflow: hidden;
 }
 
-.order-screen {
-  min-height: calc(100dvh - 140px);
-}
-
 .bottom-nav {
   position: fixed;
   left: 0;
@@ -1057,7 +1123,31 @@ button:disabled {
 }
 
 .manage-home-screen {
-  padding-bottom: 86px;
+  min-height: calc(100dvh - var(--topbar-h) - var(--bottombar-h) - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 18px);
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 8px;
+  overflow: hidden;
+}
+
+.manage-home-scroll {
+  min-height: 0;
+  overflow-y: auto;
+  padding-bottom: calc(var(--bottombar-h) + env(safe-area-inset-bottom) + 8px);
+}
+
+.manage-subpage-screen {
+  min-height: calc(100dvh - var(--topbar-h) - var(--bottombar-h) - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 18px);
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 8px;
+  overflow: hidden;
+}
+
+.manage-subpage-scroll {
+  min-height: 0;
+  overflow-y: auto;
+  padding-bottom: calc(var(--bottombar-h) + env(safe-area-inset-bottom) + 8px);
 }
 
 .manage-metric-grid {
@@ -1449,7 +1539,7 @@ a {
   }
 
   .order-layout {
-    grid-template-columns: 64px 1fr;
+    gap: 6px;
   }
 
   .order-dish-row {
@@ -1467,14 +1557,15 @@ a {
   }
 
   .order-dish-price {
-    font-size: 14px;
+    font-size: 24px;
   }
 
   .order-add-btn {
-    min-width: 58px;
+    min-width: 0;
     min-height: 30px;
     font-size: 11px;
     padding: 0 6px;
+    width: 100%;
   }
 
   .order-main-panel {
@@ -1507,9 +1598,10 @@ a {
   }
 
   .category-sidebar {
-    width: 64px;
-    min-width: 64px;
-    max-width: 64px;
+    width: 58px;
+    min-width: 58px;
+    max-width: 58px;
+    flex-basis: 58px;
     max-height: none;
   }
 
@@ -1613,12 +1705,7 @@ a {
   }
 
   .order-menu-trailing {
-    width: 100%;
-    min-width: 0;
-    grid-template-columns: minmax(0, 1fr) auto;
-    justify-items: stretch;
-    align-items: center;
-    gap: 6px;
+    gap: 4px;
   }
 
   .order-price-line {
@@ -1677,6 +1764,11 @@ a {
   .more-grid {
     grid-template-columns: 1fr;
   }
+
+  .manage-home-screen,
+  .manage-subpage-screen {
+    min-height: calc(100dvh - var(--topbar-h) - var(--bottombar-h) - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 10px);
+  }
 }
 
 @media (pointer: coarse) {
@@ -1695,14 +1787,14 @@ a {
 
 @media (max-width: 390px) {
   .order-layout {
-    grid-template-columns: 50px 1fr;
     gap: 5px;
   }
 
   .category-sidebar {
-    width: 50px;
-    min-width: 50px;
-    max-width: 50px;
+    width: 52px;
+    min-width: 52px;
+    max-width: 52px;
+    flex-basis: 52px;
     padding: 2px;
     gap: 2px;
   }
@@ -1732,14 +1824,15 @@ a {
   }
 
   .order-dish-price {
-    font-size: 13px;
+    font-size: 20px;
   }
 
   .order-add-btn {
-    min-width: 54px;
+    min-width: 0;
     min-height: 28px;
     font-size: 10px;
     padding: 0 5px;
+    width: 100%;
   }
 
   .tables-appbar .ui-appbar__title {
@@ -1823,5 +1916,247 @@ a {
 
   .compact-btn {
     font-size: 12px;
+  }
+}
+
+/* ===== Hard device adaptation (iPhone 16 / iPhone 17 Pro / vivo X Fold5 / Xiaomi 14 Ultra) ===== */
+.order-screen,
+.order-layout,
+.order-layout > *,
+.order-list-mode,
+.order-menu-list,
+.order-dish-row,
+.order-dish-main,
+.order-menu-trailing,
+.order-cart-dock,
+.order-cart-dock .ui-btn,
+.order-screen .ui-appbar,
+.order-screen .ui-appbar__row,
+.order-screen .ui-appbar__title {
+  min-width: 0;
+}
+
+.order-screen {
+  overflow-x: hidden;
+}
+
+.order-layout {
+  display: grid;
+  grid-template-columns: 64px minmax(0, 1fr);
+  gap: 8px;
+}
+
+.category-sidebar {
+  width: 64px;
+  min-width: 64px;
+  max-width: 64px;
+  flex: 0 0 64px;
+  position: relative;
+  top: auto;
+  align-self: stretch;
+}
+
+.order-list-mode {
+  overflow-y: auto;
+}
+
+.order-menu-list {
+  width: 100%;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-auto-rows: minmax(118px, auto);
+}
+
+.order-dish-row {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 8px;
+  overflow: hidden;
+}
+
+.order-menu-trailing {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+}
+
+.order-dish-price {
+  font-size: 30px;
+  white-space: nowrap;
+}
+
+.order-add-btn {
+  width: auto;
+  min-width: 72px;
+  padding: 0 10px;
+  justify-self: end;
+}
+
+.order-cart-dock .ui-btn:first-child {
+  min-width: 0;
+}
+
+/* iPhone 16 (393w) / iPhone 17 Pro (402w) / vivo X Fold5 cover screen */
+@media (max-width: 406px) {
+  .topbar-shell__inner {
+    padding-left: max(8px, env(safe-area-inset-left));
+    padding-right: max(8px, env(safe-area-inset-right));
+  }
+
+  .topbar-net-pill {
+    height: 30px;
+    line-height: 28px;
+    padding: 0 8px;
+    font-size: 12px;
+  }
+
+  .topbar-btn {
+    min-height: 34px;
+    padding: 0 9px;
+    font-size: 12px;
+  }
+
+  .order-layout {
+    grid-template-columns: 56px minmax(0, 1fr);
+    gap: 6px;
+  }
+
+  .category-sidebar {
+    width: 56px;
+    min-width: 56px;
+    max-width: 56px;
+    flex-basis: 56px;
+    gap: 3px;
+    padding: 3px;
+  }
+
+  .category-btn {
+    min-height: 34px;
+    padding: 4px 4px;
+    font-size: 10px;
+  }
+
+  .order-menu-list {
+    gap: 6px;
+  }
+
+  .order-dish-row {
+    min-height: 108px;
+    padding: 7px;
+    gap: 6px;
+  }
+
+  .order-dish-title {
+    font-size: 12px;
+    line-height: 1.18;
+  }
+
+  .order-dish-subtitle {
+    font-size: 10px;
+  }
+
+  .order-menu-trailing {
+    gap: 6px;
+  }
+
+  .order-dish-price {
+    font-size: 18px;
+  }
+
+  .order-add-btn {
+    min-height: 30px;
+    min-width: 68px;
+    font-size: 11px;
+    padding: 0 8px;
+  }
+
+  .order-cart-dock {
+    gap: 6px;
+    padding: 6px;
+  }
+
+  .order-cart-dock .ui-btn {
+    min-height: 38px;
+    padding-left: 8px;
+    padding-right: 8px;
+    font-size: 12px;
+  }
+
+  .tables-toolbar .ui-btn {
+    min-height: 34px;
+    padding-left: 8px;
+    padding-right: 8px;
+    font-size: 12px;
+  }
+}
+
+/* Xiaomi 14 Ultra / common Android 412w bucket */
+@media (min-width: 407px) and (max-width: 430px) {
+  .order-layout {
+    grid-template-columns: 60px minmax(0, 1fr);
+    gap: 7px;
+  }
+
+  .category-sidebar {
+    width: 60px;
+    min-width: 60px;
+    max-width: 60px;
+    flex-basis: 60px;
+  }
+
+  .category-btn {
+    min-height: 36px;
+    font-size: 10px;
+    padding: 5px;
+  }
+
+  .order-dish-row {
+    min-height: 114px;
+    padding: 8px;
+  }
+
+  .order-dish-title {
+    font-size: 13px;
+  }
+
+  .order-dish-price {
+    font-size: 19px;
+  }
+
+  .order-add-btn {
+    min-height: 31px;
+    min-width: 72px;
+    font-size: 11px;
+  }
+}
+
+/* vivo X Fold5 unfolded inner screen */
+@media (min-width: 700px) and (max-width: 980px) {
+  :root {
+    --app-max: 900px;
+  }
+
+  .order-layout {
+    grid-template-columns: 76px minmax(0, 1fr);
+    gap: 10px;
+  }
+
+  .category-sidebar {
+    width: 76px;
+    min-width: 76px;
+    max-width: 76px;
+    flex-basis: 76px;
+  }
+
+  .category-btn {
+    min-height: 42px;
+    font-size: 12px;
+    padding: 8px 6px;
+  }
+
+  .order-menu-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
   }
 }

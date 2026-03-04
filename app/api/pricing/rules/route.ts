@@ -87,7 +87,7 @@ async function applyRuleToOpenOrders(
      FROM orders o
      LEFT JOIN order_items oi ON oi.order_id = o.id
      LEFT JOIN menu_items mi ON mi.id = oi.menu_item_id
-       WHERE o.status IN ('submitted', 'paid')
+       WHERE o.status IN ('submitted', 'preparing', 'served', 'paid')
          AND o.cancelled_at IS NULL
          AND o.merged_into_order_id IS NULL
        GROUP BY o.id
@@ -148,7 +148,7 @@ async function removeRuleFromOpenOrders(
      WHERE oc.order_id = o.id
        AND oc.rule_id = $1
        AND oc.source = 'rule_auto'
-       AND o.status IN ('submitted', 'paid')
+       AND o.status IN ('submitted', 'preparing', 'served', 'paid')
        AND o.cancelled_at IS NULL
        AND o.merged_into_order_id IS NULL`,
     [ruleId]

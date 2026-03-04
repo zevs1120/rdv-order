@@ -37,7 +37,7 @@ export async function DELETE(req: Request, { params }: Params) {
          WHERE oc.order_id = o.id
            AND oc.rule_id = $1
            AND oc.source = 'rule_auto'
-           AND o.status IN ('submitted', 'paid')
+           AND o.status IN ('submitted', 'preparing', 'served', 'paid')
            AND o.cancelled_at IS NULL
            AND o.merged_into_order_id IS NULL`,
         [ruleId]
