@@ -6,7 +6,10 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "check:print-env": "node scripts/check-print-env.js"
+    "check:print-env": "node scripts/check-print-env.js",
+    "lint": "tsc --noEmit",
+    "test": "VITE_CJS_IGNORE_WARNING=true vitest run",
+    "test:watch": "VITE_CJS_IGNORE_WARNING=true vitest"
   },
   "dependencies": {
     "jose": "^5.9.4",
@@ -20,6 +23,7 @@
     "@types/node": "25.2.3",
     "@types/pg": "^8.16.0",
     "@types/react": "19.2.14",
-    "typescript": "5.9.3"
+    "typescript": "5.9.3",
+    "vitest": "^2.1.9"
   }
 }

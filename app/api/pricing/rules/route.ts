@@ -28,13 +28,24 @@ type NormalizedRule = {
 
 const UUID_V4_LIKE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
+function normalizeBoolean(value: unknown) {
+  if (typeof value === "boolean") return value;
+  if (typeof value === "number") return value !== 0;
+  if (typeof value === "string") {
+    const text = value.trim().toLowerCase();
+    if (text === "true" || text === "1") return true;
+    if (text === "false" || text === "0" || text === "") return false;
+  }
+  return Boolean(value);
+}
+
 function normalizeRuleInput(rule: RuleInput): NormalizedRule | null {
   const id = String(rule.id || "").trim();
   const name = String(rule.name || "").trim();
   const chargeType = String(rule.charge_type || "").trim() as ChargeType;
   const mode = String(rule.mode || "").trim() as ChargeMode;
   const value = Number(rule.value);
-  const isActive = Boolean(rule.is_active);
+  const isActive = normalizeBoolean(rule.is_active);
   const sortOrder = Number(rule.sort_order || 0);
 
   if (!name) return null;

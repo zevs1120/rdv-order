@@ -901,3 +901,13 @@ export async function dispatchPrintSelfTest(target: "kitchen" | "bar" | "both" =
   const payload = buildSelfTestPayload(target);
   return dispatchWithFallback(payload);
 }
+
+export const __printTestUtils = {
+  getXpyunFontTag,
+  getReceiptLineWidth,
+  wrapReceiptText,
+  formatAmountRow,
+  toXpyunKitchenContent,
+  toXpyunCustomerContent,
+  toXpyunTableBillContent
+};
