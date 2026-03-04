@@ -5,17 +5,17 @@ import { writeAuditLogSafe } from "../../../lib/audit";
 import { lockBaseTables } from "../../../lib/table-lock";
 
 const TABLE_LAYOUT = [
-  { tableNo: "A1", column: 1, order: 1 },
-  { tableNo: "A2", column: 1, order: 2 },
-  { tableNo: "A3", column: 1, order: 3 },
-  { tableNo: "B1", column: 2, order: 4 },
-  { tableNo: "B2", column: 2, order: 5 },
-  { tableNo: "B3", column: 2, order: 6 },
-  { tableNo: "C1", column: 3, order: 7 },
-  { tableNo: "C2", column: 3, order: 8 },
-  { tableNo: "C3", column: 3, order: 9 },
-  { tableNo: "C4", column: 3, order: 10 },
-  { tableNo: "C5", column: 3, order: 11 }
+  { tableNo: "01", column: 1, order: 1 },
+  { tableNo: "02", column: 1, order: 2 },
+  { tableNo: "03", column: 1, order: 3 },
+  { tableNo: "04", column: 2, order: 4 },
+  { tableNo: "05", column: 2, order: 5 },
+  { tableNo: "06", column: 2, order: 6 },
+  { tableNo: "07", column: 3, order: 7 },
+  { tableNo: "08", column: 3, order: 8 },
+  { tableNo: "09", column: 3, order: 9 },
+  { tableNo: "10", column: 3, order: 10 },
+  { tableNo: "11", column: 3, order: 11 }
 ] as const;
 
 const TABLE_SET = new Set<string>(TABLE_LAYOUT.map((t) => t.tableNo));

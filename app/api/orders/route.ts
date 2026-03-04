@@ -312,22 +312,24 @@ export async function POST(req: Request) {
           `INSERT INTO print_jobs (order_id, status, retry_count)
            VALUES ($1, 'pending', 0)
            ON CONFLICT (order_id) DO UPDATE
-           SET status = CASE WHEN print_jobs.status = 'printed' THEN print_jobs.status ELSE 'pending' END,
+           SET status = CASE
+                          WHEN print_jobs.status IN ('printed', 'printing') THEN print_jobs.status
+                          ELSE 'pending'
+                        END,
                updated_at = now()`,
           [createdOrderId]
         );
         shouldKickPrintWorker = true;
       }
       if (deduped && dedupeReason === "idempotency") {
-        await client.query(
+        const ensurePrintJob = await client.query<{ id: string }>(
           `INSERT INTO print_jobs (order_id, status, retry_count)
            VALUES ($1, 'pending', 0)
-           ON CONFLICT (order_id) DO UPDATE
-           SET status = CASE WHEN print_jobs.status = 'printed' THEN print_jobs.status ELSE 'pending' END,
-               updated_at = now()`,
+           ON CONFLICT (order_id) DO NOTHING
+           RETURNING id`,
           [createdOrderId]
         );
-        shouldKickPrintWorker = true;
+        shouldKickPrintWorker = ensurePrintJob.rows.length > 0;
       }
 
       await client.query("COMMIT");

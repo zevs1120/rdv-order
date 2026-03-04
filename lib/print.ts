@@ -381,10 +381,10 @@ function sanitizeXpyunLine(value: string) {
 }
 
 function getXpyunFontTag() {
-  const raw = String(process.env.XPYUN_FONT_TAG || "B").trim().toUpperCase();
+  const raw = String(process.env.XPYUN_FONT_TAG || "N").trim().toUpperCase();
   if (!raw) return "";
   const allow = new Set(["N", "HB", "WB", "B", "HB2", "WB2", "B2", "BOLD"]);
-  return allow.has(raw) ? raw : "B";
+  return allow.has(raw) ? raw : "N";
 }
 
 function xpyunLine(text = "", opts?: { center?: boolean; forceTag?: string }) {
@@ -502,8 +502,8 @@ function toXpyunKitchenContent(payload: OrderPrintPayload | SelfTestPrintPayload
   const majorSeparator = dividerLine("=");
 
   const lines: string[] = [
-    "<CB><B2>RDV KITCHEN COPY</B2></CB><BR>",
-    xpyunLine(`TABLE ${payload.tableNo}`, { center: true, forceTag: "B2" }),
+    "<CB><B>RDV KITCHEN COPY</B></CB><BR>",
+    xpyunLine(`TABLE ${payload.tableNo}`, { center: true, forceTag: "B" }),
     xpyunLine(`Time: ${formatPrintDateTime(headerDate)}`)
   ];
 
@@ -515,12 +515,12 @@ function toXpyunKitchenContent(payload: OrderPrintPayload | SelfTestPrintPayload
   for (const item of items) {
     const itemName = localizeMenuText(item.name, "en").toUpperCase();
     for (const row of wrapReceiptText(itemName)) {
-      lines.push(xpyunLine(row, { forceTag: "B" }));
+      lines.push(xpyunLine(row, { forceTag: "N" }));
     }
     lines.push(xpyunLine(`QTY: ${item.qty}`));
     if (item.note) {
       for (const noteRow of wrapReceiptText(`NOTE: ${item.note}`)) {
-        lines.push(xpyunLine(noteRow, { forceTag: "B" }));
+        lines.push(xpyunLine(noteRow, { forceTag: "N" }));
       }
     }
     lines.push(xpyunLine(separator, { forceTag: "" }));
@@ -548,8 +548,8 @@ function toXpyunCustomerContent(payload: OrderPrintPayload) {
   const majorSeparator = dividerLine("=");
 
   const lines: string[] = [
-    "<CB><B2>RDV GUEST BILL</B2></CB><BR>",
-    xpyunLine(`TABLE ${payload.tableNo}`, { center: true, forceTag: "B2" }),
+    "<CB><B>RDV GUEST BILL</B></CB><BR>",
+    xpyunLine(`TABLE ${payload.tableNo}`, { center: true, forceTag: "B" }),
     xpyunLine(`Time: ${formatPrintDateTime(payload.createdAt)}`)
   ];
 
@@ -565,19 +565,19 @@ function toXpyunCustomerContent(payload: OrderPrintPayload) {
     const lineAmount = qty * price;
 
     for (const row of wrapReceiptText(name)) {
-      lines.push(xpyunLine(row, { forceTag: "B" }));
+      lines.push(xpyunLine(row, { forceTag: "N" }));
     }
     lines.push(xpyunLine(formatAmountRow(qty, price, lineAmount)));
     if (item.note) {
       for (const noteRow of wrapReceiptText(`NOTE: ${item.note}`)) {
-        lines.push(xpyunLine(noteRow, { forceTag: "B" }));
+        lines.push(xpyunLine(noteRow, { forceTag: "N" }));
       }
     }
     lines.push(xpyunLine(separator, { forceTag: "" }));
   }
   lines.push(xpyunLine(`ITEM LINES: ${items.length}`));
   lines.push(xpyunLine(`TOTAL QTY : ${totalQty}`));
-  lines.push(xpyunLine(`TOTAL     : ${formatPhp(totalAmount)}`, { forceTag: "B2" }));
+  lines.push(xpyunLine(`TOTAL     : ${formatPhp(totalAmount)}`, { forceTag: "B" }));
   lines.push(xpyunLine(majorSeparator, { forceTag: "" }));
   lines.push("<C>THANK YOU</C><BR>");
   lines.push("<BR>");
@@ -592,8 +592,8 @@ function toXpyunTableBillContent(payload: TableBillPrintPayload) {
   const majorSeparator = dividerLine("=");
 
   const lines: string[] = [
-    "<CB><B2>RDV GUEST RECEIPT</B2></CB><BR>",
-    xpyunLine(`TABLE ${payload.tableNo}`, { center: true, forceTag: "B2" }),
+    "<CB><B>RDV GUEST RECEIPT</B></CB><BR>",
+    xpyunLine(`TABLE ${payload.tableNo}`, { center: true, forceTag: "B" }),
     xpyunLine(`Opened: ${formatPrintDateTime(payload.openedAt)}`),
     xpyunLine(`Printed: ${formatPrintDateTime(payload.printedAt)}`)
   ];
@@ -602,12 +602,12 @@ function toXpyunTableBillContent(payload: TableBillPrintPayload) {
   for (const item of payload.items) {
     const name = localizeMenuText(item.name, "en").toUpperCase();
     for (const row of wrapReceiptText(name)) {
-      lines.push(xpyunLine(row, { forceTag: "B" }));
+      lines.push(xpyunLine(row, { forceTag: "N" }));
     }
     lines.push(xpyunLine(formatAmountRow(item.qty, item.unitPrice, item.amount)));
     if (item.note) {
       for (const noteRow of wrapReceiptText(`NOTE: ${item.note}`)) {
-        lines.push(xpyunLine(noteRow, { forceTag: "B" }));
+        lines.push(xpyunLine(noteRow, { forceTag: "N" }));
       }
     }
     lines.push(xpyunLine(separator, { forceTag: "" }));
@@ -621,7 +621,7 @@ function toXpyunTableBillContent(payload: TableBillPrintPayload) {
       lines.push(xpyunLine(`${charge.label}: PHP ${formatSignedCompactAmount(charge.amount)}`));
     }
   }
-  lines.push(xpyunLine(`TOTAL     : ${formatPhp(payload.totalAmount)}`, { forceTag: "B2" }));
+  lines.push(xpyunLine(`TOTAL     : ${formatPhp(payload.totalAmount)}`, { forceTag: "B" }));
   lines.push(xpyunLine(majorSeparator, { forceTag: "" }));
   lines.push("<C>THANK YOU</C><BR>");
   lines.push("<BR>");

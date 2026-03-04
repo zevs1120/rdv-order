@@ -53,7 +53,7 @@ function normalizeRuleInput(rule: RuleInput): NormalizedRule | null {
   };
 }
 
-async function applyRuleToSubmittedOrders(
+async function applyRuleToOpenOrders(
   client: Awaited<ReturnType<typeof pool.connect>>,
   actorUserId: string,
   rule: {
@@ -73,11 +73,12 @@ async function applyRuleToSubmittedOrders(
     `WITH order_base AS (
        SELECT o.id AS order_id,
               COALESCE(SUM(oi.qty * mi.price), 0)::int AS item_amount
-       FROM orders o
-       LEFT JOIN order_items oi ON oi.order_id = o.id
-       LEFT JOIN menu_items mi ON mi.id = oi.menu_item_id
-       WHERE o.status = 'submitted'
+     FROM orders o
+     LEFT JOIN order_items oi ON oi.order_id = o.id
+     LEFT JOIN menu_items mi ON mi.id = oi.menu_item_id
+       WHERE o.status IN ('submitted', 'paid')
          AND o.cancelled_at IS NULL
+         AND o.merged_into_order_id IS NULL
        GROUP BY o.id
      )
      INSERT INTO order_charges (
@@ -126,7 +127,7 @@ async function applyRuleToSubmittedOrders(
   );
 }
 
-async function removeRuleFromSubmittedOrders(
+async function removeRuleFromOpenOrders(
   client: Awaited<ReturnType<typeof pool.connect>>,
   ruleId: string
 ) {
@@ -136,8 +137,9 @@ async function removeRuleFromSubmittedOrders(
      WHERE oc.order_id = o.id
        AND oc.rule_id = $1
        AND oc.source = 'rule_auto'
-       AND o.status = 'submitted'
-       AND o.cancelled_at IS NULL`,
+       AND o.status IN ('submitted', 'paid')
+       AND o.cancelled_at IS NULL
+       AND o.merged_into_order_id IS NULL`,
     [ruleId]
   );
 }
@@ -215,14 +217,14 @@ export async function PATCH(req: Request) {
 
         affectedRuleIds.push(savedRuleId);
         if (rule.isActive) {
-          await applyRuleToSubmittedOrders(client, auth.userId, {
+          await applyRuleToOpenOrders(client, auth.userId, {
             id: savedRuleId,
             chargeType: rule.chargeType,
             mode: rule.mode,
             value: rule.value
           });
         } else {
-          await removeRuleFromSubmittedOrders(client, savedRuleId);
+          await removeRuleFromOpenOrders(client, savedRuleId);
         }
       }
       await client.query("COMMIT");

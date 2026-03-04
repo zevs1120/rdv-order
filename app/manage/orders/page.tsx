@@ -203,47 +203,6 @@ export default function ManageOrdersPage() {
     }
   }
 
-  async function splitOne(orderId: string, menuItemId: string) {
-    if (!canRunAction()) return;
-    setWorkingId(orderId);
-    setError("");
-    try {
-      await apiFetchJson(`/api/orders/${orderId}/split`, {
-        method: "POST",
-        body: { items: [{ menuItemId, qty: 1 }] },
-        timeoutMs: 8000,
-        retries: 0
-      });
-      await reloadWithCurrentRange();
-    } catch (err: any) {
-      setError(err.message || t("orders.splitFailed", "Failed to split order"));
-    } finally {
-      setWorkingId("");
-    }
-  }
-
-  async function mergeTo(targetOrderId: string, sourceOrderId: string) {
-    if (!canRunAction()) return;
-    setWorkingId(sourceOrderId);
-    setError("");
-    try {
-      await apiFetchJson("/api/orders/merge", {
-        method: "POST",
-        body: {
-          targetOrderId,
-          sourceOrderIds: [sourceOrderId]
-        },
-        timeoutMs: 8000,
-        retries: 0
-      });
-      await reloadWithCurrentRange();
-    } catch (err: any) {
-      setError(err.message || t("orders.mergeFailed", "Failed to merge order"));
-    } finally {
-      setWorkingId("");
-    }
-  }
-
   async function returnOne(orderId: string, menuItemId: string) {
     if (!canRunAction()) return;
     setWorkingId(orderId);
@@ -511,36 +470,9 @@ export default function ManageOrdersPage() {
                                   {t("orders.returnDish", "退菜")}
                                 </button>
                               ) : null}
-                              {role === "manager" && canEdit ? (
-                                <button
-                                  className="secondary compact-btn"
-                                  type="button"
-                                  onClick={() => { void splitOne(order.id, item.menu_item_id); }}
-                                  disabled={workingId === order.id}
-                                >
-                                  {t("orders.split", "分单")}
-                                </button>
-                              ) : null}
                             </div>
                           </div>
                         ))}
-
-                        {role === "manager" && canEdit ? (
-                          <button
-                            className="secondary compact-btn"
-                            type="button"
-                            onClick={() => {
-                              const target = window.prompt(
-                                t("orders.mergeTargetPrompt", "Enter target order ID (full)")
-                              );
-                              if (!target) return;
-                              void mergeTo(target, order.id);
-                            }}
-                            disabled={workingId === order.id}
-                          >
-                            {t("orders.merge", "并单")}
-                          </button>
-                        ) : null}
                       </div>
                     ) : null}
                   </div>

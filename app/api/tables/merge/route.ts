@@ -4,7 +4,7 @@ import { requirePermission } from "../../../../lib/permissions";
 import { writeAuditLogSafe } from "../../../../lib/audit";
 import { lockBaseTables } from "../../../../lib/table-lock";
 
-const TABLES = ["A1", "A2", "A3", "B1", "B2", "B3", "C1", "C2", "C3", "C4", "C5"];
+const TABLES = ["01", "02", "03", "04", "05", "06", "07", "08", "09", "10", "11"];
 const TABLE_SET = new Set(TABLES);
 
 function splitTableNo(raw: string) {
