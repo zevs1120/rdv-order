@@ -6,10 +6,12 @@ import { apiFetchJson, getStoredAuth } from "../../../lib/client-api";
 import { useI18n } from "../../components/i18n-provider";
 import BottomNav from "../../components/bottom-nav";
 import { localizeMenuText } from "../../../lib/menu-text";
-import { AppBar, Button } from "../../../components/ui";
+import { AppBar, BottomSheet, Button, EmptyState, Toast } from "../../../components/ui";
+import styles from "./page.module.css";
 
 type MenuGroup = "breakfast" | "lunch_dinner" | "cocktail" | "set_menu";
 type ItemType = "single" | "set";
+type MenuShift = "breakfast" | "lunch" | "dinner" | "beverage" | "cocktail" | "package";
 
 type MenuItem = {
   id: string;
@@ -24,6 +26,14 @@ type MenuItem = {
   allergens?: string[];
 };
 
+type MenuSubcategory = {
+  id: string;
+  shift_key: MenuShift;
+  name: string;
+  display_name_zh: string | null;
+  sort_order: number;
+};
+
 const GROUP_OPTIONS: Array<{ value: MenuGroup; labelZh: string; labelEn: string }> = [
   { value: "breakfast", labelZh: "早餐", labelEn: "Breakfast" },
   { value: "lunch_dinner", labelZh: "午晚餐", labelEn: "Lunch/Dinner" },
@@ -31,11 +41,27 @@ const GROUP_OPTIONS: Array<{ value: MenuGroup; labelZh: string; labelEn: string 
   { value: "set_menu", labelZh: "套餐", labelEn: "Package" }
 ];
 
+const SUBCATEGORY_SHIFT_OPTIONS: Array<{ value: MenuShift; labelZh: string; labelEn: string }> = [
+  { value: "breakfast", labelZh: "早餐", labelEn: "Breakfast" },
+  { value: "lunch", labelZh: "午餐", labelEn: "Lunch" },
+  { value: "dinner", labelZh: "晚餐", labelEn: "Dinner" },
+  { value: "beverage", labelZh: "饮品", labelEn: "Beverage" },
+  { value: "cocktail", labelZh: "鸡尾酒", labelEn: "Cocktail" },
+  { value: "package", labelZh: "套餐", labelEn: "Package" }
+];
+
 const DEFAULT_CATEGORY_OPTIONS: Record<MenuGroup, string[]> = {
   breakfast: ["Breakfast Set", "Eggs", "Bread", "Coffee", "Juice"],
   lunch_dinner: ["Filipino Food", "Soup", "Salad", "Pasta", "Rice", "Dessert"],
   cocktail: ["Classic", "Signature", "Mocktail", "Beer", "Wine", "Spirits"],
   set_menu: ["套餐"]
+};
+
+const MENU_GROUP_SHIFT_SCOPE: Record<MenuGroup, MenuShift[]> = {
+  breakfast: ["breakfast"],
+  lunch_dinner: ["lunch", "dinner", "beverage"],
+  cocktail: ["cocktail"],
+  set_menu: ["package"]
 };
 
 const SORT_OPTIONS = [0, 10, 20, 30, 40, 50, 100, 200, 500, 999];
@@ -56,6 +82,15 @@ export default function MenuAdminPage() {
   const [savingBatch, setSavingBatch] = useState(false);
   const [deletingId, setDeletingId] = useState("");
   const [savingNew, setSavingNew] = useState(false);
+  const [subcategories, setSubcategories] = useState<MenuSubcategory[]>([]);
+  const [subcategoriesLoading, setSubcategoriesLoading] = useState(false);
+  const [subcategoryError, setSubcategoryError] = useState("");
+  const [subcategoryShift, setSubcategoryShift] = useState<MenuShift>("beverage");
+  const [subcategorySheetOpen, setSubcategorySheetOpen] = useState(false);
+  const [creatingSubcategory, setCreatingSubcategory] = useState(false);
+  const [subcategoryForm, setSubcategoryForm] = useState({ name: "", displayNameZh: "" });
+  const [highlightedSubcategoryId, setHighlightedSubcategoryId] = useState("");
+  const [toastMessage, setToastMessage] = useState("");
   const [baseline, setBaseline] = useState<Record<string, { name: string; price: number; allergens: string[] }>>({});
 
   const [form, setForm] = useState({
@@ -94,19 +129,59 @@ export default function MenuAdminPage() {
     }
   }
 
+  function sortSubcategories(rows: MenuSubcategory[]) {
+    return rows.slice().sort((a, b) => {
+      if (a.shift_key !== b.shift_key) return a.shift_key.localeCompare(b.shift_key);
+      if (a.sort_order !== b.sort_order) return a.sort_order - b.sort_order;
+      return a.name.localeCompare(b.name);
+    });
+  }
+
+  async function loadSubcategories() {
+    setSubcategoriesLoading(true);
+    setSubcategoryError("");
+    try {
+      const body = await apiFetchJson<{ subcategories: MenuSubcategory[] }>("/api/admin/menu-subcategories", {
+        timeoutMs: 6000,
+        retries: 1
+      });
+      setSubcategories(sortSubcategories(body.subcategories || []));
+    } catch (err: any) {
+      setSubcategoryError(err.message || (lang === "en" ? "Failed to load subcategories" : "子类目加载失败"));
+    } finally {
+      setSubcategoriesLoading(false);
+    }
+  }
+
   const categoryOptions = useMemo(() => {
     const fromItems = items
       .filter((item) => item.menu_group === form.menuGroup)
       .map((item) => (item.category || "").trim())
       .filter(Boolean);
-    return Array.from(new Set([...DEFAULT_CATEGORY_OPTIONS[form.menuGroup], ...fromItems]));
-  }, [form.menuGroup, items]);
+    const scopedShifts = MENU_GROUP_SHIFT_SCOPE[form.menuGroup];
+    const fromSubcategories = subcategories
+      .filter((item) => scopedShifts.includes(item.shift_key))
+      .map((item) => item.name.trim())
+      .filter(Boolean);
+    return Array.from(new Set([...DEFAULT_CATEGORY_OPTIONS[form.menuGroup], ...fromSubcategories, ...fromItems]));
+  }, [form.menuGroup, items, subcategories]);
 
   useEffect(() => {
     if (!categoryOptions.includes(form.category)) {
       setForm((prev) => ({ ...prev, category: categoryOptions[0] || "" }));
     }
   }, [categoryOptions, form.category]);
+
+  const trimmedSubcategoryName = subcategoryForm.name.trim();
+  const trimmedSubcategoryNameKey = trimmedSubcategoryName.toLowerCase();
+  const duplicateSubcategory = useMemo(
+    () => subcategories.some((item) => item.shift_key === subcategoryShift && item.name.trim().toLowerCase() === trimmedSubcategoryNameKey),
+    [subcategories, subcategoryShift, trimmedSubcategoryNameKey]
+  );
+  const visibleSubcategories = useMemo(
+    () => subcategories.filter((item) => item.shift_key === subcategoryShift),
+    [subcategories, subcategoryShift]
+  );
 
   async function createItem() {
     setSavingNew(true);
@@ -152,6 +227,40 @@ export default function MenuAdminPage() {
       setError(err.message || "创建失败");
     } finally {
       setSavingNew(false);
+    }
+  }
+
+  async function createSubcategory() {
+    if (!trimmedSubcategoryName || duplicateSubcategory) return;
+    setCreatingSubcategory(true);
+    setSubcategoryError("");
+    try {
+      const body = await apiFetchJson<{ subcategory: MenuSubcategory }>("/api/admin/menu-subcategories", {
+        method: "POST",
+        body: {
+          shift: subcategoryShift,
+          name: trimmedSubcategoryName,
+          displayNameZh: subcategoryForm.displayNameZh.trim() || null
+        },
+        timeoutMs: 7000,
+        retries: 0
+      });
+
+      if (body.subcategory) {
+        setSubcategories((prev) => sortSubcategories([...prev, body.subcategory]));
+        setHighlightedSubcategoryId(body.subcategory.id);
+        window.setTimeout(() => {
+          setHighlightedSubcategoryId((current) => (current === body.subcategory.id ? "" : current));
+        }, 1000);
+      }
+      setSubcategoryForm({ name: "", displayNameZh: "" });
+      setSubcategorySheetOpen(false);
+      setToastMessage(t("admin.subcategoryCreated", "Subcategory created"));
+    } catch (err: any) {
+      setSubcategoryError(err.message || (lang === "en" ? "Create failed" : "创建失败"));
+      setToastMessage(`${t("admin.subcategoryCreateFailed", "Create failed")}: ${err.message || ""}`.trim());
+    } finally {
+      setCreatingSubcategory(false);
     }
   }
 
@@ -228,6 +337,7 @@ export default function MenuAdminPage() {
       return;
     }
     void loadItems();
+    void loadSubcategories();
   }, [router]);
 
   const filteredItems = useMemo(() => {
@@ -239,6 +349,12 @@ export default function MenuAdminPage() {
   function groupLabel(group: MenuGroup) {
     const found = GROUP_OPTIONS.find((option) => option.value === group);
     if (!found) return group;
+    return lang === "en" ? found.labelEn : found.labelZh;
+  }
+
+  function shiftLabel(shift: MenuShift) {
+    const found = SUBCATEGORY_SHIFT_OPTIONS.find((option) => option.value === shift);
+    if (!found) return shift;
     return lang === "en" ? found.labelEn : found.labelZh;
   }
 
@@ -355,6 +471,61 @@ export default function MenuAdminPage() {
         </div>
 
         <div className="panel stack">
+          <div className={styles.subcategoryHead}>
+            <h3 style={{ margin: 0 }}>{t("admin.subcategories", "子类目")}</h3>
+            <Button
+              variant="ghost"
+              onClick={() => {
+                setSubcategoryError("");
+                setSubcategorySheetOpen(true);
+              }}
+            >
+              {t("admin.addSubcategory", "+ Add subcategory")}
+            </Button>
+          </div>
+          <div className={styles.subcategoryFilter}>
+            {SUBCATEGORY_SHIFT_OPTIONS.map((option) => (
+              <button
+                key={option.value}
+                type="button"
+                className={`secondary compact-btn ${subcategoryShift === option.value ? styles.subcategoryChipActive : ""}`}
+                onClick={() => setSubcategoryShift(option.value)}
+              >
+                {lang === "en" ? option.labelEn : option.labelZh}
+              </button>
+            ))}
+          </div>
+          {subcategoriesLoading ? <div className="muted">{t("common.loading", "加载中...")}</div> : null}
+          {subcategoryError ? <div className="muted">{subcategoryError}</div> : null}
+          {visibleSubcategories.length > 0 ? (
+            <div className={styles.subcategoryList}>
+              {visibleSubcategories.map((item) => (
+                <div
+                  key={item.id}
+                  className={`${styles.subcategoryRow} ${highlightedSubcategoryId === item.id ? styles.subcategoryRowHighlight : ""}`}
+                >
+                  <div className="stack" style={{ gap: 2 }}>
+                    <div>{lang === "zh" ? (item.display_name_zh || localizeMenuText(item.name, lang)) : localizeMenuText(item.name, lang)}</div>
+                    {item.display_name_zh && lang === "en" ? <div className="muted">{item.display_name_zh}</div> : null}
+                  </div>
+                  <span className="muted">{shiftLabel(item.shift_key)}</span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <EmptyState
+              title={t("admin.subcategoryEmpty", "No subcategory yet")}
+              description={t("admin.subcategoryEmptyHint", "Create the first subcategory for this major category.")}
+              action={(
+                <Button variant="secondary" onClick={() => setSubcategorySheetOpen(true)}>
+                  {t("admin.addSubcategory", "+ Add subcategory")}
+                </Button>
+              )}
+            />
+          )}
+        </div>
+
+        <div className="panel stack">
         <div className="row" style={{ justifyContent: "space-between" }}>
           <h3 style={{ margin: 0 }}>{t("admin.allItems", "全部菜品")}</h3>
           <div className="row">
@@ -429,6 +600,79 @@ export default function MenuAdminPage() {
           {savingBatch ? t("admin.saving", "保存中...") : t("common.save", "保存")}
         </button>
       </div>
+
+      <BottomSheet
+        open={subcategorySheetOpen}
+        onClose={() => {
+          if (creatingSubcategory) return;
+          setSubcategorySheetOpen(false);
+        }}
+        title={t("admin.addSubcategory", "Add subcategory")}
+        footer={(
+          <>
+            <Button
+              variant="secondary"
+              onClick={() => setSubcategorySheetOpen(false)}
+              disabled={creatingSubcategory}
+            >
+              {t("common.cancel", "取消")}
+            </Button>
+            <Button
+              variant="primary"
+              loading={creatingSubcategory}
+              onClick={() => { void createSubcategory(); }}
+              disabled={!trimmedSubcategoryName || duplicateSubcategory || creatingSubcategory}
+            >
+              {creatingSubcategory
+                ? t("admin.creatingSubcategory", "Creating...")
+                : t("admin.createSubcategory", "Create")}
+            </Button>
+          </>
+        )}
+      >
+        <div className="stack">
+          <label className="stack">
+            <span className={styles.subcategorySheetLabel}>{t("admin.subcategoryGroup", "大类目")}</span>
+            <select
+              value={subcategoryShift}
+              onChange={(e) => setSubcategoryShift(e.target.value as MenuShift)}
+              disabled={creatingSubcategory}
+            >
+              {SUBCATEGORY_SHIFT_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {lang === "en" ? option.labelEn : option.labelZh}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="stack">
+            <span className={styles.subcategorySheetLabel}>{t("admin.subcategoryName", "名称")}</span>
+            <input
+              placeholder={t("admin.subcategoryNamePlaceholder", "e.g. Tea")}
+              value={subcategoryForm.name}
+              onChange={(e) => setSubcategoryForm((prev) => ({ ...prev, name: e.target.value }))}
+              disabled={creatingSubcategory}
+            />
+          </label>
+          <label className="stack">
+            <span className={styles.subcategorySheetLabel}>{t("admin.subcategoryDisplayZh", "中文显示名（可选）")}</span>
+            <input
+              placeholder={t("admin.subcategoryDisplayZhPlaceholder", "例如：茶")}
+              value={subcategoryForm.displayNameZh}
+              onChange={(e) => setSubcategoryForm((prev) => ({ ...prev, displayNameZh: e.target.value }))}
+              disabled={creatingSubcategory}
+            />
+          </label>
+          {duplicateSubcategory ? <div className="muted">{t("admin.subcategoryDuplicate", "Name already exists")}</div> : null}
+          {subcategoryError ? <div className="muted">{subcategoryError}</div> : null}
+        </div>
+      </BottomSheet>
+
+      <Toast
+        open={Boolean(toastMessage)}
+        message={toastMessage}
+        onClose={() => setToastMessage("")}
+      />
 
       <BottomNav />
     </div>

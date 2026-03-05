@@ -1,0 +1,58 @@
+.subcategoryHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.subcategoryFilter {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+
+.subcategoryFilter::-webkit-scrollbar {
+  display: none;
+}
+
+.subcategoryChipActive {
+  border-color: color-mix(in srgb, var(--brand-500) 36%, var(--line-default)) !important;
+  color: var(--brand-500) !important;
+  background: color-mix(in srgb, var(--brand-500) 8%, #fff) !important;
+}
+
+.subcategoryList {
+  display: grid;
+  gap: 8px;
+}
+
+.subcategoryRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-md);
+  background: #fff;
+  padding: 10px;
+}
+
+.subcategoryRowHighlight {
+  animation: subcategory-highlight 1000ms ease;
+}
+
+@keyframes subcategory-highlight {
+  0% {
+    background: color-mix(in srgb, var(--brand-500) 16%, #fff);
+  }
+  100% {
+    background: #fff;
+  }
+}
+
+.subcategorySheetLabel {
+  font-size: 12px;
+  color: var(--muted);
+}

@@ -88,10 +88,11 @@ type ToastState = {
 type MenuCachePayload = {
   updatedAt: number;
   items: MenuItem[];
+  subcategories?: string[];
 };
 
 const MENU_CACHE_TTL_MS = 6 * 60 * 60 * 1000;
-const MENU_CACHE_VERSION = 2;
+const MENU_CACHE_VERSION = 3;
 
 const SHIFT_OPTIONS: Array<{ key: ShiftKey; zh: string; en: string }> = [
   { key: "breakfast", zh: "早餐", en: "Breakfast" },
@@ -120,6 +121,7 @@ export default function OrderPage() {
   const [shift, setShift] = useState<ShiftKey>("lunch");
   const [keyword, setKeyword] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("");
+  const [shiftSubcategories, setShiftSubcategories] = useState<Partial<Record<ShiftKey, string[]>>>({});
   const [cartSelections, setCartSelections] = useState<Record<string, CartSelection>>({});
   const [paramsReady, setParamsReady] = useState(false);
 
@@ -149,6 +151,7 @@ export default function OrderPage() {
   const [toast, setToast] = useState<ToastState | null>(null);
 
   const menuCacheRef = useRef<Partial<Record<ShiftKey, MenuItem[]>>>({});
+  const subcategoryCacheRef = useRef<Partial<Record<ShiftKey, string[]>>>({});
   const menuRequestRef = useRef(0);
   const menuIndexRef = useRef<Map<string, number>>(new Map());
   const menuMetaRef = useRef<Map<string, MenuItem>>(new Map());
@@ -204,7 +207,7 @@ export default function OrderPage() {
     };
   }
 
-  function readMenuCache(shiftKey: ShiftKey): MenuItem[] | null {
+  function readMenuCache(shiftKey: ShiftKey): MenuCachePayload | null {
     if (typeof window === "undefined") return null;
     const key = `rdv_menu_cache:v${MENU_CACHE_VERSION}:${shiftKey}`;
     try {
@@ -214,18 +217,25 @@ export default function OrderPage() {
       if (!parsed || !Array.isArray(parsed.items)) return null;
       const age = Date.now() - Number(parsed.updatedAt || 0);
       if (!Number.isFinite(age) || age < 0 || age > MENU_CACHE_TTL_MS) return null;
-      return parsed.items.map((item) => stripTransientFields(item));
+      return {
+        updatedAt: Number(parsed.updatedAt || 0),
+        items: parsed.items.map((item) => stripTransientFields(item)),
+        subcategories: Array.isArray(parsed.subcategories)
+          ? parsed.subcategories.map((value) => String(value || "").trim()).filter(Boolean)
+          : []
+      };
     } catch {
       return null;
     }
   }
 
-  function writeMenuCache(shiftKey: ShiftKey, items: MenuItem[]) {
+  function writeMenuCache(shiftKey: ShiftKey, items: MenuItem[], subcategories: string[]) {
     if (typeof window === "undefined") return;
     const key = `rdv_menu_cache:v${MENU_CACHE_VERSION}:${shiftKey}`;
     const payload: MenuCachePayload = {
       updatedAt: Date.now(),
-      items: items.map((item) => stripTransientFields(item))
+      items: items.map((item) => stripTransientFields(item)),
+      subcategories
     };
     try {
       sessionStorage.setItem(key, JSON.stringify(payload));
@@ -379,14 +389,17 @@ export default function OrderPage() {
     setError("");
     const storageCached = readMenuCache(shift);
     if (storageCached && !menuCacheRef.current[shift]) {
-      menuCacheRef.current[shift] = storageCached;
-      for (const item of storageCached) {
+      menuCacheRef.current[shift] = storageCached.items;
+      subcategoryCacheRef.current[shift] = storageCached.subcategories || [];
+      for (const item of storageCached.items) {
         menuMetaRef.current.set(item.id, item);
       }
     }
     const cached = menuCacheRef.current[shift];
+    const cachedSubcategories = subcategoryCacheRef.current[shift] || [];
     if (cached) {
       setMenu(hydrateMenuItems(cached, cartSelectionsRef.current));
+      setShiftSubcategories((prev) => ({ ...prev, [shift]: cachedSubcategories }));
     }
 
     const controller = new AbortController();
@@ -394,7 +407,7 @@ export default function OrderPage() {
     menuRequestRef.current = requestId;
     setMenuLoading(true);
 
-    apiFetchJson<{ items: MenuItem[] }>(`/api/menu?shift=${shift}`, {
+    apiFetchJson<{ items: MenuItem[]; subcategories?: string[] }>(`/api/menu?shift=${shift}`, {
       useAuth: false,
       signal: controller.signal,
       timeoutMs: 5000,
@@ -403,13 +416,18 @@ export default function OrderPage() {
       .then((data) => {
         if (requestId !== menuRequestRef.current) return;
         const items = data.items || [];
+        const subcategories = Array.isArray(data.subcategories)
+          ? data.subcategories.map((value) => String(value || "").trim()).filter(Boolean)
+          : [];
         for (const item of items) {
           menuMetaRef.current.set(item.id, stripTransientFields(item));
         }
         const hydrated = hydrateMenuItems(items, cartSelectionsRef.current);
         menuCacheRef.current[shift] = items.map((item) => stripTransientFields(item));
-        writeMenuCache(shift, items);
+        subcategoryCacheRef.current[shift] = subcategories;
+        writeMenuCache(shift, items, subcategories);
         setMenu(hydrated);
+        setShiftSubcategories((prev) => ({ ...prev, [shift]: subcategories }));
       })
       .catch((err: Error) => {
         if (requestId !== menuRequestRef.current) return;
@@ -428,7 +446,24 @@ export default function OrderPage() {
   }, [shift]);
 
   useEffect(() => {
-    const categories = Array.from(new Set(menu.map((item) => item.category || uncategorizedLabel)));
+    const fromShift = shiftSubcategories[shift] || [];
+    const seen = new Set<string>();
+    const categories: string[] = [];
+    for (const category of fromShift) {
+      const value = String(category || "").trim();
+      if (!value) continue;
+      const key = value.toLowerCase();
+      if (seen.has(key)) continue;
+      seen.add(key);
+      categories.push(value);
+    }
+    for (const item of menu) {
+      const value = item.category || uncategorizedLabel;
+      const key = value.toLowerCase();
+      if (seen.has(key)) continue;
+      seen.add(key);
+      categories.push(value);
+    }
     if (categories.length === 0) {
       setSelectedCategory("");
       return;
@@ -436,7 +471,7 @@ export default function OrderPage() {
     if (!selectedCategory || !categories.includes(selectedCategory)) {
       setSelectedCategory(categories[0]);
     }
-  }, [menu, selectedCategory]);
+  }, [menu, selectedCategory, shift, shiftSubcategories, uncategorizedLabel]);
 
   useEffect(() => {
     const next = new Map<string, number>();
@@ -495,10 +530,33 @@ export default function OrderPage() {
     return derivedMenu.filter((item) => item._search.includes(key));
   }, [derivedMenu, deferredKeyword]);
 
-  const categories = useMemo(
-    () => Array.from(new Set(filteredMenu.map((item) => item._category))),
-    [filteredMenu]
-  );
+  const baseCategories = useMemo(() => {
+    const fromShift = shiftSubcategories[shift] || [];
+    const seen = new Set<string>();
+    const values: string[] = [];
+    for (const category of fromShift) {
+      const value = String(category || "").trim();
+      if (!value) continue;
+      const key = value.toLowerCase();
+      if (seen.has(key)) continue;
+      seen.add(key);
+      values.push(value);
+    }
+    for (const item of menu) {
+      const value = item.category || uncategorizedLabel;
+      const key = value.toLowerCase();
+      if (seen.has(key)) continue;
+      seen.add(key);
+      values.push(value);
+    }
+    return values;
+  }, [menu, shift, shiftSubcategories, uncategorizedLabel]);
+
+  const categories = useMemo(() => {
+    if (!deferredKeyword.trim()) return baseCategories;
+    const matched = new Set(filteredMenu.map((item) => item._category));
+    return baseCategories.filter((category) => matched.has(category));
+  }, [baseCategories, filteredMenu, deferredKeyword]);
 
   const visibleItems = useMemo(() => {
     if (!selectedCategory) return filteredMenu;

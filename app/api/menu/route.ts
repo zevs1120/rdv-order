@@ -40,8 +40,43 @@ export async function GET(req: Request) {
       [mapped, shift]
     );
 
+  const categories: string[] = [];
+  const seen = new Set<string>();
+  for (const row of rows) {
+    const category = String(row.category || "").trim();
+    if (!category) continue;
+    const key = category.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    categories.push(category);
+  }
+
+  try {
+    const subRows = await pool.query<{ name: string }>(
+      `SELECT name
+       FROM menu_subcategories
+       WHERE is_active = true
+         AND shift_key = $1
+       ORDER BY sort_order ASC, name ASC`,
+      [shift]
+    );
+    for (const row of subRows.rows) {
+      const category = String(row.name || "").trim();
+      if (!category) continue;
+      const key = category.toLowerCase();
+      if (seen.has(key)) continue;
+      seen.add(key);
+      categories.push(category);
+    }
+  } catch (err: any) {
+    // Compatibility fallback before migration 019 is applied.
+    if (err?.code !== "42P01") {
+      throw err;
+    }
+  }
+
   return NextResponse.json(
-    { items: rows, shift, menuGroup: mapped },
+    { items: rows, subcategories: categories, shift, menuGroup: mapped },
     {
       headers: {
         "Cache-Control": "public, max-age=60, stale-while-revalidate=240"

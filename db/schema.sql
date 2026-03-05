@@ -24,6 +24,18 @@ CREATE TABLE menu_items (
   sort_order INT NOT NULL DEFAULT 0
 );
 
+CREATE TABLE menu_subcategories (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  shift_key TEXT NOT NULL CHECK (shift_key IN ('breakfast', 'lunch', 'dinner', 'beverage', 'cocktail', 'package')),
+  name TEXT NOT NULL,
+  name_key TEXT NOT NULL,
+  display_name_zh TEXT,
+  sort_order INT NOT NULL DEFAULT 1000,
+  is_active BOOLEAN NOT NULL DEFAULT true,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
 CREATE TABLE orders (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   table_no TEXT NOT NULL,
@@ -270,6 +282,13 @@ CREATE INDEX menu_items_lookup_idx
 
 CREATE INDEX menu_items_available_shifts_gin_idx
   ON menu_items USING GIN (available_shifts);
+
+CREATE UNIQUE INDEX menu_subcategories_unique_active_name_idx
+  ON menu_subcategories(shift_key, name_key)
+  WHERE is_active = true;
+
+CREATE INDEX menu_subcategories_lookup_idx
+  ON menu_subcategories(shift_key, is_active, sort_order, name);
 
 CREATE UNIQUE INDEX print_jobs_order_unique_idx
   ON print_jobs(order_id);
