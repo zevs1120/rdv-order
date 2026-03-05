@@ -101,7 +101,7 @@ describe("print content formatting", () => {
     const content = __printTestUtils.toXpyunCustomerContent(payload as any);
     expect(content).toContain("ROOM NO");
     expect(content).toContain("PRINT FULL NAME");
-    expect(content).toContain("<B>CHICKEN CURRY</B>");
+    expect(content).toContain("<N>CHICKEN CURRY</N>");
   });
 
   it("formatAmountRow should keep amount right aligned when possible", () => {
