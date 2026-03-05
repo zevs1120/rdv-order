@@ -3,7 +3,7 @@ import type { ReactNode } from "react";
 import type { Metadata, Viewport } from "next";
 import I18nProvider from "./components/i18n-provider";
 import PwaRegister from "./components/pwa-register";
-import TopBar from "./components/top-bar";
+import AppShell from "./components/app-shell";
 
 export const metadata: Metadata = {
   title: "RDV Ordering",
@@ -36,10 +36,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
       <body>
         <I18nProvider>
           <PwaRegister />
-          <TopBar />
-          <main>
-            {children}
-          </main>
+          <AppShell>{children}</AppShell>
         </I18nProvider>
       </body>
     </html>

@@ -3,6 +3,8 @@
 
 :root {
   --app-max: 640px;
+  --shell-top-offset: calc(var(--topbar-h) + env(safe-area-inset-top));
+  --shell-bottom-offset: calc(var(--bottombar-h) + env(safe-area-inset-bottom));
   --bg: var(--bg-page);
   --panel: var(--bg-surface);
   --line: var(--line-default);
@@ -35,9 +37,8 @@ body {
   font-family: var(--font-family);
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
-  overflow-x: hidden;
-  overscroll-behavior-x: none;
-  overscroll-behavior-y: contain;
+  overflow: hidden;
+  overscroll-behavior: none;
 }
 
 html {
@@ -45,6 +46,8 @@ html {
 }
 
 body {
+  height: 100svh;
+  height: 100dvh;
   min-height: 100svh;
   min-height: 100dvh;
   -webkit-font-smoothing: antialiased;
@@ -53,16 +56,41 @@ body {
   background: var(--bg);
 }
 
-main {
+.app-shell {
+  position: relative;
+  width: 100%;
+  height: 100svh;
+  height: 100dvh;
+  overflow: hidden;
+}
+
+.app-shell-main {
+  position: fixed;
+  top: var(--shell-top-offset);
+  left: 0;
+  right: 0;
+  bottom: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  z-index: var(--z-base);
+}
+
+.app-shell-main.has-tabbar {
+  bottom: var(--shell-bottom-offset);
+}
+
+.app-main {
   width: min(100%, var(--app-max));
   max-width: var(--app-max);
   margin: 0 auto;
-  padding: calc(var(--topbar-h) + env(safe-area-inset-top) + var(--space-3)) max(var(--space-3), env(safe-area-inset-right)) calc(var(--bottombar-h) + env(safe-area-inset-bottom) + var(--space-3)) max(var(--space-3), env(safe-area-inset-left));
+  padding: var(--space-3) max(var(--space-3), env(safe-area-inset-right)) var(--space-3) max(var(--space-3), env(safe-area-inset-left));
   background: transparent;
   border-left: 1px solid rgba(148, 163, 184, 0.22);
   border-right: 1px solid rgba(148, 163, 184, 0.22);
   overflow-x: hidden;
-  min-height: 100dvh;
+  min-height: 100%;
 }
 
 h1 {
@@ -326,7 +354,7 @@ button:disabled {
 .tables-header {
   position: sticky;
   top: calc(var(--netbar) + env(safe-area-inset-top));
-  z-index: 20;
+  z-index: var(--z-actionbar);
   background: #f4efe5;
   border-bottom: 1px solid rgba(199, 182, 156, 0.75);
   padding: 6px 0 7px;
@@ -345,21 +373,21 @@ button:disabled {
 .tables-open-panel {
   position: sticky;
   top: calc(64px + var(--netbar) + env(safe-area-inset-top));
-  z-index: 22;
+  z-index: var(--z-actionbar);
   border-left: 2px solid var(--brand);
 }
 
 .tables-merge-panel {
   position: sticky;
   top: calc(64px + var(--netbar) + env(safe-area-inset-top));
-  z-index: 21;
+  z-index: var(--z-actionbar);
   border-left: 2px solid #404857;
 }
 
 .devices-header {
   position: sticky;
   top: calc(var(--netbar) + env(safe-area-inset-top));
-  z-index: 20;
+  z-index: var(--z-actionbar);
   background: #f4efe5;
   border-bottom: 1px solid rgba(199, 182, 156, 0.75);
   padding: 6px 0 7px;
@@ -389,7 +417,8 @@ button:disabled {
 
 .tables-screen {
   gap: 8px;
-  padding-bottom: 86px;
+  min-height: 100%;
+  padding-bottom: 0;
 }
 
 .tables-appbar {
@@ -428,7 +457,7 @@ button:disabled {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: var(--table-gap);
-  height: calc(100dvh - var(--topbar-h) - var(--bottombar-h) - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 184px);
+  height: min(100%, 640px);
   min-height: 380px;
   max-height: 640px;
   align-items: stretch;
@@ -551,7 +580,7 @@ button:disabled {
 .merge-action-bar {
   position: sticky;
   bottom: calc(var(--bottombar-h) + env(safe-area-inset-bottom) + 8px);
-  z-index: 38;
+  z-index: var(--z-actionbar);
   border: 1px solid var(--line-default);
   border-radius: var(--radius-md);
   background: #fff;
@@ -639,7 +668,7 @@ button:disabled {
   border-radius: var(--radius-md);
   background: #fff;
   box-shadow: var(--shadow-2);
-  z-index: 35;
+  z-index: var(--z-actionbar);
   overflow: hidden;
   display: grid;
 }
@@ -777,7 +806,7 @@ button:disabled {
 }
 
 .order-screen {
-  min-height: calc(100dvh - var(--topbar-h) - var(--bottombar-h) - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 16px);
+  min-height: 100%;
   display: grid;
   grid-template-rows: auto auto minmax(0, 1fr) auto;
   align-content: stretch;
@@ -807,8 +836,8 @@ button:disabled {
 
 .order-cart-dock {
   position: sticky;
-  bottom: calc(var(--bottombar-h) + env(safe-area-inset-bottom) + 4px);
-  z-index: 34;
+  bottom: 4px;
+  z-index: var(--z-actionbar);
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   gap: var(--space-2);
@@ -887,7 +916,7 @@ button:disabled {
 .order-header {
   position: sticky;
   top: calc(var(--netbar) + env(safe-area-inset-top));
-  z-index: 24;
+  z-index: var(--z-actionbar);
   background: #f4efe5;
   border-bottom: 1px solid rgba(199, 182, 156, 0.75);
   padding: 8px 0;
@@ -911,8 +940,8 @@ button:disabled {
   gap: 8px;
   align-items: center;
   position: sticky;
-  bottom: calc(56px + env(safe-area-inset-bottom));
-  z-index: 26;
+  bottom: 0;
+  z-index: var(--z-actionbar);
   border-top: 1px solid var(--line-strong);
   background: #fffcf7;
   box-shadow: 0 -8px 24px rgba(34, 42, 58, 0.08);
@@ -998,7 +1027,7 @@ button:disabled {
 .note-sheet-backdrop {
   position: fixed;
   inset: 0;
-  z-index: 40;
+  z-index: var(--z-sheet);
   background: rgba(0, 0, 0, 0.24);
   border: 0;
   padding: 0;
@@ -1008,10 +1037,10 @@ button:disabled {
   position: fixed;
   left: 0;
   right: 0;
-  bottom: calc(54px + env(safe-area-inset-bottom));
+  bottom: calc(var(--shell-bottom-offset) + 8px);
   margin: 0 auto;
   width: min(var(--app-max), calc(100vw - 16px - env(safe-area-inset-left) - env(safe-area-inset-right)));
-  z-index: 42;
+  z-index: calc(var(--z-sheet) + 1);
   display: grid;
   gap: 10px;
   background: #fff;
@@ -1024,10 +1053,10 @@ button:disabled {
   position: fixed;
   left: 0;
   right: 0;
-  bottom: calc(54px + env(safe-area-inset-bottom));
+  bottom: calc(var(--shell-bottom-offset) + 8px);
   margin: 0 auto;
   width: min(var(--app-max), calc(100vw - 16px - env(safe-area-inset-left) - env(safe-area-inset-right)));
-  z-index: 43;
+  z-index: calc(var(--z-sheet) + 1);
   display: grid;
   gap: 10px;
   background: #fff;
@@ -1086,37 +1115,40 @@ button:disabled {
   overflow: hidden;
 }
 
-.bottom-nav {
+.bottom-nav-shell {
   position: fixed;
   left: 0;
   right: 0;
-  bottom: max(0px, env(safe-area-inset-bottom));
+  bottom: 0;
+  z-index: var(--z-tabbar);
+  border-top: 1px solid var(--glass-border);
+  background: var(--glass-surface);
+  -webkit-backdrop-filter: saturate(var(--glass-sat)) blur(var(--glass-blur));
+  backdrop-filter: saturate(var(--glass-sat)) blur(var(--glass-blur));
+}
+
+.bottom-nav {
   margin: 0 auto;
   width: min(var(--app-max), calc(100vw - env(safe-area-inset-left) - env(safe-area-inset-right)));
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px;
-  padding: 8px max(10px, env(safe-area-inset-right)) calc(8px + env(safe-area-inset-bottom)) max(10px, env(safe-area-inset-left));
-  border: 1px solid var(--line-default);
-  border-bottom: 0;
-  border-radius: 16px 16px 0 0;
-  background: color-mix(in srgb, #f8fafc 92%, #ffffff);
-  backdrop-filter: blur(8px);
-  box-shadow: 0 -8px 22px rgba(15, 23, 42, 0.08);
-  z-index: 80;
+  min-height: var(--bottombar-h);
+  align-items: center;
+  padding: 8px max(10px, env(safe-area-inset-right)) max(8px, env(safe-area-inset-bottom)) max(10px, env(safe-area-inset-left));
 }
 
 .bottom-nav-item {
   display: grid;
   place-items: center;
-  min-height: 46px;
+  min-height: 44px;
   text-decoration: none;
   color: #475569;
   font-weight: 640;
   letter-spacing: 0.01em;
-  border: 1px solid var(--line-default);
-  border-radius: 12px;
-  background: #fff;
+  border: 1px solid var(--glass-border);
+  border-radius: 14px;
+  background: color-mix(in srgb, #ffffff 90%, #f8fafc);
   padding: 0;
 }
 
@@ -1148,7 +1180,7 @@ button:disabled {
 .manage-tabs-wrap {
   position: sticky;
   top: calc(var(--netbar) + env(safe-area-inset-top));
-  z-index: 36;
+  z-index: var(--z-actionbar);
   background: #f4efe5;
   border-top: 1px solid rgba(199, 182, 156, 0.75);
   border-bottom: 1px solid rgba(199, 182, 156, 0.9);
@@ -1161,7 +1193,7 @@ button:disabled {
 }
 
 .manage-home-screen {
-  min-height: calc(100dvh - var(--topbar-h) - var(--bottombar-h) - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 18px);
+  min-height: 100%;
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
   gap: 8px;
@@ -1171,11 +1203,11 @@ button:disabled {
 .manage-home-scroll {
   min-height: 0;
   overflow-y: auto;
-  padding-bottom: calc(var(--bottombar-h) + env(safe-area-inset-bottom) + 8px);
+  padding-bottom: 8px;
 }
 
 .manage-subpage-screen {
-  min-height: calc(100dvh - var(--topbar-h) - var(--bottombar-h) - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 18px);
+  min-height: 100%;
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
   gap: 8px;
@@ -1185,7 +1217,7 @@ button:disabled {
 .manage-subpage-scroll {
   min-height: 0;
   overflow-y: auto;
-  padding-bottom: calc(var(--bottombar-h) + env(safe-area-inset-bottom) + 8px);
+  padding-bottom: 8px;
 }
 
 .manage-metric-grid {
@@ -1315,7 +1347,7 @@ button:disabled {
   position: fixed;
   left: 0;
   right: 0;
-  bottom: calc(54px + env(safe-area-inset-bottom));
+  bottom: calc(var(--shell-bottom-offset) + 8px);
   margin: 0 auto;
   width: min(var(--app-max), calc(100vw - 16px - env(safe-area-inset-left) - env(safe-area-inset-right)));
   display: grid;
@@ -1326,7 +1358,7 @@ button:disabled {
   border-top: 1px solid var(--line-strong);
   background: #fffcf7;
   box-shadow: 0 -8px 22px rgba(31, 38, 52, 0.08);
-  z-index: 38;
+  z-index: var(--z-actionbar);
 }
 
 .topbar-shell {
@@ -1334,11 +1366,12 @@ button:disabled {
   top: 0;
   left: 0;
   right: 0;
-  z-index: 70;
+  z-index: var(--z-appbar);
   height: calc(var(--topbar-h) + env(safe-area-inset-top));
-  border-bottom: 1px solid var(--line-default);
-  background: rgba(248, 250, 252, 0.92);
-  backdrop-filter: blur(8px);
+  border-bottom: 1px solid var(--glass-border);
+  background: var(--glass-surface);
+  -webkit-backdrop-filter: saturate(var(--glass-sat)) blur(var(--glass-blur));
+  backdrop-filter: saturate(var(--glass-sat)) blur(var(--glass-blur));
 }
 
 .topbar-shell__inner {
@@ -1354,14 +1387,14 @@ button:disabled {
 }
 
 .topbar-net-pill {
-  border: 1px solid var(--line-default);
+  border: 1px solid var(--glass-border);
   border-radius: 999px;
-  height: 32px;
-  padding: 0 12px;
+  height: 30px;
+  padding: 0 11px;
   font-size: 12px;
   font-weight: 650;
-  line-height: 30px;
-  background: #fff;
+  line-height: 28px;
+  background: color-mix(in srgb, #ffffff 88%, #f8fafc);
   color: var(--text-secondary);
 }
 
@@ -1388,9 +1421,9 @@ button:disabled {
 
 .topbar-btn {
   min-height: 44px;
-  border: 1px solid var(--line-default);
-  border-radius: 12px;
-  background: #fff;
+  border: 1px solid var(--glass-border);
+  border-radius: 14px;
+  background: color-mix(in srgb, #ffffff 90%, #f8fafc);
   color: var(--text-primary);
   padding: 0 12px;
   font-size: 13px;
@@ -1407,8 +1440,10 @@ button:disabled {
   right: 0;
   display: grid;
   min-width: 124px;
-  border: 1px solid var(--line-default);
-  background: #fff;
+  border: 1px solid var(--glass-border);
+  background: color-mix(in srgb, #ffffff 94%, #f8fafc);
+  -webkit-backdrop-filter: saturate(var(--glass-sat)) blur(var(--glass-blur));
+  backdrop-filter: saturate(var(--glass-sat)) blur(var(--glass-blur));
   box-shadow: var(--shadow-2);
   border-radius: var(--radius-md);
   overflow: hidden;
@@ -1437,7 +1472,7 @@ button:disabled {
   left: 50%;
   transform: translateX(-50%);
   width: min(var(--app-max), calc(100vw - env(safe-area-inset-left) - env(safe-area-inset-right)));
-  z-index: 69;
+  z-index: calc(var(--z-appbar) - 1);
   border-bottom: 1px solid #f0caca;
   background: #fff4f4;
   color: var(--danger-500);
@@ -1562,7 +1597,7 @@ a {
 }
 
 @media (max-width: 420px) {
-  main {
+  .app-main {
     padding-left: 8px;
     padding-right: 8px;
   }
@@ -1667,7 +1702,7 @@ a {
 }
 
 @media (max-width: 540px) {
-  main {
+  .app-main {
     width: 100%;
     max-width: 100%;
     border-left: 0;
@@ -1695,7 +1730,7 @@ a {
 
   .table-grid-shell {
     gap: 6px;
-    height: calc(100dvh - var(--topbar-h) - var(--bottombar-h) - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 166px);
+    height: min(100%, 560px);
     min-height: 330px;
   }
 
@@ -1806,7 +1841,7 @@ a {
 
   .manage-home-screen,
   .manage-subpage-screen {
-    min-height: calc(100dvh - var(--topbar-h) - var(--bottombar-h) - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 10px);
+    min-height: 100%;
   }
 }
 
@@ -1886,7 +1921,7 @@ a {
   }
 
   .table-grid-shell {
-    height: calc(100dvh - var(--topbar-h) - var(--bottombar-h) - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 160px);
+    height: min(100%, 520px);
     min-height: 308px;
   }
 

@@ -51,8 +51,21 @@
   --line-default: var(--gray-200);
 
   --tap-min: 44px;
-  --topbar-h: 52px;
-  --bottombar-h: 62px;
+  --topbar-h: 56px;
+  --bottombar-h: 64px;
+
+  --z-base: 0;
+  --z-appbar: 50;
+  --z-tabbar: 50;
+  --z-actionbar: 60;
+  --z-sheet: 100;
+  --z-toast: 120;
+  --z-overlay-blocking: 200;
+
+  --glass-blur: 18px;
+  --glass-sat: 1.2;
+  --glass-surface: color-mix(in srgb, rgba(255, 255, 255, 0.84) 88%, #f8fafc);
+  --glass-border: color-mix(in srgb, var(--line-default) 86%, #fff);
 
   --table-gap: 8px;
   --table-radius: 14px;

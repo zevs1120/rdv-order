@@ -1,12 +1,8 @@
 .page {
   --sidebar-width: 94px;
   min-width: 0;
-  height: calc(
-    100dvh - var(--topbar-h) - var(--bottombar-h) - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 16px
-  );
-  min-height: calc(
-    100dvh - var(--topbar-h) - var(--bottombar-h) - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 16px
-  );
+  height: 100%;
+  min-height: 100%;
   display: grid;
   grid-template-rows: auto minmax(0, 1fr) auto;
   gap: 8px;
@@ -29,9 +25,11 @@
 }
 
 .appBar :global(.ui-appbar__row) {
-  border: 1px solid var(--line-default);
+  border: 1px solid var(--glass-border);
   border-radius: var(--radius-md);
-  background: #fff;
+  background: var(--glass-surface);
+  -webkit-backdrop-filter: saturate(var(--glass-sat)) blur(var(--glass-blur));
+  backdrop-filter: saturate(var(--glass-sat)) blur(var(--glass-blur));
   padding: 8px;
   gap: 8px;
 }
@@ -112,6 +110,10 @@
 
 .shiftPanel {
   padding: 8px;
+  border-color: var(--glass-border);
+  background: color-mix(in srgb, #ffffff 92%, #f8fafc);
+  -webkit-backdrop-filter: saturate(var(--glass-sat)) blur(var(--glass-blur));
+  backdrop-filter: saturate(var(--glass-sat)) blur(var(--glass-blur));
 }
 
 .shiftRow {
@@ -183,7 +185,7 @@
   min-height: 0;
   border: 1px solid var(--line-default);
   border-radius: var(--radius-md);
-  background: #fff;
+  background: color-mix(in srgb, #ffffff 96%, #f8fafc);
   padding: 8px;
   overflow-y: auto;
   overflow-x: hidden;
@@ -202,8 +204,11 @@
   position: relative;
   min-width: 0;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto auto;
-  align-items: center;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas:
+    "main main"
+    "price add";
+  align-items: end;
   gap: 8px;
   border: 1px solid var(--line-default);
   border-radius: var(--radius-md);
@@ -215,6 +220,7 @@
   min-width: 0;
   display: grid;
   gap: 2px;
+  grid-area: main;
 }
 
 .menuTitle {
@@ -234,19 +240,21 @@
 }
 
 .menuPrice {
+  grid-area: price;
   white-space: nowrap;
-  font-size: 24px;
+  font-size: 28px;
   line-height: 1;
   letter-spacing: -0.01em;
   color: var(--text-primary);
-  text-align: right;
+  text-align: left;
   min-width: 72px;
 }
 
 .addBtn {
+  grid-area: add;
   min-width: 78px;
-  min-height: 36px;
-  padding: 0 10px;
+  min-height: 34px;
+  padding: 0 12px;
   justify-self: end;
   white-space: nowrap;
   border-color: color-mix(in srgb, var(--brand-500) 30%, #fff) !important;
@@ -264,7 +272,7 @@
 .bottomFixed {
   min-width: 0;
   position: relative;
-  z-index: 24;
+  z-index: var(--z-actionbar);
 }
 
 .cartDock {
@@ -273,8 +281,10 @@
   gap: 8px;
   align-items: center;
   padding: 8px;
-  border-color: color-mix(in srgb, var(--line-default) 82%, #fff);
-  background: color-mix(in srgb, #ffffff 92%, #f8fafc);
+  border-color: var(--glass-border);
+  background: var(--glass-surface);
+  -webkit-backdrop-filter: saturate(var(--glass-sat)) blur(var(--glass-blur));
+  backdrop-filter: saturate(var(--glass-sat)) blur(var(--glass-blur));
   box-shadow: 0 -6px 16px rgba(15, 23, 42, 0.08);
 }
 
@@ -362,7 +372,6 @@
   .menuRow {
     padding: 8px;
     gap: 6px;
-    grid-template-columns: minmax(0, 1fr) auto auto;
   }
 
   .menuTitle {
@@ -374,7 +383,7 @@
   }
 
   .menuPrice {
-    font-size: 22px;
+    font-size: 24px;
   }
 
   .addBtn {
@@ -396,7 +405,7 @@
   }
 
   .menuPrice {
-    font-size: 18px;
+    font-size: 22px;
   }
 
   .addBtn {
