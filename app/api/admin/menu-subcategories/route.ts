@@ -2,9 +2,7 @@ import { NextResponse } from "next/server";
 import { pool } from "../../../../lib/db";
 import { requirePermission } from "../../../../lib/permissions";
 import { writeAuditLogSafe } from "../../../../lib/audit";
-
-const SHIFT_KEYS = ["breakfast", "lunch", "dinner", "beverage", "cocktail", "package"] as const;
-type ShiftKey = (typeof SHIFT_KEYS)[number];
+import { findMenuMajorCategory, loadMenuMajorCategories } from "../../../../lib/menu-categories";
 
 function normalizeName(value: unknown) {
   return String(value || "").trim();
@@ -19,7 +17,8 @@ export async function GET(req: Request) {
     await requirePermission(req, "menu.manage");
     const url = new URL(req.url);
     const shift = normalizeName(url.searchParams.get("shift"));
-    if (shift && !SHIFT_KEYS.includes(shift as ShiftKey)) {
+    const majorCategories = await loadMenuMajorCategories();
+    if (shift && !findMenuMajorCategory(majorCategories, shift)) {
       return NextResponse.json({ error: "大类目无效" }, { status: 400 });
     }
 
@@ -53,13 +52,17 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   try {
     const auth = await requirePermission(req, "menu.manage");
+    if (auth.role !== "manager") {
+      return NextResponse.json({ error: "仅经理可操作" }, { status: 403 });
+    }
     const body = await req.json().catch(() => null);
-    const shift = normalizeName(body?.shift) as ShiftKey;
+    const shift = normalizeName(body?.shift).toLowerCase();
     const name = normalizeName(body?.name);
     const displayNameZh = normalizeName(body?.displayNameZh) || null;
     const sortOrder = Number.isFinite(body?.sortOrder) ? Math.trunc(Number(body.sortOrder)) : 1000;
 
-    if (!SHIFT_KEYS.includes(shift)) {
+    const majorCategories = await loadMenuMajorCategories();
+    if (!findMenuMajorCategory(majorCategories, shift)) {
       return NextResponse.json({ error: "大类目无效" }, { status: 400 });
     }
     if (!name) {

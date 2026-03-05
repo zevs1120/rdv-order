@@ -24,9 +24,22 @@ CREATE TABLE menu_items (
   sort_order INT NOT NULL DEFAULT 0
 );
 
+CREATE TABLE menu_major_categories (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  key TEXT NOT NULL UNIQUE CHECK (key ~ '^[a-z0-9_\\-]+$'),
+  menu_group TEXT NOT NULL CHECK (menu_group IN ('breakfast', 'lunch_dinner', 'cocktail', 'set_menu')),
+  label_en TEXT NOT NULL,
+  label_zh TEXT NOT NULL,
+  include_empty_shift_items BOOLEAN NOT NULL DEFAULT false,
+  sort_order INT NOT NULL DEFAULT 100,
+  is_active BOOLEAN NOT NULL DEFAULT true,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
 CREATE TABLE menu_subcategories (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  shift_key TEXT NOT NULL CHECK (shift_key IN ('breakfast', 'lunch', 'dinner', 'beverage', 'cocktail', 'package')),
+  shift_key TEXT NOT NULL CHECK (shift_key ~ '^[a-z0-9_\\-]+$'),
   name TEXT NOT NULL,
   name_key TEXT NOT NULL,
   display_name_zh TEXT,
@@ -282,6 +295,13 @@ CREATE INDEX menu_items_lookup_idx
 
 CREATE INDEX menu_items_available_shifts_gin_idx
   ON menu_items USING GIN (available_shifts);
+
+CREATE UNIQUE INDEX menu_major_categories_unique_active_key_idx
+  ON menu_major_categories(key)
+  WHERE is_active = true;
+
+CREATE INDEX menu_major_categories_lookup_idx
+  ON menu_major_categories(is_active, sort_order, key);
 
 CREATE UNIQUE INDEX menu_subcategories_unique_active_name_idx
   ON menu_subcategories(shift_key, name_key)

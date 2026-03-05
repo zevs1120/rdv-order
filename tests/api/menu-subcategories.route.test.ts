@@ -3,7 +3,9 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({
   poolQuery: vi.fn(),
   requirePermission: vi.fn(),
-  writeAuditLogSafe: vi.fn()
+  writeAuditLogSafe: vi.fn(),
+  loadMenuMajorCategories: vi.fn(),
+  findMenuMajorCategory: vi.fn()
 }));
 
 vi.mock("../../lib/db", () => ({
@@ -18,6 +20,11 @@ vi.mock("../../lib/permissions", () => ({
 
 vi.mock("../../lib/audit", () => ({
   writeAuditLogSafe: mocks.writeAuditLogSafe
+}));
+
+vi.mock("../../lib/menu-categories", () => ({
+  loadMenuMajorCategories: mocks.loadMenuMajorCategories,
+  findMenuMajorCategory: mocks.findMenuMajorCategory
 }));
 
 import { GET, POST } from "../../app/api/admin/menu-subcategories/route";
@@ -35,6 +42,20 @@ describe("menu subcategories route", () => {
     vi.clearAllMocks();
     mocks.requirePermission.mockResolvedValue({ userId: "manager-1", role: "manager" });
     mocks.writeAuditLogSafe.mockResolvedValue(undefined);
+    mocks.loadMenuMajorCategories.mockResolvedValue([
+      {
+        key: "beverage",
+        menu_group: "lunch_dinner",
+        label_en: "Beverage",
+        label_zh: "饮品",
+        include_empty_shift_items: false,
+        sort_order: 40
+      }
+    ]);
+    mocks.findMenuMajorCategory.mockImplementation((rows: Array<{ key: string }>, key: string) => {
+      const normalized = String(key || "").trim().toLowerCase();
+      return rows.find((row) => row.key === normalized) || null;
+    });
   });
 
   it("creates subcategory with trimmed name", async () => {
@@ -82,10 +103,21 @@ describe("menu subcategories route", () => {
   });
 
   it("rejects invalid shift in GET", async () => {
+    mocks.findMenuMajorCategory.mockReturnValueOnce(null);
     const req = new Request("http://localhost/api/admin/menu-subcategories?shift=invalid");
     const res = await GET(req);
 
     expect(res.status).toBe(400);
+    expect(mocks.poolQuery).not.toHaveBeenCalled();
+  });
+
+  it("rejects create for non-manager role", async () => {
+    mocks.requirePermission.mockResolvedValueOnce({ userId: "waiter-1", role: "waiter" });
+    const res = await POST(makePostRequest({
+      shift: "beverage",
+      name: "tea"
+    }));
+    expect(res.status).toBe(403);
     expect(mocks.poolQuery).not.toHaveBeenCalled();
   });
 });

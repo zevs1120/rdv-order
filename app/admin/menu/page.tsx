@@ -11,7 +11,7 @@ import styles from "./page.module.css";
 
 type MenuGroup = "breakfast" | "lunch_dinner" | "cocktail" | "set_menu";
 type ItemType = "single" | "set";
-type MenuShift = "breakfast" | "lunch" | "dinner" | "beverage" | "cocktail" | "package";
+type MenuShift = string;
 
 type MenuItem = {
   id: string;
@@ -34,6 +34,15 @@ type MenuSubcategory = {
   sort_order: number;
 };
 
+type MenuMajorCategory = {
+  key: string;
+  menu_group: MenuGroup;
+  label_en: string;
+  label_zh: string;
+  include_empty_shift_items: boolean;
+  sort_order: number;
+};
+
 const GROUP_OPTIONS: Array<{ value: MenuGroup; labelZh: string; labelEn: string }> = [
   { value: "breakfast", labelZh: "早餐", labelEn: "Breakfast" },
   { value: "lunch_dinner", labelZh: "午晚餐", labelEn: "Lunch/Dinner" },
@@ -41,13 +50,13 @@ const GROUP_OPTIONS: Array<{ value: MenuGroup; labelZh: string; labelEn: string 
   { value: "set_menu", labelZh: "套餐", labelEn: "Package" }
 ];
 
-const SUBCATEGORY_SHIFT_OPTIONS: Array<{ value: MenuShift; labelZh: string; labelEn: string }> = [
-  { value: "breakfast", labelZh: "早餐", labelEn: "Breakfast" },
-  { value: "lunch", labelZh: "午餐", labelEn: "Lunch" },
-  { value: "dinner", labelZh: "晚餐", labelEn: "Dinner" },
-  { value: "beverage", labelZh: "饮品", labelEn: "Beverage" },
-  { value: "cocktail", labelZh: "鸡尾酒", labelEn: "Cocktail" },
-  { value: "package", labelZh: "套餐", labelEn: "Package" }
+const FALLBACK_MAJOR_CATEGORIES: MenuMajorCategory[] = [
+  { key: "breakfast", menu_group: "breakfast", label_en: "Breakfast", label_zh: "早餐", include_empty_shift_items: true, sort_order: 10 },
+  { key: "lunch", menu_group: "lunch_dinner", label_en: "Lunch", label_zh: "午餐", include_empty_shift_items: true, sort_order: 20 },
+  { key: "dinner", menu_group: "lunch_dinner", label_en: "Dinner", label_zh: "晚餐", include_empty_shift_items: true, sort_order: 30 },
+  { key: "beverage", menu_group: "lunch_dinner", label_en: "Beverage", label_zh: "饮品", include_empty_shift_items: false, sort_order: 40 },
+  { key: "cocktail", menu_group: "cocktail", label_en: "Cocktail", label_zh: "鸡尾酒", include_empty_shift_items: true, sort_order: 50 },
+  { key: "package", menu_group: "set_menu", label_en: "Package", label_zh: "套餐", include_empty_shift_items: true, sort_order: 60 }
 ];
 
 const DEFAULT_CATEGORY_OPTIONS: Record<MenuGroup, string[]> = {
@@ -55,13 +64,6 @@ const DEFAULT_CATEGORY_OPTIONS: Record<MenuGroup, string[]> = {
   lunch_dinner: ["Filipino Food", "Soup", "Salad", "Pasta", "Rice", "Dessert"],
   cocktail: ["Classic", "Signature", "Mocktail", "Beer", "Wine", "Spirits"],
   set_menu: ["套餐"]
-};
-
-const MENU_GROUP_SHIFT_SCOPE: Record<MenuGroup, MenuShift[]> = {
-  breakfast: ["breakfast"],
-  lunch_dinner: ["lunch", "dinner", "beverage"],
-  cocktail: ["cocktail"],
-  set_menu: ["package"]
 };
 
 const SORT_OPTIONS = [0, 10, 20, 30, 40, 50, 100, 200, 500, 999];
@@ -81,14 +83,25 @@ export default function MenuAdminPage() {
   const [loading, setLoading] = useState(false);
   const [savingBatch, setSavingBatch] = useState(false);
   const [deletingId, setDeletingId] = useState("");
+  const [deletingSubcategoryId, setDeletingSubcategoryId] = useState("");
+  const [deletingMajorKey, setDeletingMajorKey] = useState("");
   const [savingNew, setSavingNew] = useState(false);
+  const [majorCategories, setMajorCategories] = useState<MenuMajorCategory[]>(FALLBACK_MAJOR_CATEGORIES);
   const [subcategories, setSubcategories] = useState<MenuSubcategory[]>([]);
   const [subcategoriesLoading, setSubcategoriesLoading] = useState(false);
   const [subcategoryError, setSubcategoryError] = useState("");
+  const [showSubcategories, setShowSubcategories] = useState(true);
   const [subcategoryShift, setSubcategoryShift] = useState<MenuShift>("beverage");
   const [subcategorySheetOpen, setSubcategorySheetOpen] = useState(false);
   const [creatingSubcategory, setCreatingSubcategory] = useState(false);
   const [subcategoryForm, setSubcategoryForm] = useState({ name: "", displayNameZh: "" });
+  const [majorCategorySheetOpen, setMajorCategorySheetOpen] = useState(false);
+  const [creatingMajorCategory, setCreatingMajorCategory] = useState(false);
+  const [majorCategoryForm, setMajorCategoryForm] = useState({
+    labelEn: "",
+    labelZh: "",
+    menuGroup: "lunch_dinner" as MenuGroup
+  });
   const [highlightedSubcategoryId, setHighlightedSubcategoryId] = useState("");
   const [toastMessage, setToastMessage] = useState("");
   const [baseline, setBaseline] = useState<Record<string, { name: string; price: number; allergens: string[] }>>({});
@@ -137,6 +150,34 @@ export default function MenuAdminPage() {
     });
   }
 
+  function sortMajorCategories(rows: MenuMajorCategory[]) {
+    return rows.slice().sort((a, b) => {
+      if (a.sort_order !== b.sort_order) return a.sort_order - b.sort_order;
+      return a.key.localeCompare(b.key);
+    });
+  }
+
+  async function loadMajorCategories() {
+    try {
+      const body = await apiFetchJson<{ majorCategories: MenuMajorCategory[] }>("/api/admin/menu-categories", {
+        timeoutMs: 6000,
+        retries: 1
+      });
+      const next = sortMajorCategories(body.majorCategories || []);
+      if (next.length > 0) {
+        setMajorCategories(next);
+        setSubcategoryShift((current) => {
+          if (next.some((item) => item.key === current)) return current;
+          return next[0].key;
+        });
+      } else {
+        setMajorCategories(FALLBACK_MAJOR_CATEGORIES);
+      }
+    } catch {
+      setMajorCategories(FALLBACK_MAJOR_CATEGORIES);
+    }
+  }
+
   async function loadSubcategories() {
     setSubcategoriesLoading(true);
     setSubcategoryError("");
@@ -154,17 +195,19 @@ export default function MenuAdminPage() {
   }
 
   const categoryOptions = useMemo(() => {
+    const scopedShifts = majorCategories
+      .filter((item) => item.menu_group === form.menuGroup)
+      .map((item) => item.key);
     const fromItems = items
       .filter((item) => item.menu_group === form.menuGroup)
       .map((item) => (item.category || "").trim())
       .filter(Boolean);
-    const scopedShifts = MENU_GROUP_SHIFT_SCOPE[form.menuGroup];
     const fromSubcategories = subcategories
       .filter((item) => scopedShifts.includes(item.shift_key))
       .map((item) => item.name.trim())
       .filter(Boolean);
     return Array.from(new Set([...DEFAULT_CATEGORY_OPTIONS[form.menuGroup], ...fromSubcategories, ...fromItems]));
-  }, [form.menuGroup, items, subcategories]);
+  }, [form.menuGroup, items, subcategories, majorCategories]);
 
   useEffect(() => {
     if (!categoryOptions.includes(form.category)) {
@@ -264,6 +307,90 @@ export default function MenuAdminPage() {
     }
   }
 
+  const trimmedMajorLabelEn = majorCategoryForm.labelEn.trim();
+  const trimmedMajorLabelZh = majorCategoryForm.labelZh.trim();
+  const duplicateMajorCategory = useMemo(
+    () => majorCategories.some((item) => item.label_en.trim().toLowerCase() === trimmedMajorLabelEn.toLowerCase()),
+    [majorCategories, trimmedMajorLabelEn]
+  );
+
+  async function createMajorCategory() {
+    if (!trimmedMajorLabelEn || !trimmedMajorLabelZh || duplicateMajorCategory) return;
+    setCreatingMajorCategory(true);
+    try {
+      const body = await apiFetchJson<{ majorCategory: MenuMajorCategory }>("/api/admin/menu-categories", {
+        method: "POST",
+        body: {
+          labelEn: trimmedMajorLabelEn,
+          labelZh: trimmedMajorLabelZh,
+          menuGroup: majorCategoryForm.menuGroup
+        },
+        timeoutMs: 7000,
+        retries: 0
+      });
+      if (body.majorCategory) {
+        setMajorCategories((prev) => sortMajorCategories([...prev, body.majorCategory]));
+        setSubcategoryShift(body.majorCategory.key);
+      }
+      setMajorCategoryForm({ labelEn: "", labelZh: "", menuGroup: "lunch_dinner" });
+      setMajorCategorySheetOpen(false);
+      setToastMessage(t("admin.majorCategoryCreated", "Major category created"));
+    } catch (err: any) {
+      setToastMessage(`${t("admin.majorCategoryCreateFailed", "Create failed")}: ${err.message || ""}`.trim());
+    } finally {
+      setCreatingMajorCategory(false);
+    }
+  }
+
+  async function deleteSubcategory(item: MenuSubcategory) {
+    const confirmed = window.confirm(t("admin.subcategoryDeleteConfirm", "Delete this subcategory?"));
+    if (!confirmed) return;
+    setDeletingSubcategoryId(item.id);
+    setSubcategoryError("");
+    try {
+      await apiFetchJson(`/api/admin/menu-subcategories/${item.id}`, {
+        method: "DELETE",
+        timeoutMs: 7000,
+        retries: 0
+      });
+      setSubcategories((prev) => prev.filter((row) => row.id !== item.id));
+      setToastMessage(t("admin.subcategoryDeleted", "Subcategory deleted"));
+    } catch (err: any) {
+      const message = err.message || t("admin.subcategoryDeleteFailed", "Delete failed");
+      setSubcategoryError(message);
+      setToastMessage(message);
+    } finally {
+      setDeletingSubcategoryId("");
+    }
+  }
+
+  async function deleteMajorCategory(item: MenuMajorCategory) {
+    const confirmed = window.confirm(t("admin.majorCategoryDeleteConfirm", "Delete this main category and all its subcategories?"));
+    if (!confirmed) return;
+    setDeletingMajorKey(item.key);
+    setSubcategoryError("");
+    try {
+      await apiFetchJson(`/api/admin/menu-categories/${encodeURIComponent(item.key)}`, {
+        method: "DELETE",
+        timeoutMs: 7000,
+        retries: 0
+      });
+      const nextMajorCategories = majorCategories.filter((row) => row.key !== item.key);
+      setMajorCategories(nextMajorCategories);
+      if (nextMajorCategories.length > 0 && subcategoryShift === item.key) {
+        setSubcategoryShift(nextMajorCategories[0].key);
+      }
+      setSubcategories((prev) => prev.filter((row) => row.shift_key !== item.key));
+      setToastMessage(t("admin.majorCategoryDeleted", "Main category deleted"));
+    } catch (err: any) {
+      const message = err.message || t("admin.majorCategoryDeleteFailed", "Delete failed");
+      setSubcategoryError(message);
+      setToastMessage(message);
+    } finally {
+      setDeletingMajorKey("");
+    }
+  }
+
   function isDirty(item: MenuItem) {
     const base = baseline[item.id];
     if (!base) return true;
@@ -336,6 +463,7 @@ export default function MenuAdminPage() {
       router.replace("/");
       return;
     }
+    void loadMajorCategories();
     void loadItems();
     void loadSubcategories();
   }, [router]);
@@ -353,9 +481,9 @@ export default function MenuAdminPage() {
   }
 
   function shiftLabel(shift: MenuShift) {
-    const found = SUBCATEGORY_SHIFT_OPTIONS.find((option) => option.value === shift);
+    const found = majorCategories.find((option) => option.key === shift);
     if (!found) return shift;
-    return lang === "en" ? found.labelEn : found.labelZh;
+    return lang === "en" ? found.label_en : found.label_zh;
   }
 
   return (
@@ -368,7 +496,7 @@ export default function MenuAdminPage() {
           </Button>
         )}
         right={(
-          <Button variant="secondary" onClick={() => { void loadItems(); }}>
+          <Button variant="secondary" onClick={() => { void loadMajorCategories(); void loadSubcategories(); void loadItems(); }}>
             {t("common.refresh", "刷新")}
           </Button>
         )}
@@ -473,55 +601,107 @@ export default function MenuAdminPage() {
         <div className="panel stack">
           <div className={styles.subcategoryHead}>
             <h3 style={{ margin: 0 }}>{t("admin.subcategories", "子类目")}</h3>
-            <Button
-              variant="ghost"
-              onClick={() => {
-                setSubcategoryError("");
-                setSubcategorySheetOpen(true);
-              }}
-            >
-              {t("admin.addSubcategory", "+ Add subcategory")}
-            </Button>
-          </div>
-          <div className={styles.subcategoryFilter}>
-            {SUBCATEGORY_SHIFT_OPTIONS.map((option) => (
-              <button
-                key={option.value}
-                type="button"
-                className={`secondary compact-btn ${subcategoryShift === option.value ? styles.subcategoryChipActive : ""}`}
-                onClick={() => setSubcategoryShift(option.value)}
+            <div className="row" style={{ justifyContent: "flex-end" }}>
+              <Button
+                variant="ghost"
+                onClick={() => {
+                  setSubcategoryError("");
+                  setMajorCategorySheetOpen(true);
+                }}
               >
-                {lang === "en" ? option.labelEn : option.labelZh}
+                {t("admin.addMajorCategory", "+ Add main category")}
+              </Button>
+              <Button
+                variant="ghost"
+                onClick={() => {
+                  setSubcategoryError("");
+                  setSubcategorySheetOpen(true);
+                }}
+              >
+                {t("admin.addSubcategory", "+ Add subcategory")}
+              </Button>
+              <button
+                type="button"
+                className="secondary compact-btn"
+                onClick={() => setShowSubcategories((v) => !v)}
+              >
+                {showSubcategories ? t("common.collapse", "收起") : t("common.expand", "展开")}
               </button>
-            ))}
-          </div>
-          {subcategoriesLoading ? <div className="muted">{t("common.loading", "加载中...")}</div> : null}
-          {subcategoryError ? <div className="muted">{subcategoryError}</div> : null}
-          {visibleSubcategories.length > 0 ? (
-            <div className={styles.subcategoryList}>
-              {visibleSubcategories.map((item) => (
-                <div
-                  key={item.id}
-                  className={`${styles.subcategoryRow} ${highlightedSubcategoryId === item.id ? styles.subcategoryRowHighlight : ""}`}
-                >
-                  <div className="stack" style={{ gap: 2 }}>
-                    <div>{lang === "zh" ? (item.display_name_zh || localizeMenuText(item.name, lang)) : localizeMenuText(item.name, lang)}</div>
-                    {item.display_name_zh && lang === "en" ? <div className="muted">{item.display_name_zh}</div> : null}
-                  </div>
-                  <span className="muted">{shiftLabel(item.shift_key)}</span>
-                </div>
-              ))}
             </div>
-          ) : (
-            <EmptyState
-              title={t("admin.subcategoryEmpty", "No subcategory yet")}
-              description={t("admin.subcategoryEmptyHint", "Create the first subcategory for this major category.")}
-              action={(
-                <Button variant="secondary" onClick={() => setSubcategorySheetOpen(true)}>
-                  {t("admin.addSubcategory", "+ Add subcategory")}
-                </Button>
+          </div>
+          {showSubcategories ? (
+            <>
+              <div className={styles.majorCategoryList}>
+                {majorCategories.map((item) => (
+                  <div key={item.key} className={styles.majorCategoryRow}>
+                    <div className="stack" style={{ gap: 2 }}>
+                      <div>{lang === "en" ? item.label_en : item.label_zh}</div>
+                      <div className="muted">{item.key} · {groupLabel(item.menu_group)}</div>
+                    </div>
+                    <button
+                      type="button"
+                      className="secondary compact-btn"
+                      onClick={() => { void deleteMajorCategory(item); }}
+                      disabled={deletingMajorKey === item.key}
+                    >
+                      {deletingMajorKey === item.key ? t("admin.deleting", "Deleting...") : t("common.delete", "Delete")}
+                    </button>
+                  </div>
+                ))}
+              </div>
+              <div className={styles.subcategoryFilter}>
+                {majorCategories.map((option) => (
+                  <button
+                    key={option.key}
+                    type="button"
+                    className={`secondary compact-btn ${subcategoryShift === option.key ? styles.subcategoryChipActive : ""}`}
+                    onClick={() => setSubcategoryShift(option.key)}
+                  >
+                    {lang === "en" ? option.label_en : option.label_zh}
+                  </button>
+                ))}
+              </div>
+              {subcategoriesLoading ? <div className="muted">{t("common.loading", "加载中...")}</div> : null}
+              {subcategoryError ? <div className="muted">{subcategoryError}</div> : null}
+              {visibleSubcategories.length > 0 ? (
+                <div className={styles.subcategoryList}>
+                  {visibleSubcategories.map((item) => (
+                    <div
+                      key={item.id}
+                      className={`${styles.subcategoryRow} ${highlightedSubcategoryId === item.id ? styles.subcategoryRowHighlight : ""}`}
+                    >
+                      <div className="stack" style={{ gap: 2 }}>
+                        <div>{lang === "zh" ? (item.display_name_zh || localizeMenuText(item.name, lang)) : localizeMenuText(item.name, lang)}</div>
+                        {item.display_name_zh && lang === "en" ? <div className="muted">{item.display_name_zh}</div> : null}
+                      </div>
+                      <div className="row" style={{ justifyContent: "flex-end" }}>
+                        <span className="muted">{shiftLabel(item.shift_key)}</span>
+                        <button
+                          type="button"
+                          className="secondary compact-btn"
+                          onClick={() => { void deleteSubcategory(item); }}
+                          disabled={deletingSubcategoryId === item.id}
+                        >
+                          {deletingSubcategoryId === item.id ? t("admin.deleting", "Deleting...") : t("common.delete", "Delete")}
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <EmptyState
+                  title={t("admin.subcategoryEmpty", "No subcategory yet")}
+                  description={t("admin.subcategoryEmptyHint", "Create the first subcategory for this major category.")}
+                  action={(
+                    <Button variant="secondary" onClick={() => setSubcategorySheetOpen(true)}>
+                      {t("admin.addSubcategory", "+ Add subcategory")}
+                    </Button>
+                  )}
+                />
               )}
-            />
+            </>
+          ) : (
+            <div className="muted">{t("admin.subcategoryCollapsedHint", "Subcategory panel is collapsed.")}</div>
           )}
         </div>
 
@@ -635,12 +815,12 @@ export default function MenuAdminPage() {
             <span className={styles.subcategorySheetLabel}>{t("admin.subcategoryGroup", "大类目")}</span>
             <select
               value={subcategoryShift}
-              onChange={(e) => setSubcategoryShift(e.target.value as MenuShift)}
+              onChange={(e) => setSubcategoryShift(e.target.value)}
               disabled={creatingSubcategory}
             >
-              {SUBCATEGORY_SHIFT_OPTIONS.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {lang === "en" ? option.labelEn : option.labelZh}
+              {majorCategories.map((option) => (
+                <option key={option.key} value={option.key}>
+                  {lang === "en" ? option.label_en : option.label_zh}
                 </option>
               ))}
             </select>
@@ -665,6 +845,70 @@ export default function MenuAdminPage() {
           </label>
           {duplicateSubcategory ? <div className="muted">{t("admin.subcategoryDuplicate", "Name already exists")}</div> : null}
           {subcategoryError ? <div className="muted">{subcategoryError}</div> : null}
+        </div>
+      </BottomSheet>
+
+      <BottomSheet
+        open={majorCategorySheetOpen}
+        onClose={() => {
+          if (creatingMajorCategory) return;
+          setMajorCategorySheetOpen(false);
+        }}
+        title={t("admin.addMajorCategory", "Add main category")}
+        footer={(
+          <>
+            <Button
+              variant="secondary"
+              onClick={() => setMajorCategorySheetOpen(false)}
+              disabled={creatingMajorCategory}
+            >
+              {t("common.cancel", "取消")}
+            </Button>
+            <Button
+              variant="primary"
+              loading={creatingMajorCategory}
+              onClick={() => { void createMajorCategory(); }}
+              disabled={!trimmedMajorLabelEn || !trimmedMajorLabelZh || duplicateMajorCategory || creatingMajorCategory}
+            >
+              {creatingMajorCategory
+                ? t("admin.creatingMajorCategory", "Creating...")
+                : t("admin.createMajorCategory", "Create")}
+            </Button>
+          </>
+        )}
+      >
+        <div className="stack">
+          <label className="stack">
+            <span className={styles.subcategorySheetLabel}>{t("admin.majorCategoryNameEn", "English name")}</span>
+            <input
+              placeholder={t("admin.majorCategoryNameEnPlaceholder", "e.g. Breakfast")}
+              value={majorCategoryForm.labelEn}
+              onChange={(e) => setMajorCategoryForm((prev) => ({ ...prev, labelEn: e.target.value }))}
+              disabled={creatingMajorCategory}
+            />
+          </label>
+          <label className="stack">
+            <span className={styles.subcategorySheetLabel}>{t("admin.majorCategoryNameZh", "中文名称")}</span>
+            <input
+              placeholder={t("admin.majorCategoryNameZhPlaceholder", "例如：早餐")}
+              value={majorCategoryForm.labelZh}
+              onChange={(e) => setMajorCategoryForm((prev) => ({ ...prev, labelZh: e.target.value }))}
+              disabled={creatingMajorCategory}
+            />
+          </label>
+          <label className="stack">
+            <span className={styles.subcategorySheetLabel}>{t("admin.group", "菜单")}</span>
+            <select
+              value={majorCategoryForm.menuGroup}
+              onChange={(e) => setMajorCategoryForm((prev) => ({ ...prev, menuGroup: e.target.value as MenuGroup }))}
+              disabled={creatingMajorCategory}
+            >
+              {GROUP_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>{groupLabel(option.value)}</option>
+              ))}
+            </select>
+          </label>
+          {duplicateMajorCategory ? <div className="muted">{t("admin.majorCategoryDuplicate", "Major category already exists")}</div> : null}
         </div>
       </BottomSheet>
 

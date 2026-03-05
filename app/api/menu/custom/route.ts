@@ -2,27 +2,9 @@ import { NextResponse } from "next/server";
 import { pool } from "../../../../lib/db";
 import { requirePermission } from "../../../../lib/permissions";
 import { writeAuditLogSafe } from "../../../../lib/audit";
+import { findMenuMajorCategory, loadMenuMajorCategories } from "../../../../lib/menu-categories";
 
-type ShiftKey = "breakfast" | "lunch" | "dinner" | "beverage" | "cocktail" | "package";
 type Mode = "temporary" | "permanent";
-
-const SHIFT_MAP: Record<ShiftKey, "breakfast" | "lunch_dinner" | "cocktail" | "set_menu"> = {
-  breakfast: "breakfast",
-  lunch: "lunch_dinner",
-  dinner: "lunch_dinner",
-  beverage: "lunch_dinner",
-  cocktail: "cocktail",
-  package: "set_menu"
-};
-
-const SHIFT_AVAILABLE: Record<ShiftKey, string[]> = {
-  breakfast: ["breakfast"],
-  lunch: ["lunch", "dinner"],
-  dinner: ["lunch", "dinner"],
-  beverage: ["beverage"],
-  cocktail: ["cocktail"],
-  package: ["package"]
-};
 
 export async function POST(req: Request) {
   try {
@@ -32,7 +14,7 @@ export async function POST(req: Request) {
     const price = Number(body?.price);
     const category = String(body?.category || "").trim();
     const description = String(body?.description || "").trim();
-    const shift = String(body?.shift || "lunch") as ShiftKey;
+    const shift = String(body?.shift || "lunch").trim().toLowerCase();
     const mode = String(body?.mode || "temporary") as Mode;
 
     if (!name || !Number.isInteger(price) || price <= 0) {
@@ -41,15 +23,17 @@ export async function POST(req: Request) {
     if (!["temporary", "permanent"].includes(mode)) {
       return NextResponse.json({ error: "新增模式无效" }, { status: 400 });
     }
-    if (!SHIFT_MAP[shift]) {
+    const majorCategories = await loadMenuMajorCategories();
+    const majorCategory = findMenuMajorCategory(majorCategories, shift);
+    if (!majorCategory) {
       return NextResponse.json({ error: "班次无效" }, { status: 400 });
     }
     if (mode === "permanent") {
       await requirePermission(req, "menu.manage");
     }
 
-    const menuGroup = SHIFT_MAP[shift];
-    const availableShifts = SHIFT_AVAILABLE[shift];
+    const menuGroup = majorCategory.menu_group;
+    const availableShifts = [majorCategory.key];
 
     const { rows } = await pool.query(
       `INSERT INTO menu_items (name, price, category, description, menu_group, item_type, is_active, is_temporary, sort_order, available_shifts)

@@ -10,7 +10,7 @@ import { useActionGuard } from "../../lib/use-action-guard";
 import { AppBar, Badge, BottomSheet, Button, Card, Chip, EmptyState, SearchField, Toast } from "../../components/ui";
 import styles from "./page.module.css";
 
-type ShiftKey = "breakfast" | "lunch" | "dinner" | "beverage" | "cocktail" | "package";
+type ShiftKey = string;
 type CustomDishMode = "temporary" | "permanent";
 type UserRole = "waiter" | "manager" | "";
 
@@ -91,16 +91,22 @@ type MenuCachePayload = {
   subcategories?: string[];
 };
 
+type MajorCategoryOption = {
+  key: string;
+  label_en: string;
+  label_zh: string;
+};
+
 const MENU_CACHE_TTL_MS = 6 * 60 * 60 * 1000;
 const MENU_CACHE_VERSION = 3;
 
-const SHIFT_OPTIONS: Array<{ key: ShiftKey; zh: string; en: string }> = [
-  { key: "breakfast", zh: "早餐", en: "Breakfast" },
-  { key: "lunch", zh: "午餐", en: "Lunch" },
-  { key: "dinner", zh: "晚餐", en: "Dinner" },
-  { key: "beverage", zh: "饮品", en: "Beverage" },
-  { key: "cocktail", zh: "鸡尾酒", en: "Cocktail" },
-  { key: "package", zh: "套餐", en: "Package" }
+const DEFAULT_SHIFT_OPTIONS: MajorCategoryOption[] = [
+  { key: "breakfast", label_zh: "早餐", label_en: "Breakfast" },
+  { key: "lunch", label_zh: "午餐", label_en: "Lunch" },
+  { key: "dinner", label_zh: "晚餐", label_en: "Dinner" },
+  { key: "beverage", label_zh: "饮品", label_en: "Beverage" },
+  { key: "cocktail", label_zh: "鸡尾酒", label_en: "Cocktail" },
+  { key: "package", label_zh: "套餐", label_en: "Package" }
 ];
 
 export default function OrderPage() {
@@ -119,9 +125,10 @@ export default function OrderPage() {
   const [submitPressed, setSubmitPressed] = useState(false);
   const [menuLoading, setMenuLoading] = useState(false);
   const [shift, setShift] = useState<ShiftKey>("lunch");
+  const [shiftOptions, setShiftOptions] = useState<MajorCategoryOption[]>(DEFAULT_SHIFT_OPTIONS);
   const [keyword, setKeyword] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("");
-  const [shiftSubcategories, setShiftSubcategories] = useState<Partial<Record<ShiftKey, string[]>>>({});
+  const [shiftSubcategories, setShiftSubcategories] = useState<Record<string, string[]>>({});
   const [cartSelections, setCartSelections] = useState<Record<string, CartSelection>>({});
   const [paramsReady, setParamsReady] = useState(false);
 
@@ -150,8 +157,8 @@ export default function OrderPage() {
   const [actionMenuOpen, setActionMenuOpen] = useState(false);
   const [toast, setToast] = useState<ToastState | null>(null);
 
-  const menuCacheRef = useRef<Partial<Record<ShiftKey, MenuItem[]>>>({});
-  const subcategoryCacheRef = useRef<Partial<Record<ShiftKey, string[]>>>({});
+  const menuCacheRef = useRef<Record<string, MenuItem[]>>({});
+  const subcategoryCacheRef = useRef<Record<string, string[]>>({});
   const menuRequestRef = useRef(0);
   const menuIndexRef = useRef<Map<string, number>>(new Map());
   const menuMetaRef = useRef<Map<string, MenuItem>>(new Map());
@@ -368,8 +375,8 @@ export default function OrderPage() {
       }
       cartSelectionsRef.current = restored;
       setCartSelections(restored);
-      if (parsed.shift && SHIFT_OPTIONS.some((item) => item.key === parsed.shift)) {
-        setShift(parsed.shift);
+      if (typeof parsed.shift === "string" && parsed.shift.trim()) {
+        setShift(parsed.shift.trim().toLowerCase());
       }
       if (typeof parsed.keyword === "string") {
         setKeyword(parsed.keyword);
@@ -407,7 +414,7 @@ export default function OrderPage() {
     menuRequestRef.current = requestId;
     setMenuLoading(true);
 
-    apiFetchJson<{ items: MenuItem[]; subcategories?: string[] }>(`/api/menu?shift=${shift}`, {
+    apiFetchJson<{ items: MenuItem[]; subcategories?: string[]; majorCategories?: MajorCategoryOption[]; shift?: string }>(`/api/menu?shift=${encodeURIComponent(shift)}`, {
       useAuth: false,
       signal: controller.signal,
       timeoutMs: 5000,
@@ -416,6 +423,22 @@ export default function OrderPage() {
       .then((data) => {
         if (requestId !== menuRequestRef.current) return;
         const items = data.items || [];
+        const majorCategories = Array.isArray(data.majorCategories)
+          ? data.majorCategories
+            .map((row) => ({
+              key: String(row?.key || "").trim().toLowerCase(),
+              label_en: String(row?.label_en || "").trim(),
+              label_zh: String(row?.label_zh || "").trim()
+            }))
+            .filter((row) => row.key && row.label_en && row.label_zh)
+          : [];
+        if (majorCategories.length > 0) {
+          setShiftOptions(majorCategories);
+        }
+        const nextShift = String(data.shift || "").trim().toLowerCase();
+        if (nextShift && nextShift !== shift) {
+          setShift(nextShift);
+        }
         const subcategories = Array.isArray(data.subcategories)
           ? data.subcategories.map((value) => String(value || "").trim()).filter(Boolean)
           : [];
@@ -489,6 +512,12 @@ export default function OrderPage() {
       menuMetaRef.current.set(item.id, item);
     }
   }, [menu, shift]);
+
+  useEffect(() => {
+    if (shiftOptions.length === 0) return;
+    if (shiftOptions.some((item) => item.key === shift)) return;
+    setShift(shiftOptions[0].key);
+  }, [shiftOptions, shift]);
 
   useEffect(() => {
     if (!paramsReady || !tableNo) return;
@@ -685,9 +714,9 @@ export default function OrderPage() {
   }
 
   function shiftLabel(value: ShiftKey) {
-    const option = SHIFT_OPTIONS.find((item) => item.key === value);
+    const option = shiftOptions.find((item) => item.key === value);
     if (!option) return value;
-    return lang === "en" ? option.en : option.zh;
+    return lang === "en" ? option.label_en : option.label_zh;
   }
 
   async function loadBill() {
@@ -1235,7 +1264,7 @@ export default function OrderPage() {
 
         <Card className={styles.shiftPanel}>
           <div className={styles.shiftRow}>
-            {SHIFT_OPTIONS.map((option) => (
+            {shiftOptions.map((option) => (
               <Chip key={option.key} active={shift === option.key} onClick={() => setShift(option.key)}>
                 {shiftLabel(option.key)}
               </Chip>
