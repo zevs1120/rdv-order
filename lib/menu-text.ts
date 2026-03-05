@@ -63,6 +63,8 @@ export function shortCategoryLabel(text: string | null | undefined, lang: Lang) 
   if (!localized) return "";
 
   if (lang === "zh") {
+    if (localized.includes("马尼拉")) return "马尼拉";
+    if (localized.includes("海岛遐想")) return "海岛遐想";
     return localized;
   }
 

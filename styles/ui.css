@@ -234,8 +234,9 @@
   background: #fff;
   box-shadow: var(--shadow-2);
   max-height: min(70dvh, 620px);
-  display: grid;
-  grid-template-rows: auto minmax(0, 1fr) auto;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
 .ui-sheet__handle {
@@ -250,12 +251,16 @@
   padding: 0 var(--space-3) var(--space-2);
   font-size: var(--font-section);
   font-weight: 650;
+  line-height: 1.28;
+  position: relative;
+  z-index: 1;
 }
 
 .ui-sheet__body {
   overflow: auto;
-  padding: 0 var(--space-3) var(--space-3);
+  padding: 2px var(--space-3) var(--space-3);
   min-height: 0;
+  flex: 1 1 auto;
 }
 
 .ui-sheet__footer {

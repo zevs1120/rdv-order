@@ -123,6 +123,7 @@ cp .env.example .env.local
 \i db/migrations/012_move_beverages_to_beverage_shift.sql
 \i db/migrations/013_move_coffee_to_beverage_shift.sql
 \i db/migrations/014_performance_indexes_mobile_scale.sql
+\i db/migrations/017_remove_cocktail_placeholder_items.sql
 ```
 
 5. 启动

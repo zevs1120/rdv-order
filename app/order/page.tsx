@@ -38,6 +38,7 @@ type BillItem = {
 type BillOrder = {
   id: string;
   status: string;
+  cancelled_at?: string | null;
   created_at: string;
   item_amount: number;
   charge_amount: number;
@@ -84,6 +85,7 @@ type MenuCachePayload = {
 };
 
 const MENU_CACHE_TTL_MS = 6 * 60 * 60 * 1000;
+const MENU_CACHE_VERSION = 2;
 
 const SHIFT_OPTIONS: Array<{ key: ShiftKey; zh: string; en: string }> = [
   { key: "breakfast", zh: "早餐", en: "Breakfast" },
@@ -117,6 +119,7 @@ export default function OrderPage() {
   const [printingBillReceipt, setPrintingBillReceipt] = useState(false);
   const [billItems, setBillItems] = useState<BillItem[]>([]);
   const [billOrders, setBillOrders] = useState<BillOrder[]>([]);
+  const [returningItemKey, setReturningItemKey] = useState("");
   const [billTotal, setBillTotal] = useState(0);
   const [billQty, setBillQty] = useState(0);
   const [showAddDish, setShowAddDish] = useState(false);
@@ -167,7 +170,7 @@ export default function OrderPage() {
 
   function readMenuCache(shiftKey: ShiftKey): MenuItem[] | null {
     if (typeof window === "undefined") return null;
-    const key = `rdv_menu_cache:${shiftKey}`;
+    const key = `rdv_menu_cache:v${MENU_CACHE_VERSION}:${shiftKey}`;
     try {
       const raw = sessionStorage.getItem(key);
       if (!raw) return null;
@@ -183,7 +186,7 @@ export default function OrderPage() {
 
   function writeMenuCache(shiftKey: ShiftKey, items: MenuItem[]) {
     if (typeof window === "undefined") return;
-    const key = `rdv_menu_cache:${shiftKey}`;
+    const key = `rdv_menu_cache:v${MENU_CACHE_VERSION}:${shiftKey}`;
     const payload: MenuCachePayload = {
       updatedAt: Date.now(),
       items: items.map((item) => stripTransientFields(item))
@@ -658,6 +661,55 @@ export default function OrderPage() {
       setError(err.message || t("order.printReceiptFailed", "Failed to print receipt"));
     } finally {
       setPrintingBillReceipt(false);
+    }
+  }
+
+  async function returnDish(orderId: string, item: BillItem) {
+    if (!canRunAction()) return;
+
+    const input = window.prompt(
+      lang === "en"
+        ? `Return qty for ${localizeMenuText(item.name, lang)} (max ${item.qty})`
+        : `${localizeMenuText(item.name, lang)} 退菜数量（最多 ${item.qty}）`,
+      "1"
+    );
+    if (!input) return;
+
+    const qty = Number(input);
+    if (!Number.isInteger(qty) || qty <= 0) {
+      setError(lang === "en" ? "Invalid return quantity" : "退菜数量无效");
+      return;
+    }
+    if (qty > item.qty) {
+      setError(lang === "en" ? "Return quantity exceeds ordered quantity" : "退菜数量超过已点数量");
+      return;
+    }
+
+    setError("");
+    const opKey = `${orderId}:${item.menu_item_id}`;
+    setReturningItemKey(opKey);
+    try {
+      await apiFetchJson(`/api/orders/${orderId}/return-item`, {
+        method: "POST",
+        body: {
+          menuItemId: item.menu_item_id,
+          qty,
+          reason: "manual correction"
+        },
+        timeoutMs: 7000,
+        retries: 0
+      });
+      billCacheRef.current = null;
+      await loadBill();
+      setToast({
+        message: lang === "en"
+          ? `Returned ${localizeMenuText(item.name, lang)} x${qty}`
+          : `已退菜 ${localizeMenuText(item.name, lang)} x${qty}`
+      });
+    } catch (err: any) {
+      setError(err.message || (lang === "en" ? "Failed to return dish" : "退菜失败"));
+    } finally {
+      setReturningItemKey("");
     }
   }
 
@@ -1160,6 +1212,53 @@ export default function OrderPage() {
           <strong>{t("order.billQty", "Total Qty")}: {billQty}</strong>
           <strong>{t("order.billAmount", "Total Amount")}: ₱{billTotal}</strong>
         </div>
+
+        {!billLoading && billOrders.length > 0 ? (
+          <div className="stack" style={{ marginTop: 12 }}>
+            <strong>{lang === "en" ? "Order Details (Return Dish)" : "订单明细（退菜）"}</strong>
+            {billOrders.map((order) => {
+              const canReturn = !order.cancelled_at && ["submitted", "preparing", "served"].includes(order.status);
+              return (
+                <div key={`bill-order-${order.id}`} className="panel stack" style={{ padding: 10 }}>
+                  <div className="row" style={{ justifyContent: "space-between", alignItems: "center" }}>
+                    <span>#{order.id.slice(0, 8)} · {order.status}</span>
+                    <strong>₱{order.total_amount}</strong>
+                  </div>
+                  {(order.items || []).map((item) => {
+                    const opKey = `${order.id}:${item.menu_item_id}`;
+                    return (
+                      <div
+                        key={`bill-order-item-${order.id}-${item.menu_item_id}-${item.note || ""}`}
+                        className="row"
+                        style={{ justifyContent: "space-between", alignItems: "center", gap: 8 }}
+                      >
+                        <div className="stack" style={{ gap: 2 }}>
+                          <span>{localizeMenuText(item.name, lang)} x{item.qty}</span>
+                          {item.note ? <span className="muted">{t("order.noteLabel", "Note")}: {item.note}</span> : null}
+                        </div>
+                        <div className="row" style={{ gap: 8, alignItems: "center" }}>
+                          <span>₱{item.amount}</span>
+                          {canReturn ? (
+                            <button
+                              type="button"
+                              className="secondary compact-btn"
+                              disabled={returningItemKey === opKey}
+                              onClick={() => { void returnDish(order.id, item); }}
+                            >
+                              {returningItemKey === opKey
+                                ? (lang === "en" ? "Returning..." : "退菜中...")
+                                : (lang === "en" ? "Return" : "退菜")}
+                            </button>
+                          ) : null}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            })}
+          </div>
+        ) : null}
       </BottomSheet>
 
       <BottomSheet
