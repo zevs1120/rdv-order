@@ -617,12 +617,6 @@ export default function OrderPage() {
     setQty(item.id, previousQty + 1);
     setNoteSheetOpen(false);
     setCartSheetOpen(true);
-    const label = localizeMenuText(item.name, lang);
-    setToast({
-      message: lang === "en" ? `Added ${label} x1` : `已添加 ${label} x1`,
-      actionLabel: lang === "en" ? "Undo" : "撤销",
-      onAction: () => setQty(item.id, previousQty)
-    });
   }
 
   function closeNoteSheet(shouldSaveInput = true) {
