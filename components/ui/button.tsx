@@ -6,6 +6,7 @@ type Props = ButtonHTMLAttributes<HTMLButtonElement> & {
   variant?: Variant;
   fullWidth?: boolean;
   loading?: boolean;
+  disableWhenLoading?: boolean;
   iconLeft?: ReactNode;
   iconRight?: ReactNode;
 };
@@ -14,6 +15,7 @@ export function Button({
   variant = "primary",
   fullWidth = false,
   loading = false,
+  disableWhenLoading = true,
   iconLeft,
   iconRight,
   className = "",
@@ -30,8 +32,8 @@ export function Button({
   ].filter(Boolean).join(" ");
 
   return (
-    <button className={classes} disabled={disabled || loading} {...rest}>
-      {iconLeft ? <span className="ui-btn__icon">{iconLeft}</span> : null}
+    <button className={classes} disabled={disabled || (loading && disableWhenLoading)} {...rest}>
+      {loading ? <span className="ui-btn__spinner" aria-hidden="true" /> : (iconLeft ? <span className="ui-btn__icon">{iconLeft}</span> : null)}
       <span>{children}</span>
       {iconRight ? <span className="ui-btn__icon">{iconRight}</span> : null}
     </button>

@@ -79,6 +79,12 @@ type BillCachePayload = {
 };
 
 type NoteMode = "more" | "no";
+type SubmitUiState = "idle" | "loading" | "success" | "error";
+type ToastState = {
+  message: string;
+  actionLabel?: string;
+  onAction?: () => void;
+};
 type MenuCachePayload = {
   updatedAt: number;
   items: MenuItem[];
@@ -107,6 +113,9 @@ export default function OrderPage() {
   const [menu, setMenu] = useState<MenuItem[]>([]);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [submitState, setSubmitState] = useState<SubmitUiState>("idle");
+  const [submitNotice, setSubmitNotice] = useState("");
+  const [submitPressed, setSubmitPressed] = useState(false);
   const [menuLoading, setMenuLoading] = useState(false);
   const [shift, setShift] = useState<ShiftKey>("lunch");
   const [keyword, setKeyword] = useState("");
@@ -137,7 +146,7 @@ export default function OrderPage() {
   const [noteInput, setNoteInput] = useState("");
   const [cartSheetOpen, setCartSheetOpen] = useState(false);
   const [actionMenuOpen, setActionMenuOpen] = useState(false);
-  const [toast, setToast] = useState<{ message: string; undo?: () => void } | null>(null);
+  const [toast, setToast] = useState<ToastState | null>(null);
 
   const menuCacheRef = useRef<Partial<Record<ShiftKey, MenuItem[]>>>({});
   const menuRequestRef = useRef(0);
@@ -148,12 +157,39 @@ export default function OrderPage() {
   const draftRef = useRef<OrderDraft | null>(null);
   const draftSerializedRef = useRef("");
   const submitInFlightRef = useRef(false);
+  const submitClickCountRef = useRef(0);
+  const submitAttemptRef = useRef(0);
+  const submitResetTimerRef = useRef<number | null>(null);
+  const submitPressedTimerRef = useRef<number | null>(null);
   const lastSubmittedSignatureRef = useRef("");
   const lastSubmittedAtRef = useRef(0);
   const actionMenuRef = useRef<HTMLDivElement | null>(null);
   const isMergedTable = tableNo.includes("+");
   const canRunAction = useActionGuard();
   const deferredKeyword = useDeferredValue(keyword);
+
+  function debugSubmit(stage: string, payload: Record<string, unknown> = {}) {
+    if (process.env.NODE_ENV === "production") return;
+    console.info("[submit-order]", {
+      stage,
+      time: new Date().toISOString(),
+      tableNo,
+      guests,
+      cartCount: cart.length,
+      ...payload
+    });
+  }
+
+  function resetSubmitStateLater(ms = 1200) {
+    if (submitResetTimerRef.current) {
+      window.clearTimeout(submitResetTimerRef.current);
+    }
+    submitResetTimerRef.current = window.setTimeout(() => {
+      setSubmitState("idle");
+      setSubmitNotice("");
+      submitResetTimerRef.current = null;
+    }, ms);
+  }
 
   function stripTransientFields(item: MenuItem): MenuItem {
     return {
@@ -584,7 +620,8 @@ export default function OrderPage() {
     const label = localizeMenuText(item.name, lang);
     setToast({
       message: lang === "en" ? `Added ${label} x1` : `已添加 ${label} x1`,
-      undo: () => setQty(item.id, previousQty)
+      actionLabel: lang === "en" ? "Undo" : "撤销",
+      onAction: () => setQty(item.id, previousQty)
     });
   }
 
@@ -784,15 +821,52 @@ export default function OrderPage() {
   }
 
   async function submitOrder() {
-    if (!canRunAction()) return;
-    if (submitInFlightRef.current || loading) return;
+    submitClickCountRef.current += 1;
+    debugSubmit("click", { clickCount: submitClickCountRef.current, submitState });
+
+    if (submitInFlightRef.current || submitState === "loading") {
+      const waitMsg = t("order.submitInProgressToast", "Submitting... please wait");
+      setToast({ message: waitMsg });
+      setSubmitNotice(waitMsg);
+      debugSubmit("blocked_inflight", { clickCount: submitClickCountRef.current });
+      return;
+    }
+
     setError("");
+    setSubmitNotice("");
+    if (submitResetTimerRef.current) {
+      window.clearTimeout(submitResetTimerRef.current);
+      submitResetTimerRef.current = null;
+    }
+
+    if (typeof navigator !== "undefined" && navigator.onLine === false) {
+      const offlineMsg = t("order.submitOffline", "You are offline. Please reconnect and retry.");
+      setSubmitState("error");
+      setSubmitNotice(offlineMsg);
+      setError(offlineMsg);
+      setToast({
+        message: offlineMsg,
+        actionLabel: lang === "en" ? "Retry" : "重试",
+        onAction: () => { void submitOrder(); }
+      });
+      debugSubmit("blocked_offline");
+      return;
+    }
+
     if (!tableNo) {
-      setError(t("order.tableMissing", "Table number is missing. Please reselect table."));
+      const msg = t("order.tableMissing", "Table number is missing. Please reselect table.");
+      setSubmitState("error");
+      setSubmitNotice(msg);
+      setError(msg);
+      debugSubmit("blocked_no_table");
       return;
     }
     if (cart.length === 0) {
-      setError(t("order.emptyCart", "Please select at least one dish"));
+      const msg = t("order.emptyCart", "Please select at least one dish");
+      setSubmitState("error");
+      setSubmitNotice(msg);
+      setError(msg);
+      debugSubmit("blocked_empty_cart");
       return;
     }
     if (
@@ -800,27 +874,45 @@ export default function OrderPage() {
       cartSignature === lastSubmittedSignatureRef.current &&
       Date.now() - lastSubmittedAtRef.current < 12000
     ) {
-      setError(t("order.duplicateBlocked", "Duplicate submit blocked. Please wait a moment."));
+      const msg = t("order.duplicateBlocked", "Duplicate submit blocked. Please wait a moment.");
+      setSubmitState("error");
+      setSubmitNotice(msg);
+      setError(msg);
+      setToast({ message: msg });
+      debugSubmit("blocked_recent_duplicate");
       return;
     }
 
+    submitAttemptRef.current += 1;
+    const attemptNo = submitAttemptRef.current;
+    const startedAt = performance.now();
     submitInFlightRef.current = true;
     setLoading(true);
+    setSubmitState("loading");
+    setSubmitNotice(t("order.submitProgress", "Submitting order, please wait..."));
     try {
       const requestId = typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
         ? crypto.randomUUID()
         : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+      const payload = {
+        tableNo,
+        guestCount: guests,
+        shift,
+        items: cart.map((c) => ({ menuItemId: c.id, qty: c.qty, note: c.note || null }))
+      };
+
+      debugSubmit("request_start", {
+        attemptNo,
+        idempotencyKey: requestId,
+        payload
+      });
+
       const body = await apiFetchJson<{ orderId: string; deduped?: boolean; dedupeReason?: string }>("/api/orders", {
         method: "POST",
         headers: { "X-Idempotency-Key": requestId },
-        body: {
-          tableNo,
-          guestCount: guests,
-          shift,
-          items: cart.map((c) => ({ menuItemId: c.id, qty: c.qty, note: c.note || null }))
-        },
-        timeoutMs: 8000,
-        retries: 1
+        body: payload,
+        timeoutMs: 12000,
+        retries: 0
       });
 
       setMenu((prev) => prev.map((item) => ({ ...item, qty: 0, note: undefined })));
@@ -834,6 +926,9 @@ export default function OrderPage() {
       lastSubmittedAtRef.current = Date.now();
       await loadBill();
       setShowBill(true);
+      setSubmitState("success");
+      setSubmitNotice("");
+      const latencyMs = Math.round(performance.now() - startedAt);
       if (body.deduped) {
         if (body.dedupeReason === "recent_duplicate") {
           setToast({ message: t("order.duplicateBlocked", "Duplicate submit blocked. Please wait a moment.") });
@@ -841,10 +936,44 @@ export default function OrderPage() {
           setToast({ message: t("order.submitDeduped", "Duplicate submission detected. Existing order reused.") });
         }
       } else {
-        setToast({ message: t("order.submitSuccess", "Order submitted. Print has been triggered.") });
+        setToast({
+          message: `${t("order.submitSuccess", "Order submitted. Print has been triggered.")} #${body.orderId.slice(0, 8)}`,
+          actionLabel: t("order.ordered", "Items"),
+          onAction: () => {
+            setShowBill(true);
+            void loadBill();
+          }
+        });
       }
+      debugSubmit("request_success", {
+        attemptNo,
+        idempotencyKey: requestId,
+        orderId: body.orderId,
+        deduped: Boolean(body.deduped),
+        dedupeReason: body.dedupeReason || "none",
+        latencyMs
+      });
+      resetSubmitStateLater();
     } catch (err: any) {
-      setError(err.message || t("order.submitFailed", "Failed to submit order"));
+      const message = String(err?.message || "").trim();
+      const normalized = message.includes("timed out")
+        ? t("order.submitTimeout", "Request timed out. Please check network and retry.")
+        : message.includes("offline")
+          ? t("order.submitOffline", "You are offline. Please reconnect and retry.")
+          : (message || t("order.submitFailed", "Failed to submit order"));
+      setSubmitState("error");
+      setSubmitNotice(normalized);
+      setError(normalized);
+      setToast({
+        message: `${t("order.submitFailed", "Failed to submit order")}: ${normalized}`,
+        actionLabel: lang === "en" ? "Retry" : "重试",
+        onAction: () => { void submitOrder(); }
+      });
+      debugSubmit("request_error", {
+        attemptNo,
+        latencyMs: Math.round(performance.now() - startedAt),
+        error: normalized
+      });
     } finally {
       setLoading(false);
       submitInFlightRef.current = false;
@@ -966,6 +1095,19 @@ export default function OrderPage() {
       setNoteSheetItemId("");
     }
   }, [noteSheetOpen, noteSheetItem]);
+
+  useEffect(() => {
+    return () => {
+      if (submitResetTimerRef.current) {
+        window.clearTimeout(submitResetTimerRef.current);
+        submitResetTimerRef.current = null;
+      }
+      if (submitPressedTimerRef.current) {
+        window.clearTimeout(submitPressedTimerRef.current);
+        submitPressedTimerRef.current = null;
+      }
+    };
+  }, []);
 
   return (
     <div className={styles.page}>
@@ -1120,10 +1262,36 @@ export default function OrderPage() {
           >
             {t("order.currentOrder", "Current Order")} · {cart.length} · ₱{total}
           </Button>
-          <Button onClick={submitOrder} loading={loading} disabled={cart.length === 0}>
-            {loading ? t("order.submitting", "Submitting...") : t("order.submit", "Submit Order")}
+          <Button
+            onClick={() => { void submitOrder(); }}
+            onPointerDown={() => {
+              setSubmitPressed(true);
+              if (submitPressedTimerRef.current) {
+                window.clearTimeout(submitPressedTimerRef.current);
+              }
+              submitPressedTimerRef.current = window.setTimeout(() => {
+                setSubmitPressed(false);
+                submitPressedTimerRef.current = null;
+              }, 90);
+            }}
+            loading={submitState === "loading"}
+            disableWhenLoading={false}
+            disabled={cart.length === 0}
+            className={`${styles.submitBtn} ${submitPressed ? styles.submitBtnPressed : ""}`}
+          >
+            {submitState === "loading" ? t("order.submitting", "Submitting...") : t("order.submit", "Submit Order")}
           </Button>
         </Card>
+        {submitState === "loading" ? (
+          <div className={styles.submitProgressHint}>
+            {submitNotice || t("order.submitProgress", "Submitting order, please wait...")}
+          </div>
+        ) : null}
+        {submitState === "error" && submitNotice ? (
+          <div className={styles.submitErrorHint}>
+            {submitNotice} · {t("order.submitRetryHint", "Tap Submit to retry")}
+          </div>
+        ) : null}
       </div>
 
       <BottomSheet
@@ -1348,8 +1516,8 @@ export default function OrderPage() {
       <Toast
         open={Boolean(toast)}
         message={toast?.message || ""}
-        actionLabel={toast?.undo ? (lang === "en" ? "Undo" : "撤销") : undefined}
-        onAction={toast?.undo}
+        actionLabel={toast?.actionLabel}
+        onAction={toast?.onAction}
         onClose={() => setToast(null)}
       />
 

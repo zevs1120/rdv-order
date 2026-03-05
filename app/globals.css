@@ -514,13 +514,17 @@ button:disabled {
   z-index: 2;
   align-self: end;
   width: 100%;
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-end;
-  gap: 8px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-auto-rows: min-content;
+  justify-items: start;
+  align-content: end;
+  gap: 4px;
 }
 
 .table-card__line {
+  display: block;
+  width: 100%;
   font-size: 13px;
   font-weight: 660;
   line-height: 1.15;
@@ -2334,7 +2338,11 @@ a {
 }
 
 .table-card__meta {
-  min-height: 24px;
+  min-height: auto;
+}
+
+.table-card.is-open .table-card__meta {
+  min-height: 62px;
 }
 
 .manage-panel {
@@ -2409,5 +2417,11 @@ a {
 
   .table-card__line {
     font-size: 12px !important;
+    line-height: 1.22 !important;
+  }
+
+  .table-card.is-open .table-card__meta {
+    gap: 3px !important;
+    min-height: 56px !important;
   }
 }

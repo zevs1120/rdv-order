@@ -6,7 +6,7 @@ import BottomNav from "../components/bottom-nav";
 import { apiFetchJson, getStoredAuth } from "../../lib/client-api";
 import { useI18n } from "../components/i18n-provider";
 import { useActionGuard } from "../../lib/use-action-guard";
-import { AppBar, BottomSheet, Button, Card, Chip, EmptyState, IconButton, Skeleton } from "../../components/ui";
+import { AppBar, BottomSheet, Button, Card, EmptyState, IconButton, Skeleton } from "../../components/ui";
 
 type TableItem = {
   tableNo: string;
@@ -15,10 +15,8 @@ type TableItem = {
   status: "open" | "idle";
   guestCount: number | null;
   openedAt?: string | null;
+  currentAmount?: number;
 };
-
-const FILTERS = ["all", "open", "idle"] as const;
-type FilterKey = (typeof FILTERS)[number];
 
 export default function TablesPage() {
   const router = useRouter();
@@ -34,7 +32,6 @@ export default function TablesPage() {
   const [selectMode, setSelectMode] = useState(false);
   const [mergeSelection, setMergeSelection] = useState<string[]>([]);
   const [mergeGuestCount, setMergeGuestCount] = useState(4);
-  const [filter, setFilter] = useState<FilterKey>("all");
   const [, setMinuteTick] = useState(0);
   const canRunAction = useActionGuard();
 
@@ -169,20 +166,19 @@ export default function TablesPage() {
     const m = mins % 60;
     return `${h}h ${m}m`;
   }
-
-  const filteredTables = useMemo(() => {
-    if (filter === "all") return tables;
-    return tables.filter((table) => table.status === filter);
-  }, [filter, tables]);
+  
+  function formatPhp(amount?: number) {
+    return `₱${Math.max(0, Math.round(Number(amount || 0))).toLocaleString("en-US")}`;
+  }
 
   const columns = useMemo(() => {
     const grouped: TableItem[][] = [[], [], []];
-    for (const table of filteredTables) {
+    for (const table of tables) {
       const index = Math.min(2, Math.max(0, table.column - 1));
       grouped[index].push(table);
     }
     return grouped;
-  }, [filteredTables]);
+  }, [tables]);
 
   return (
     <div className="stack tables-screen">
@@ -204,13 +200,6 @@ export default function TablesPage() {
             >
               {selectMode ? (lang === "en" ? "Done" : "完成") : (lang === "en" ? "Multi-select" : "拼桌选择")}
             </Button>
-          </div>
-        }
-        subline={
-          <div className="row tables-filter-row">
-            <Chip active={filter === "all"} onClick={() => setFilter("all")}>{lang === "en" ? "All" : "全部"}</Chip>
-            <Chip active={filter === "open"} onClick={() => setFilter("open")}>{lang === "en" ? "In Service" : "服务中"}</Chip>
-            <Chip active={filter === "idle"} onClick={() => setFilter("idle")}>{lang === "en" ? "Idle" : "空闲"}</Chip>
           </div>
         }
       />
@@ -245,6 +234,7 @@ export default function TablesPage() {
                         <>
                           <div className="table-card__line">{lang === "en" ? "Guests" : "人数"}: {table.guestCount || 1}</div>
                           <div className="table-card__line">{lang === "en" ? "Time" : "时长"}: {openDuration(table.openedAt)}</div>
+                          <div className="table-card__line">{lang === "en" ? "Bill" : "账单"}: {formatPhp(table.currentAmount)}</div>
                         </>
                       ) : (
                         <div className="table-card__idleHint">{lang === "en" ? "Tap to open" : "点击开台"}</div>
@@ -258,10 +248,10 @@ export default function TablesPage() {
         </div>
       )}
 
-      {!loadingTables && filteredTables.length === 0 ? (
+      {!loadingTables && tables.length === 0 ? (
         <EmptyState
-          title={lang === "en" ? "No table in this filter" : "当前筛选下没有桌台"}
-          description={lang === "en" ? "Try another status filter" : "请切换筛选查看"}
+          title={lang === "en" ? "No table found" : "未找到桌台"}
+          description={lang === "en" ? "Please refresh and try again" : "请刷新后重试"}
         />
       ) : null}
 

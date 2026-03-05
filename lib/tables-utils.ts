@@ -22,6 +22,7 @@ export type OpenSessionRow = {
   guest_count: number;
   opened_at: string;
   table_no: string | null;
+  current_amount?: number | string | null;
 };
 
 export function splitTableNo(raw: string) {
@@ -46,6 +47,7 @@ export function buildTables(rows: OpenSessionRow[]) {
     status: "open";
     guestCount: number;
     openedAt: string;
+    currentAmount: number;
   }> = [];
 
   for (const sessionRows of group.values()) {
@@ -80,7 +82,8 @@ export function buildTables(rows: OpenSessionRow[]) {
       column: TABLE_COLUMN.get(primary) || 1,
       status: "open",
       guestCount: sessionRows[0].guest_count,
-      openedAt: sessionRows[0].opened_at
+      openedAt: sessionRows[0].opened_at,
+      currentAmount: Math.max(0, Number(sessionRows[0].current_amount || 0) || 0)
     });
   }
 
@@ -100,7 +103,8 @@ export function buildTables(rows: OpenSessionRow[]) {
           column: open.column,
           status: "open" as const,
           guestCount: open.guestCount,
-          openedAt: open.openedAt
+          openedAt: open.openedAt,
+          currentAmount: open.currentAmount
         };
       }
       return {
@@ -109,7 +113,8 @@ export function buildTables(rows: OpenSessionRow[]) {
         column: base.column,
         status: "idle" as const,
         guestCount: null,
-        openedAt: null
+        openedAt: null,
+        currentAmount: 0
       };
     });
 }

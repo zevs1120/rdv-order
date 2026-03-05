@@ -12,12 +12,31 @@
   transition: background-color 120ms ease, border-color 120ms ease, color 120ms ease, transform 80ms ease;
 }
 
+.ui-btn--loading:not(:disabled) {
+  cursor: progress;
+}
+
 .ui-btn:active:not(:disabled) {
   transform: scale(0.98);
 }
 
 .ui-btn:disabled {
   opacity: 0.6;
+}
+
+.ui-btn__spinner {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  animation: ui-spin 760ms linear infinite;
+}
+
+@keyframes ui-spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .ui-btn--full {
