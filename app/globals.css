@@ -186,7 +186,7 @@ canvas {
 }
 
 button {
-  border: 1px solid var(--brand);
+  border: 1px solid color-mix(in srgb, var(--brand) 46%, #fff);
   padding: 8px 11px;
   background: var(--brand);
   color: #fff;
@@ -197,14 +197,16 @@ button {
   will-change: transform, opacity;
   touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;
-  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.08);
+  box-shadow: 0 4px 10px rgba(127, 15, 22, 0.16);
+  border-radius: 14px;
+  transition: transform 120ms ease, filter 120ms ease, box-shadow 140ms ease, border-color 140ms ease;
 }
 
 button.secondary {
-  border-color: var(--line-strong);
-  background: #fff;
+  border-color: var(--glass-border);
+  background: color-mix(in srgb, #ffffff 90%, #f8fafc);
   color: var(--ink);
-  box-shadow: none;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
 }
 
 button.danger-outline {
@@ -218,7 +220,8 @@ button:not(:disabled):hover {
 }
 
 button:not(:disabled):active {
-  transform: translateY(0.5px);
+  transform: scale(0.98);
+  filter: brightness(0.98);
 }
 
 button:disabled {
@@ -227,10 +230,11 @@ button:disabled {
 }
 
 .compact-btn {
-  min-height: 36px;
+  min-height: 44px;
   padding: 3px 8px;
   font-size: 13px;
   font-weight: 620;
+  border-radius: 12px;
 }
 
 .tag {

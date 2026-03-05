@@ -10,6 +10,7 @@ function buildOrderText(signal) {
   const tp = signal.take_profit_levels?.[0]?.price ?? signal.take_profit;
   return [
     `symbol: ${signal.symbol}`,
+    `asset_class: ${signal.asset_class || (signal.market === 'CRYPTO' ? 'CRYPTO' : 'US_STOCK')}`,
     `market: ${signal.market}`,
     `side: ${signal.direction}`,
     `entry: ${signal.entry_zone?.low ?? signal.entry_min} - ${signal.entry_zone?.high ?? signal.entry_max}`,
@@ -19,6 +20,30 @@ function buildOrderText(signal) {
     `status: ${signal.status}`,
     `signal_id: ${signal.signal_id}`
   ].join('\n');
+}
+
+function assetLabel(signal, t) {
+  const cls = signal.asset_class || (signal.market === 'CRYPTO' ? 'CRYPTO' : 'US_STOCK');
+  if (cls === 'OPTIONS') return t('common.options');
+  if (cls === 'US_STOCK') return t('common.stocks');
+  return t('common.crypto');
+}
+
+function payloadHint(signal) {
+  if (!signal.payload || typeof signal.payload !== 'object') return '--';
+  if (signal.payload.kind === 'OPTIONS_INTRADAY') {
+    const contract = signal.payload.data?.option_contract;
+    if (!contract) return 'Options contract';
+    return `${contract.side} ${contract.strike} (${contract.dte}D)`;
+  }
+  if (signal.payload.kind === 'STOCK_SWING') {
+    return `Swing ${signal.payload.data?.horizon || '--'}`;
+  }
+  if (signal.payload.kind === 'CRYPTO') {
+    const m = signal.payload.data?.perp_metrics;
+    return `Funding ${m?.funding_rate_current ?? '--'} / Basis ${m?.basis_bps ?? '--'}bps`;
+  }
+  return '--';
 }
 
 export default function SignalCard({
@@ -44,7 +69,7 @@ export default function SignalCard({
         <div>
           <h3 className="signal-symbol">{signal.symbol}</h3>
           <p className="signal-meta">
-            {signal.market === 'US' ? t('common.usStocks') : t('common.crypto')} · {formatDateTime(signal.created_at ?? signal.generated_at, locale)}
+            {assetLabel(signal, t)} · {formatDateTime(signal.created_at ?? signal.generated_at, locale)}
           </p>
         </div>
         <button
@@ -73,6 +98,10 @@ export default function SignalCard({
       </div>
 
       <div className="detail-list">
+        <div className="detail-row">
+          <span className="detail-label">{t('signals.assetPayload')}</span>
+          <span className="detail-value">{payloadHint(signal)}</span>
+        </div>
         <div className="detail-row">
           <span className="detail-label">{t('signals.freshness')}</span>
           <span className="detail-value">{formatDateTime(createdAt, locale)}</span>

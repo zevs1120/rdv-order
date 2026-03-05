@@ -22,8 +22,12 @@ const pairs: Pair[] = [
   { zh: "特调饮品", en: "Special Drinks" },
   { zh: "奶昔", en: "Shakes" },
   { zh: "咖啡", en: "Coffee" },
-  { zh: "马尼拉远航特调", en: "Signature - Galleon Echoes" },
-  { zh: "海岛遐想特调", en: "Signature - Island Reverie" },
+  { zh: "茶", en: "Tea" },
+  { zh: "英式早餐茶", en: "English Breakfast Tea" },
+  { zh: "帆船回响", en: "Signature - Galleon Echoes" },
+  { zh: "海岛白日梦", en: "Signature - Island Reverie" },
+  { zh: "帆船回响", en: "Galleon Echoes" },
+  { zh: "海岛白日梦", en: "Island Reverie" },
   { zh: "临时菜", en: "Temporary" },
   { zh: "早餐套餐 A", en: "Breakfast Set A" },
   { zh: "早餐套餐 B", en: "Breakfast Set B" },
@@ -63,8 +67,8 @@ export function shortCategoryLabel(text: string | null | undefined, lang: Lang) 
   if (!localized) return "";
 
   if (lang === "zh") {
-    if (localized.includes("马尼拉")) return "马尼拉";
-    if (localized.includes("海岛遐想")) return "海岛遐想";
+    if (localized.includes("帆船回响")) return "帆船回响";
+    if (localized.includes("海岛白日梦")) return "海岛白日梦";
     return localized;
   }
 

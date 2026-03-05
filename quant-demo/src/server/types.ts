@@ -1,7 +1,8 @@
 export type Market = 'US' | 'CRYPTO';
 export type Timeframe = '1m' | '5m' | '15m' | '1h' | '1d';
+export type AssetClass = 'OPTIONS' | 'US_STOCK' | 'CRYPTO';
 export type SignalDirection = 'LONG' | 'SHORT' | 'FLAT';
-export type SignalStatus = 'NEW' | 'TRIGGERED' | 'EXPIRED' | 'INVALIDATED';
+export type SignalStatus = 'NEW' | 'TRIGGERED' | 'EXPIRED' | 'INVALIDATED' | 'CLOSED';
 export type RiskProfileKey = 'conservative' | 'balanced' | 'aggressive';
 export type ExecutionMode = 'PAPER' | 'LIVE';
 export type ExecutionAction = 'EXECUTE' | 'DONE' | 'CLOSE';
@@ -57,10 +58,68 @@ export interface RetryConfig {
   baseDelayMs: number;
 }
 
+export interface OptionsIntradayPayload {
+  underlying: {
+    symbol: string;
+    spot_price: number;
+    session: 'PRE' | 'REG' | 'POST';
+  };
+  option_contract: {
+    side: 'CALL' | 'PUT';
+    expiry: string;
+    strike: number;
+    dte: number;
+    contract_symbol: string;
+  };
+  time_stop: {
+    eod_flatten: boolean;
+    latest_exit_utc: string;
+  };
+  greeks_iv: {
+    delta: number;
+    iv_percentile?: number;
+    expected_move?: number;
+  };
+}
+
+export interface StockSwingPayload {
+  horizon: 'SHORT' | 'MEDIUM' | 'LONG';
+  catalysts?: string[];
+}
+
+export interface CryptoPayload {
+  venue: 'BINANCE' | 'COINBASE' | 'OKX' | 'BYBIT' | 'KRAKEN';
+  instrument_type: 'SPOT' | 'PERP';
+  perp_metrics: {
+    funding_rate_current: number;
+    funding_rate_8h: number;
+    funding_rate_24h: number;
+    basis_bps: number;
+    basis_percentile: number;
+    open_interest?: number;
+    premium_index?: number;
+  };
+  flow_state: {
+    spot_led_breakout: boolean;
+    perp_led_breakout: boolean;
+    funding_state: 'NEUTRAL' | 'EXTREME';
+  };
+  leverage_suggestion: {
+    suggested_leverage: number;
+    capped_by_profile: boolean;
+  };
+}
+
+export type SignalPayload =
+  | { kind: 'OPTIONS_INTRADAY'; data: OptionsIntradayPayload }
+  | { kind: 'STOCK_SWING'; data: StockSwingPayload }
+  | { kind: 'CRYPTO'; data: CryptoPayload };
+
 export interface SignalContract {
   id: string;
   created_at: string;
   expires_at: string;
+  asset_class: AssetClass;
   market: Market;
   symbol: string;
   timeframe: string;
@@ -117,6 +176,7 @@ export interface SignalContract {
   execution_checklist: string[];
   tags: string[];
   status: SignalStatus;
+  payload: SignalPayload;
   references?: {
     chart_url?: string;
     docs_url?: string;
@@ -129,6 +189,7 @@ export interface SignalRecord {
   signal_id: string;
   created_at_ms: number;
   expires_at_ms: number;
+  asset_class: AssetClass;
   market: Market;
   symbol: string;
   timeframe: string;

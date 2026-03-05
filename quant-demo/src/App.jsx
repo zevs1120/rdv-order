@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
 import AboutModal from './components/AboutModal';
 import AiPage from './components/AiPage';
+import MarketTab from './components/MarketTab';
 import ProofTab from './components/ProofTab';
 import RiskTab from './components/RiskTab';
 import SignalsTab from './components/SignalsTab';
-import VelocityTab from './components/VelocityTab';
 import Skeleton from './components/Skeleton';
 import OnboardingFlow from './components/OnboardingFlow';
 import { useLocalStorage } from './hooks/useLocalStorage';
@@ -14,17 +14,17 @@ import { runQuantPipeline } from './engines/pipeline';
 
 const screenTabs = [
   { key: 'signals', icon: '◉', labelKey: 'tabs.signals' },
-  { key: 'proof', icon: '▦', labelKey: 'tabs.proof' },
+  { key: 'market', icon: '◎', labelKey: 'tabs.market' },
   { key: 'risk', icon: '⚑', labelKey: 'tabs.risk' },
-  { key: 'velocity', icon: '◍', labelKey: 'tabs.velocity' }
+  { key: 'proof', icon: '▦', labelKey: 'tabs.proof' }
 ];
 
 const navTabs = [
   { type: 'tab', key: 'signals', icon: '◉', labelKey: 'tabs.signals' },
-  { type: 'tab', key: 'proof', icon: '▦', labelKey: 'tabs.proof' },
-  { type: 'route', key: 'ai', icon: '✦', labelKey: 'chat.open' },
+  { type: 'tab', key: 'market', icon: '◎', labelKey: 'tabs.market' },
   { type: 'tab', key: 'risk', icon: '⚑', labelKey: 'tabs.risk' },
-  { type: 'tab', key: 'velocity', icon: '◍', labelKey: 'tabs.velocity' }
+  { type: 'tab', key: 'proof', icon: '▦', labelKey: 'tabs.proof' },
+  { type: 'route', key: 'ai', icon: '✦', labelKey: 'chat.open' }
 ];
 
 const initialData = {
@@ -33,6 +33,7 @@ const initialData = {
   trades: [],
   velocity: {},
   config: {},
+  market_modules: [],
   analytics: {}
 };
 
@@ -56,6 +57,7 @@ function mapExecutionToTrade(execution) {
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('signals');
+  const [assetClass, setAssetClass] = useLocalStorage('quant-demo-asset-class', 'US_STOCK');
   const [market, setMarket] = useState('US');
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState(initialData);
@@ -91,6 +93,14 @@ export default function App() {
     window.addEventListener('popstate', onPopState);
     return () => window.removeEventListener('popstate', onPopState);
   }, []);
+
+  useEffect(() => {
+    if (assetClass === 'CRYPTO' && market !== 'CRYPTO') {
+      setMarket('CRYPTO');
+    } else if (assetClass !== 'CRYPTO' && market !== 'US') {
+      setMarket('US');
+    }
+  }, [assetClass, market]);
 
   useEffect(() => {
     let mounted = true;
@@ -174,6 +184,7 @@ export default function App() {
       signalId: signal.signal_id,
       symbol: signal.symbol,
       market: signal.market,
+      assetClass: signal.asset_class || (signal.market === 'CRYPTO' ? 'CRYPTO' : 'US_STOCK'),
       timeframe: signal.timeframe || '',
       message: promptByIntent[intent] || promptByIntent.explain
     });
@@ -225,6 +236,8 @@ export default function App() {
         <SignalsTab
           market={market}
           setMarket={setMarket}
+          assetClass={assetClass}
+          setAssetClass={setAssetClass}
           signals={data.signals}
           loading={loading}
           watchlist={watchlist}
@@ -259,6 +272,28 @@ export default function App() {
       );
     }
 
+    if (activeTab === 'market') {
+      return !hasLoaded && loading ? (
+        <Skeleton lines={6} />
+      ) : (
+        <MarketTab
+          market={market}
+          setMarket={setMarket}
+          assetClass={assetClass}
+          setAssetClass={setAssetClass}
+          velocity={data.velocity}
+          modules={data.market_modules || []}
+          t={t}
+          lang={lang}
+          onExplainRisk={() =>
+            navigate(
+              `/ai?mode=market&market=${market}&assetClass=${assetClass}&symbol=${market === 'US' ? 'SPY' : 'BTC-USDT'}`
+            )
+          }
+        />
+      );
+    }
+
     if (activeTab === 'risk') {
       return !hasLoaded && loading ? (
         <Skeleton lines={6} />
@@ -267,21 +302,12 @@ export default function App() {
           config={data.config}
           t={t}
           lang={lang}
-          onExplain={() => navigate(`/ai?mode=risk&market=${market}`)}
+          onExplain={() => navigate(`/ai?mode=risk&market=${market}&assetClass=${assetClass}`)}
         />
       );
     }
 
-    return !hasLoaded && loading ? (
-      <Skeleton lines={6} />
-    ) : (
-      <VelocityTab
-        velocity={data.velocity}
-        t={t}
-        lang={lang}
-        onExplainRisk={() => navigate(`/ai?mode=market&market=${market}&symbol=${market === 'US' ? 'QQQ' : 'BTC-USDT'}`)}
-      />
-    );
+    return null;
   };
 
   return (
@@ -327,7 +353,11 @@ export default function App() {
           </span>
         </div>
 
-        <main className="main-content">{renderScreen()}</main>
+        <main className="main-content">
+          <div className="screen-transition" key={activeTab}>
+            {renderScreen()}
+          </div>
+        </main>
 
         <nav className="bottom-nav">
           {navTabs.map((item) =>
@@ -362,6 +392,7 @@ export default function App() {
         t={t}
         onComplete={(payload) => {
           setMarket(payload.market);
+          setAssetClass(payload.market === 'CRYPTO' ? 'CRYPTO' : 'US_STOCK');
           setWatchlist(payload.watchlist);
           setRiskProfileKey(payload.riskProfile);
           setOnboardingDone(true);

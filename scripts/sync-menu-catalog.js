@@ -131,21 +131,21 @@ const cocktailItems = [
   { name: "Aperol Spritz", price: 350, category: "Classic Cocktails", type: "single" },
   { name: "Whiskey Sour", price: 200, category: "Classic Cocktails", type: "single" },
 
-  { name: "Manila Dawn", price: 480, category: "Signature - Galleon Echoes", type: "single" },
-  { name: "Spice Voyage", price: 480, category: "Signature - Galleon Echoes", type: "single" },
-  { name: "Pacific Crossing", price: 480, category: "Signature - Galleon Echoes", type: "single" },
-  { name: "Acapulco Sunset", price: 480, category: "Signature - Galleon Echoes", type: "single" },
-  { name: "Sugarlandia (Don Papa Signature)", price: 520, category: "Signature - Galleon Echoes", type: "single" },
-  { name: "Flan de Cebu", price: 480, category: "Signature - Galleon Echoes", type: "single" },
-  { name: "Silent Passage (Mocktail)", price: 420, category: "Signature - Galleon Echoes", type: "single" },
+  { name: "Manila Dawn", price: 480, category: "Galleon Echoes", type: "single" },
+  { name: "Spice Voyage", price: 480, category: "Galleon Echoes", type: "single" },
+  { name: "Pacific Crossing", price: 480, category: "Galleon Echoes", type: "single" },
+  { name: "Acapulco Sunset", price: 480, category: "Galleon Echoes", type: "single" },
+  { name: "Sugarlandia (Don Papa Signature)", price: 520, category: "Galleon Echoes", type: "single" },
+  { name: "Flan de Cebu", price: 480, category: "Galleon Echoes", type: "single" },
+  { name: "Silent Passage (Mocktail)", price: 420, category: "Galleon Echoes", type: "single" },
 
-  { name: "Coral Bay Moon", price: 480, category: "Signature - Island Reverie", type: "single" },
-  { name: "Balete Whisper", price: 480, category: "Signature - Island Reverie", type: "single" },
-  { name: "White Sands", price: 480, category: "Signature - Island Reverie", type: "single" },
-  { name: "The Healer's Remedy", price: 480, category: "Signature - Island Reverie", type: "single" },
-  { name: "Crimson Enchanter (Don Papa Signature)", price: 520, category: "Signature - Island Reverie", type: "single" },
-  { name: "Mango Sticky Rice", price: 480, category: "Signature - Island Reverie", type: "single" },
-  { name: "Starlit Shores (Mocktail)", price: 420, category: "Signature - Island Reverie", type: "single" }
+  { name: "Coral Bay Moon", price: 480, category: "Island Reverie", type: "single" },
+  { name: "Balete Whisper", price: 480, category: "Island Reverie", type: "single" },
+  { name: "White Sands", price: 480, category: "Island Reverie", type: "single" },
+  { name: "The Healer's Remedy", price: 480, category: "Island Reverie", type: "single" },
+  { name: "Crimson Enchanter (Don Papa Signature)", price: 520, category: "Island Reverie", type: "single" },
+  { name: "Mango Sticky Rice", price: 480, category: "Island Reverie", type: "single" },
+  { name: "Starlit Shores (Mocktail)", price: 420, category: "Island Reverie", type: "single" }
 ];
 
 function rowsForInsert() {

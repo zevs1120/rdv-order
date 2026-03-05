@@ -1,5 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { formatDateTime, formatNumber } from '../utils/format';
+import GlassCard from './GlassCard';
+import GridOverlay from './GridOverlay';
+import NoiseOverlay from './NoiseOverlay';
+import Skeleton from './Skeleton';
 
 function randomId() {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
@@ -11,6 +15,7 @@ function readQuery() {
     signalId: params.get('signalId') || undefined,
     symbol: params.get('symbol') || undefined,
     market: params.get('market') || undefined,
+    assetClass: params.get('assetClass') || undefined,
     timeframe: params.get('timeframe') || undefined,
     mode: params.get('mode') || undefined,
     seed: params.get('message') || undefined
@@ -30,15 +35,29 @@ export default function AiPage({ userId, t, locale, onBack }) {
   const listRef = useRef(null);
   const didSeed = useRef(false);
 
+  const effectiveAssetClass = useMemo(
+    () => context.assetClass || signalDetail?.asset_class || (context.market === 'CRYPTO' ? 'CRYPTO' : 'US_STOCK'),
+    [context.assetClass, context.market, signalDetail]
+  );
+
   const quickActions = useMemo(
-    () => [
-      t('ai.quick.explainSignal'),
-      t('ai.quick.execute'),
-      t('ai.quick.failureModes'),
-      t('ai.quick.adjustRisk'),
-      t('ai.quick.summary3')
-    ],
-    [t]
+    () =>
+      effectiveAssetClass === 'OPTIONS'
+        ? [t('ai.quickOpt.explainContract'), t('ai.quickOpt.entryStopTp'), t('ai.quickOpt.eodPlan')]
+        : effectiveAssetClass === 'CRYPTO'
+          ? [t('ai.quickCr.explainFunding'), t('ai.quickCr.squeezeRisk'), t('ai.quickCr.executionTips')]
+          : [t('ai.quickSt.horizonPlan'), t('ai.quickSt.catalystRisk'), t('ai.quickSt.positionSizing')],
+    [effectiveAssetClass, t]
+  );
+
+  const visibleMessages = useMemo(
+    () => messages.filter((item) => item.role === 'user' || String(item.content || '').trim()),
+    [messages]
+  );
+
+  const showResponseSkeleton = useMemo(
+    () => streaming && !messages.some((item) => item.role === 'assistant' && String(item.content || '').trim()),
+    [messages, streaming]
   );
 
   useEffect(() => {
@@ -126,6 +145,7 @@ export default function AiPage({ userId, t, locale, onBack }) {
       signalId: context.signalId || signalDetail?.id,
       symbol: context.symbol || signalDetail?.symbol,
       market: context.market || signalDetail?.market,
+      assetClass: effectiveAssetClass,
       timeframe: context.timeframe || signalDetail?.timeframe
     };
 
@@ -200,7 +220,8 @@ export default function AiPage({ userId, t, locale, onBack }) {
 
   return (
     <div className="ai-page">
-      <div className="ai-grid-bg" />
+      <GridOverlay className="ai-grid-bg" />
+      <NoiseOverlay className="ai-noise-bg" />
       <div className="ai-shell">
         <header className="ai-topbar">
           <button type="button" className="ghost-btn" onClick={onBack}>
@@ -210,7 +231,7 @@ export default function AiPage({ userId, t, locale, onBack }) {
             <p className="brand">{t('ai.brand')}</p>
             <h1 className="ai-headline">{t('ai.title')}</h1>
           </div>
-          <button type="button" className="ghost-btn" onClick={() => setContextOpen((prev) => !prev)}>
+          <button type="button" className="ghost-btn ai-context-toggle" onClick={() => setContextOpen((prev) => !prev)}>
             {t('ai.contextTitle')}
           </button>
         </header>
@@ -287,7 +308,7 @@ export default function AiPage({ userId, t, locale, onBack }) {
         </div>
 
         <main className="ai-main">
-          <section className="ai-chat-panel">
+          <GlassCard as="section" className="ai-chat-panel">
             <div className="ai-chip-row">
               {quickActions.map((item) => (
                 <button
@@ -310,12 +331,20 @@ export default function AiPage({ userId, t, locale, onBack }) {
                   <p className="muted">{t('ai.emptySub')}</p>
                 </article>
               ) : (
-                messages.map((item) => (
+                visibleMessages.map((item) => (
                   <article key={item.id} className={`ai-bubble ai-${item.role}`}>
-                    {item.content || (item.role === 'assistant' && streaming ? `${t('chat.thinking')} ▌` : '')}
+                    {item.content}
                   </article>
                 ))
               )}
+              {showResponseSkeleton ? <Skeleton lines={2} compact className="ai-response-skeleton" /> : null}
+              {streaming ? (
+                <div className="ai-typing" aria-live="polite">
+                  <span />
+                  <span />
+                  <span />
+                </div>
+              ) : null}
             </div>
 
             {error ? <p className="chat-error">{error}</p> : null}
@@ -338,9 +367,9 @@ export default function AiPage({ userId, t, locale, onBack }) {
                 {streaming ? t('chat.sending') : t('chat.send')}
               </button>
             </form>
-          </section>
+          </GlassCard>
 
-          <aside className={`ai-context-panel ${contextOpen ? 'open' : ''}`}>
+          <GlassCard as="aside" className={`ai-context-panel ${contextOpen ? 'open' : ''}`}>
             <h3 className="card-title">{t('ai.contextTitle')}</h3>
             <div className="ai-context-grid">
               <div className="status-box">
@@ -350,6 +379,10 @@ export default function AiPage({ userId, t, locale, onBack }) {
               <div className="status-box">
                 <p className="muted">{t('common.market')}</p>
                 <h2>{signalDetail?.market || context.market || '--'}</h2>
+              </div>
+              <div className="status-box">
+                <p className="muted">{t('common.assetClass')}</p>
+                <h2>{effectiveAssetClass || '--'}</h2>
               </div>
               <div className="status-box">
                 <p className="muted">{t('ai.timeframe')}</p>
@@ -369,7 +402,7 @@ export default function AiPage({ userId, t, locale, onBack }) {
               </div>
             </div>
 
-            <article className="glass-card ai-params-card">
+            <GlassCard className="ai-params-card">
               <h4 className="card-title">{t('ai.keyParams')}</h4>
               <div className="detail-list">
                 <div className="detail-row">
@@ -401,8 +434,8 @@ export default function AiPage({ userId, t, locale, onBack }) {
                   {t('ai.profile')}: {riskProfile.profile_key || '--'} · {t('risk.dailyLoss')} {formatNumber(riskProfile.max_daily_loss, 2, locale)}%
                 </p>
               ) : null}
-            </article>
-          </aside>
+            </GlassCard>
+          </GlassCard>
         </main>
         <p className="ai-disclaimer">Disclaimer: educational, not financial advice.</p>
       </div>

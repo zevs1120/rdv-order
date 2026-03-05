@@ -90,6 +90,7 @@ CREATE TABLE IF NOT EXISTS signals (
   signal_id TEXT PRIMARY KEY,
   created_at_ms INTEGER NOT NULL,
   expires_at_ms INTEGER NOT NULL,
+  asset_class TEXT NOT NULL CHECK (asset_class IN ('OPTIONS', 'US_STOCK', 'CRYPTO')) DEFAULT 'CRYPTO',
   market TEXT NOT NULL CHECK (market IN ('US', 'CRYPTO')),
   symbol TEXT NOT NULL,
   timeframe TEXT NOT NULL,
@@ -126,13 +127,14 @@ CREATE TABLE IF NOT EXISTS signals (
   hit_rate_est REAL NOT NULL,
   sample_size INTEGER NOT NULL,
   expected_max_dd_est REAL,
-  status TEXT NOT NULL CHECK (status IN ('NEW', 'TRIGGERED', 'EXPIRED', 'INVALIDATED')),
+  status TEXT NOT NULL CHECK (status IN ('NEW', 'TRIGGERED', 'EXPIRED', 'INVALIDATED', 'CLOSED')),
   score REAL NOT NULL,
   payload_json TEXT NOT NULL,
   updated_at_ms INTEGER NOT NULL
 );
 
 CREATE INDEX IF NOT EXISTS idx_signals_lookup ON signals(market, status, score DESC, created_at_ms DESC);
+CREATE INDEX IF NOT EXISTS idx_signals_asset_class ON signals(asset_class, market, status, score DESC, created_at_ms DESC);
 CREATE INDEX IF NOT EXISTS idx_signals_symbol_tf ON signals(symbol, timeframe, created_at_ms DESC);
 
 CREATE TABLE IF NOT EXISTS signal_events (
@@ -212,8 +214,58 @@ CREATE TABLE IF NOT EXISTS performance_snapshots (
 );
 
 CREATE INDEX IF NOT EXISTS idx_performance_snapshots ON performance_snapshots(market, range, segment_type, sample_size DESC);
+
+CREATE TABLE IF NOT EXISTS api_keys (
+  key_id TEXT PRIMARY KEY,
+  key_hash TEXT NOT NULL UNIQUE,
+  label TEXT NOT NULL,
+  scope TEXT NOT NULL,
+  status TEXT NOT NULL CHECK (status IN ('ACTIVE', 'DISABLED')),
+  created_at_ms INTEGER NOT NULL,
+  updated_at_ms INTEGER NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS signal_deliveries (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  signal_id TEXT NOT NULL,
+  channel TEXT NOT NULL,
+  endpoint TEXT,
+  event_type TEXT NOT NULL,
+  status TEXT NOT NULL CHECK (status IN ('SENT', 'FAILED', 'SKIPPED')),
+  detail TEXT,
+  created_at_ms INTEGER NOT NULL,
+  FOREIGN KEY(signal_id) REFERENCES signals(signal_id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_signal_deliveries_signal ON signal_deliveries(signal_id, created_at_ms DESC);
+
+CREATE TABLE IF NOT EXISTS external_connections (
+  connection_id TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL,
+  connection_type TEXT NOT NULL CHECK (connection_type IN ('BROKER', 'EXCHANGE')),
+  provider TEXT NOT NULL,
+  mode TEXT NOT NULL CHECK (mode IN ('READ_ONLY', 'TRADING')),
+  status TEXT NOT NULL CHECK (status IN ('CONNECTED', 'DISCONNECTED', 'PENDING')),
+  meta_json TEXT,
+  created_at_ms INTEGER NOT NULL,
+  updated_at_ms INTEGER NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_external_connections_user ON external_connections(user_id, connection_type, updated_at_ms DESC);
 `;
 
 export function ensureSchema(db: Database.Database): void {
   db.exec(SCHEMA_SQL);
+  try {
+    db.prepare('SELECT asset_class FROM signals LIMIT 1').get();
+  } catch {
+    db.exec("ALTER TABLE signals ADD COLUMN asset_class TEXT NOT NULL DEFAULT 'CRYPTO';");
+    db.exec(`
+      UPDATE signals
+      SET asset_class = CASE
+        WHEN market = 'CRYPTO' THEN 'CRYPTO'
+        ELSE 'US_STOCK'
+      END
+    `);
+  }
 }

@@ -34,12 +34,17 @@ function readJsonFile<T>(relativePath: string): T | null {
   }
 }
 
-export async function getSignalCards(userId: string): Promise<unknown[]> {
-  const remote = await callInternalTool<unknown[]>('/getSignalCards', { userId });
+export async function getSignalCards(userId: string, assetClass?: string): Promise<unknown[]> {
+  const remote = await callInternalTool<unknown[]>('/getSignalCards', { userId, assetClass });
   if (Array.isArray(remote) && remote.length) return remote;
 
   const local = readJsonFile<unknown[]>('public/mock/signals.json');
-  return Array.isArray(local) ? local : [];
+  if (!Array.isArray(local)) return [];
+  if (!assetClass) return local;
+  return local.filter((item) => {
+    if (!item || typeof item !== 'object') return false;
+    return String((item as Record<string, unknown>).asset_class || '').toUpperCase() === assetClass.toUpperCase();
+  });
 }
 
 export async function getSignalDetail(signalId: string): Promise<Record<string, unknown> | null> {
@@ -94,7 +99,7 @@ export async function buildContextBundle(args: {
   context?: ChatContextInput;
 }): Promise<ToolContextBundle> {
   const { userId, context } = args;
-  const signalCards = await getSignalCards(userId);
+  const signalCards = await getSignalCards(userId, context?.assetClass);
 
   let signalDetail: Record<string, unknown> | null = null;
   if (context?.signalId) {
@@ -115,7 +120,7 @@ export async function buildContextBundle(args: {
 
   const marketTemperature =
     context?.market || context?.symbol
-      ? await getMarketTemperature(context.market || 'CRYPTO', context.symbol)
+      ? await getMarketTemperature(context.market || (context?.assetClass === 'CRYPTO' ? 'CRYPTO' : 'US'), context.symbol)
       : null;
 
   const riskProfile = await getRiskProfile(userId);

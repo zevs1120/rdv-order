@@ -8,12 +8,14 @@ const messages = {
     },
     tabs: {
       signals: 'Signals',
+      market: 'Market',
       proof: 'Proof',
-      risk: 'Risk',
+      risk: 'Safety',
       velocity: 'Velocity'
     },
     common: {
       market: 'Market',
+      assetClass: 'Asset',
       status: 'Status',
       sort: 'Sort',
       range: 'Range',
@@ -26,6 +28,8 @@ const messages = {
       on: 'ON',
       off: 'OFF',
       usStocks: 'US Stocks',
+      options: 'Options',
+      stocks: 'Stocks',
       crypto: 'Crypto',
       time: 'Time',
       symbol: 'Symbol',
@@ -97,7 +101,11 @@ const messages = {
       rationale: 'Rationale',
       copyParams: 'Copy order params',
       shareLink: 'Share link',
-      shareTitle: 'Signal {symbol}'
+      shareTitle: 'Signal {symbol}',
+      assetPayload: 'Asset payload',
+      optionContract: 'Option contract',
+      stockHorizon: 'Stock horizon',
+      cryptoFundingBasis: 'Funding / Basis'
     },
     proof: {
       winRate: 'Win Rate',
@@ -178,6 +186,14 @@ const messages = {
         RISK_OFF: 'Risk-Off'
       }
     },
+    market: {
+      bigData: 'Market Big Data Modules',
+      cryptoDash: 'Crypto Dashboard',
+      fundingBasis: 'Funding & Basis State',
+      sentimentRegime: 'Sentiment / Regime',
+      exchangeHealth: 'Exchange Health',
+      carryFavorable: 'Carry-favorable'
+    },
     onboarding: {
       title: 'Quick Setup',
       step: 'Step {n} of 3',
@@ -246,6 +262,21 @@ const messages = {
         failureModes: 'What can go wrong?',
         adjustRisk: 'Adjust for my risk profile',
         summary3: 'Summarize in 3 steps'
+      },
+      quickOpt: {
+        explainContract: 'Explain contract',
+        entryStopTp: 'Entry/Stop/TP',
+        eodPlan: 'EOD exit plan'
+      },
+      quickCr: {
+        explainFunding: 'Explain funding/basis state',
+        squeezeRisk: 'Risk of squeeze',
+        executionTips: 'Execution tips'
+      },
+      quickSt: {
+        horizonPlan: 'Horizon plan',
+        catalystRisk: 'Catalyst risk',
+        positionSizing: 'Position sizing'
       }
     }
   },
@@ -258,12 +289,14 @@ const messages = {
     },
     tabs: {
       signals: '信号',
+      market: '市场',
       proof: '验证',
       risk: '风控',
       velocity: '速度'
     },
     common: {
       market: '市场',
+      assetClass: '资产',
       status: '状态',
       sort: '排序',
       range: '区间',
@@ -276,6 +309,8 @@ const messages = {
       on: '开启',
       off: '关闭',
       usStocks: '美股',
+      options: '期权',
+      stocks: '股票',
       crypto: '加密',
       time: '时间',
       symbol: '标的',
@@ -347,7 +382,11 @@ const messages = {
       rationale: '策略理由',
       copyParams: '复制下单参数',
       shareLink: '分享链接',
-      shareTitle: '信号 {symbol}'
+      shareTitle: '信号 {symbol}',
+      assetPayload: '资产载荷',
+      optionContract: '期权合约',
+      stockHorizon: '股票周期',
+      cryptoFundingBasis: '资金费率 / 基差'
     },
     proof: {
       winRate: '胜率',
@@ -428,6 +467,14 @@ const messages = {
         RISK_OFF: '避险'
       }
     },
+    market: {
+      bigData: '市场大数据模块',
+      cryptoDash: '加密市场仪表盘',
+      fundingBasis: '资金费率与基差状态',
+      sentimentRegime: '情绪 / Regime',
+      exchangeHealth: '交易所健康度',
+      carryFavorable: 'Carry 友好'
+    },
     onboarding: {
       title: '快速设置',
       step: '第 {n} / 3 步',
@@ -496,6 +543,21 @@ const messages = {
         failureModes: '可能失败在哪里',
         adjustRisk: '按我的风险级别调整',
         summary3: '3 步总结'
+      },
+      quickOpt: {
+        explainContract: '解释合约',
+        entryStopTp: '入场/止损/止盈',
+        eodPlan: '收盘退出计划'
+      },
+      quickCr: {
+        explainFunding: '解释资金费率/基差',
+        squeezeRisk: '挤压风险',
+        executionTips: '执行建议'
+      },
+      quickSt: {
+        horizonPlan: '持有周期计划',
+        catalystRisk: '催化风险',
+        positionSizing: '仓位建议'
       }
     }
   }

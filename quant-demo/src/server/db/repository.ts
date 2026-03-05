@@ -1,6 +1,7 @@
 import type Database from 'better-sqlite3';
 import type {
   Asset,
+  AssetClass,
   AssetInput,
   ExecutionRecord,
   Market,
@@ -244,7 +245,7 @@ export class MarketRepository {
     const updatedAt = nowMs();
     const stmt = this.db.prepare(`
       INSERT INTO signals(
-        signal_id, created_at_ms, expires_at_ms, market, symbol, timeframe, strategy_id, strategy_family, strategy_version,
+        signal_id, created_at_ms, expires_at_ms, asset_class, market, symbol, timeframe, strategy_id, strategy_family, strategy_version,
         regime_id, temperature_percentile, volatility_percentile, direction, strength, confidence,
         entry_low, entry_high, entry_method, invalidation_level,
         stop_type, stop_price, tp1_price, tp1_size_pct, tp2_price, tp2_size_pct,
@@ -254,7 +255,7 @@ export class MarketRepository {
         expected_r, hit_rate_est, sample_size, expected_max_dd_est,
         status, score, payload_json, updated_at_ms
       ) VALUES (
-        @signal_id, @created_at_ms, @expires_at_ms, @market, @symbol, @timeframe, @strategy_id, @strategy_family, @strategy_version,
+        @signal_id, @created_at_ms, @expires_at_ms, @asset_class, @market, @symbol, @timeframe, @strategy_id, @strategy_family, @strategy_version,
         @regime_id, @temperature_percentile, @volatility_percentile, @direction, @strength, @confidence,
         @entry_low, @entry_high, @entry_method, @invalidation_level,
         @stop_type, @stop_price, @tp1_price, @tp1_size_pct, @tp2_price, @tp2_size_pct,
@@ -267,6 +268,7 @@ export class MarketRepository {
       ON CONFLICT(signal_id) DO UPDATE SET
         created_at_ms = excluded.created_at_ms,
         expires_at_ms = excluded.expires_at_ms,
+        asset_class = excluded.asset_class,
         market = excluded.market,
         symbol = excluded.symbol,
         timeframe = excluded.timeframe,
@@ -313,6 +315,7 @@ export class MarketRepository {
       signal_id: signal.id,
       created_at_ms: Date.parse(signal.created_at) || updatedAt,
       expires_at_ms: Date.parse(signal.expires_at) || updatedAt,
+      asset_class: signal.asset_class,
       market: signal.market,
       symbol: signal.symbol,
       timeframe: signal.timeframe,
@@ -364,6 +367,7 @@ export class MarketRepository {
   }
 
   listSignals(params?: {
+    assetClass?: AssetClass;
     market?: Market;
     symbol?: string;
     status?: SignalStatus | 'ALL';
@@ -371,6 +375,10 @@ export class MarketRepository {
   }): SignalRecord[] {
     const where: string[] = [];
     const q: Record<string, unknown> = {};
+    if (params?.assetClass) {
+      where.push('asset_class = @asset_class');
+      q.asset_class = params.assetClass;
+    }
     if (params?.market) {
       where.push('market = @market');
       q.market = params.market;
@@ -695,5 +703,145 @@ export class MarketRepository {
     `
       )
       .all(q) as PerformanceSnapshotRecord[];
+  }
+
+  upsertApiKey(input: {
+    key_id: string;
+    key_hash: string;
+    label: string;
+    scope: string;
+    status?: 'ACTIVE' | 'DISABLED';
+  }): void {
+    const ts = nowMs();
+    this.db
+      .prepare(
+        `
+        INSERT INTO api_keys(key_id, key_hash, label, scope, status, created_at_ms, updated_at_ms)
+        VALUES(@key_id, @key_hash, @label, @scope, @status, @created_at_ms, @updated_at_ms)
+        ON CONFLICT(key_id) DO UPDATE SET
+          key_hash = excluded.key_hash,
+          label = excluded.label,
+          scope = excluded.scope,
+          status = excluded.status,
+          updated_at_ms = excluded.updated_at_ms
+      `
+      )
+      .run({
+        ...input,
+        status: input.status ?? 'ACTIVE',
+        created_at_ms: ts,
+        updated_at_ms: ts
+      });
+  }
+
+  getApiKeyByHash(keyHash: string): { key_id: string; key_hash: string; label: string; scope: string; status: string } | null {
+    const row = this.db
+      .prepare(
+        `SELECT key_id, key_hash, label, scope, status
+         FROM api_keys
+         WHERE key_hash = ?
+         LIMIT 1`
+      )
+      .get(keyHash) as { key_id: string; key_hash: string; label: string; scope: string; status: string } | undefined;
+    return row ?? null;
+  }
+
+  logSignalDelivery(input: {
+    signal_id: string;
+    channel: string;
+    endpoint?: string | null;
+    event_type: string;
+    status: 'SENT' | 'FAILED' | 'SKIPPED';
+    detail?: string | null;
+  }): void {
+    this.db
+      .prepare(
+        `
+          INSERT INTO signal_deliveries(signal_id, channel, endpoint, event_type, status, detail, created_at_ms)
+          VALUES(@signal_id, @channel, @endpoint, @event_type, @status, @detail, @created_at_ms)
+      `
+      )
+      .run({
+        signal_id: input.signal_id,
+        channel: input.channel,
+        endpoint: input.endpoint ?? null,
+        event_type: input.event_type,
+        status: input.status,
+        detail: input.detail ?? null,
+        created_at_ms: nowMs()
+      });
+  }
+
+  upsertExternalConnection(input: {
+    connection_id: string;
+    user_id: string;
+    connection_type: 'BROKER' | 'EXCHANGE';
+    provider: string;
+    mode: 'READ_ONLY' | 'TRADING';
+    status: 'CONNECTED' | 'DISCONNECTED' | 'PENDING';
+    meta_json?: string | null;
+  }): void {
+    const ts = nowMs();
+    this.db
+      .prepare(
+        `
+          INSERT INTO external_connections(
+            connection_id, user_id, connection_type, provider, mode, status, meta_json, created_at_ms, updated_at_ms
+          ) VALUES(
+            @connection_id, @user_id, @connection_type, @provider, @mode, @status, @meta_json, @created_at_ms, @updated_at_ms
+          )
+          ON CONFLICT(connection_id) DO UPDATE SET
+            user_id = excluded.user_id,
+            connection_type = excluded.connection_type,
+            provider = excluded.provider,
+            mode = excluded.mode,
+            status = excluded.status,
+            meta_json = excluded.meta_json,
+            updated_at_ms = excluded.updated_at_ms
+      `
+      )
+      .run({
+        ...input,
+        meta_json: input.meta_json ?? null,
+        created_at_ms: ts,
+        updated_at_ms: ts
+      });
+  }
+
+  listExternalConnections(params: { userId: string; connectionType?: 'BROKER' | 'EXCHANGE' }): Array<{
+    connection_id: string;
+    user_id: string;
+    connection_type: 'BROKER' | 'EXCHANGE';
+    provider: string;
+    mode: 'READ_ONLY' | 'TRADING';
+    status: 'CONNECTED' | 'DISCONNECTED' | 'PENDING';
+    meta_json: string | null;
+    updated_at_ms: number;
+  }> {
+    const where = ['user_id = @user_id'];
+    const q: Record<string, unknown> = { user_id: params.userId };
+    if (params.connectionType) {
+      where.push('connection_type = @connection_type');
+      q.connection_type = params.connectionType;
+    }
+    return this.db
+      .prepare(
+        `
+          SELECT connection_id, user_id, connection_type, provider, mode, status, meta_json, updated_at_ms
+          FROM external_connections
+          WHERE ${where.join(' AND ')}
+          ORDER BY updated_at_ms DESC
+      `
+      )
+      .all(q) as Array<{
+      connection_id: string;
+      user_id: string;
+      connection_type: 'BROKER' | 'EXCHANGE';
+      provider: string;
+      mode: 'READ_ONLY' | 'TRADING';
+      status: 'CONNECTED' | 'DISCONNECTED' | 'PENDING';
+      meta_json: string | null;
+      updated_at_ms: number;
+    }>;
   }
 }

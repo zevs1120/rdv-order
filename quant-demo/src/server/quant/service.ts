@@ -1,18 +1,23 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import type {
+  AssetClass,
+  CryptoPayload,
   ExecutionAction,
   ExecutionMode,
   ExecutionRecord,
   Market,
   MarketStateRecord,
+  OptionsIntradayPayload,
   PerformanceSnapshotRecord,
   RiskProfileKey,
   SignalContract,
   SignalStatus,
+  StockSwingPayload,
   UserRiskProfileRecord
 } from '../types.js';
 import { MarketRepository } from '../db/repository.js';
+import { deliverSignalToDiscord } from '../delivery/discord.js';
 
 const STRATEGY_TEMPLATE_VERSION = 'strategy-templates-2026-03-04.1';
 const DEFAULT_RISK_PROFILE: RiskProfileKey = 'balanced';
@@ -57,6 +62,8 @@ const DYNAMIC_RISK_BUCKETS = {
 
 interface RawSignal {
   signal_id: string;
+  asset_class?: AssetClass;
+  strategy_id?: string;
   market: Market;
   symbol: string;
   direction: 'LONG' | 'SHORT';
@@ -71,6 +78,7 @@ interface RawSignal {
   validity: '24H' | 'UNTIL_TRIGGERED';
   rationale: string[];
   model_version?: string;
+  payload?: Record<string, unknown>;
 }
 
 interface RawPerformanceRecord {
@@ -95,6 +103,7 @@ interface QuantDataSnapshot {
 interface StrategyTemplate {
   strategy_id: string;
   strategy_family: string;
+  asset_class: AssetClass;
   strategy_version: string;
   timeframe: string;
   entry_method: 'MARKET' | 'LIMIT' | 'SPLIT_LIMIT';
@@ -119,6 +128,7 @@ const STRATEGY_LIBRARY: Record<string, StrategyTemplate> = {
   CR_BAS: {
     strategy_id: 'CR_BAS',
     strategy_family: 'Carry/Basis',
+    asset_class: 'CRYPTO',
     strategy_version: STRATEGY_TEMPLATE_VERSION,
     timeframe: '4h',
     entry_method: 'SPLIT_LIMIT' as const,
@@ -131,6 +141,7 @@ const STRATEGY_LIBRARY: Record<string, StrategyTemplate> = {
   CR_VEL: {
     strategy_id: 'CR_VEL',
     strategy_family: 'Momentum/Breakout',
+    asset_class: 'CRYPTO',
     strategy_version: STRATEGY_TEMPLATE_VERSION,
     timeframe: '1h',
     entry_method: 'LIMIT' as const,
@@ -143,6 +154,7 @@ const STRATEGY_LIBRARY: Record<string, StrategyTemplate> = {
   CR_TRAP: {
     strategy_id: 'CR_TRAP',
     strategy_family: 'Defensive Vol',
+    asset_class: 'CRYPTO',
     strategy_version: STRATEGY_TEMPLATE_VERSION,
     timeframe: '1h',
     entry_method: 'LIMIT' as const,
@@ -152,9 +164,23 @@ const STRATEGY_LIBRARY: Record<string, StrategyTemplate> = {
     failure_modes: ['Liquidity pockets vanish', 'Gap-through stop', 'Panic reversal'],
     tags: ['high-vol guard', 'defensive']
   },
+  CR_CARRY: {
+    strategy_id: 'CR_CARRY',
+    strategy_family: 'Carry/Bias',
+    asset_class: 'CRYPTO',
+    strategy_version: STRATEGY_TEMPLATE_VERSION,
+    timeframe: '8h',
+    entry_method: 'LIMIT' as const,
+    stop_type: 'HYBRID' as const,
+    trailing_type: 'EMA' as const,
+    cost: { fee_bps: 4.2, spread_bps: 2.8, slippage_bps: 3.9, funding_est_bps: 2.0, basis_est: 2.5 },
+    failure_modes: ['Funding flips abruptly', 'Basis percentile turns crowded', 'Risk-off correlation jump'],
+    tags: ['carry-favorable', 'funding-aligned']
+  },
   EQ_VEL: {
     strategy_id: 'EQ_VEL',
     strategy_family: 'Trend/Velocity',
+    asset_class: 'US_STOCK',
     strategy_version: STRATEGY_TEMPLATE_VERSION,
     timeframe: '1d',
     entry_method: 'LIMIT' as const,
@@ -167,6 +193,7 @@ const STRATEGY_LIBRARY: Record<string, StrategyTemplate> = {
   EQ_EVT: {
     strategy_id: 'EQ_EVT',
     strategy_family: 'Event/Expansion',
+    asset_class: 'US_STOCK',
     strategy_version: STRATEGY_TEMPLATE_VERSION,
     timeframe: '4h',
     entry_method: 'SPLIT_LIMIT' as const,
@@ -179,6 +206,7 @@ const STRATEGY_LIBRARY: Record<string, StrategyTemplate> = {
   EQ_REG: {
     strategy_id: 'EQ_REG',
     strategy_family: 'Regime Filter',
+    asset_class: 'US_STOCK',
     strategy_version: STRATEGY_TEMPLATE_VERSION,
     timeframe: '1d',
     entry_method: 'MARKET' as const,
@@ -187,6 +215,32 @@ const STRATEGY_LIBRARY: Record<string, StrategyTemplate> = {
     cost: { fee_bps: 2.4, spread_bps: 1.2, slippage_bps: 2.1, basis_est: 0.2 },
     failure_modes: ['QQQ/SPY diverges', 'Risk-off spike', 'Macro correlation shock'],
     tags: ['regime gate', 'index control']
+  },
+  EQ_SWING: {
+    strategy_id: 'EQ_SWING',
+    strategy_family: 'Swing/Horizon',
+    asset_class: 'US_STOCK',
+    strategy_version: STRATEGY_TEMPLATE_VERSION,
+    timeframe: '1d',
+    entry_method: 'LIMIT' as const,
+    stop_type: 'HYBRID' as const,
+    trailing_type: 'EMA' as const,
+    cost: { fee_bps: 2.6, spread_bps: 1.4, slippage_bps: 2.5, basis_est: 0.2 },
+    failure_modes: ['Catalyst reverses', 'Breadth weakens', 'Gap-through stop on macro shock'],
+    tags: ['swing', 'multi-horizon']
+  },
+  OP_INTRADAY: {
+    strategy_id: 'OP_INTRADAY',
+    strategy_family: 'Options Intraday',
+    asset_class: 'OPTIONS',
+    strategy_version: STRATEGY_TEMPLATE_VERSION,
+    timeframe: '15m',
+    entry_method: 'LIMIT' as const,
+    stop_type: 'STRUCTURE' as const,
+    trailing_type: 'NONE' as const,
+    cost: { fee_bps: 8.5, spread_bps: 9.5, slippage_bps: 7.2, basis_est: 0.4 },
+    failure_modes: ['Spread widens too far', 'IV crush before trigger', 'No liquidity near strike'],
+    tags: ['intraday options', 'eod-flatten']
   }
 };
 
@@ -195,12 +249,18 @@ type StrategyKey = keyof typeof STRATEGY_LIBRARY;
 const SYMBOL_TO_STRATEGY: Record<string, StrategyKey> = {
   'CRYPTO:BTC-USDT': 'CR_BAS',
   'CRYPTO:ETH-USDT': 'CR_VEL',
+  'CRYPTO:XRP-USDT': 'CR_CARRY',
   'CRYPTO:SOL-USDT': 'CR_VEL',
   'CRYPTO:BNB-USDT': 'CR_TRAP',
+  'US:SPY': 'EQ_REG',
   'US:AAPL': 'EQ_VEL',
+  'US:AMZN': 'EQ_SWING',
   'US:TSLA': 'EQ_VEL',
   'US:NVDA': 'EQ_EVT',
-  'US:MSFT': 'EQ_REG'
+  'US:MSFT': 'EQ_SWING',
+  'US:SPY240621C00540000': 'OP_INTRADAY',
+  'US:QQQ240621P00460000': 'OP_INTRADAY',
+  'US:AAPL240621C00215000': 'OP_INTRADAY'
 };
 
 function readMock<T>(relativePath: string, fallback: T): T {
@@ -229,8 +289,20 @@ function hashCode(input: string): number {
   return h;
 }
 
+function inferAssetClass(raw: RawSignal): AssetClass {
+  if (raw.asset_class) return raw.asset_class;
+  if (raw.market === 'CRYPTO') return 'CRYPTO';
+  if (raw.symbol.includes('C00') || raw.symbol.includes('P00')) return 'OPTIONS';
+  return 'US_STOCK';
+}
+
 function resolveStrategy(raw: RawSignal): StrategyKey {
-  return SYMBOL_TO_STRATEGY[`${raw.market}:${raw.symbol}`] || (raw.market === 'CRYPTO' ? 'CR_VEL' : 'EQ_REG');
+  const mapped = SYMBOL_TO_STRATEGY[`${raw.market}:${raw.symbol}`];
+  if (mapped) return mapped;
+  const assetClass = inferAssetClass(raw);
+  if (assetClass === 'OPTIONS') return 'OP_INTRADAY';
+  if (assetClass === 'CRYPTO') return 'CR_VEL';
+  return 'EQ_SWING';
 }
 
 function resolveStatus(rawStatus: RawSignal['status'], createdAtMs: number, expiresAtMs: number): SignalStatus {
@@ -361,7 +433,9 @@ function riskProfileForUser(repo: MarketRepository, userId: string): UserRiskPro
 }
 
 function buildExecutionChecklist(args: {
+  assetClass: AssetClass;
   symbol: string;
+  entryMethod: 'MARKET' | 'LIMIT' | 'SPLIT_LIMIT';
   entryLow: number;
   entryHigh: number;
   stop: number;
@@ -369,22 +443,153 @@ function buildExecutionChecklist(args: {
   positionPct: number;
   bucket: string;
 }): string[] {
-  return [
+  const lines = [
     `Confirm ${args.symbol} spread/liquidity before placing orders.`,
-    `Stage entry in ${args.entryLow.toFixed(2)}-${args.entryHigh.toFixed(2)} and avoid chasing beyond zone.`,
+    `Use ${args.entryMethod} entry in ${args.entryLow.toFixed(2)}-${args.entryHigh.toFixed(2)} and avoid chasing beyond zone.`,
     `Place hard invalidation stop at ${args.stop.toFixed(2)} immediately after fill.`,
     `Set TP1 near ${args.tp1.toFixed(2)} and reduce at least 50% there.`,
     `Cap total size around ${args.positionPct.toFixed(2)}% under ${args.bucket} risk bucket.`,
     'Skip execution if volatility spikes or orderbook depth drops suddenly.'
   ];
+  if (args.assetClass === 'CRYPTO') {
+    lines.push('Avoid opening right into funding reset windows and keep leverage conservative to avoid liquidation risk.');
+  }
+  if (args.assetClass === 'OPTIONS') {
+    lines.push('Intraday options rule: flatten by end of session if TP/SL not reached.');
+  }
+  if (args.assetClass === 'US_STOCK') {
+    lines.push('Re-check catalyst calendar before close if holding as swing position.');
+  }
+  return lines;
 }
 
 function parseSignalPayload(payloadJson: string): SignalContract | null {
   try {
-    return JSON.parse(payloadJson) as SignalContract;
+    const parsed = JSON.parse(payloadJson) as Partial<SignalContract> & Record<string, unknown>;
+    const market = parsed.market === 'CRYPTO' ? 'CRYPTO' : 'US';
+    const assetClass: AssetClass =
+      parsed.asset_class ??
+      (market === 'CRYPTO'
+        ? 'CRYPTO'
+        : String(parsed.symbol || '').includes('C00') || String(parsed.symbol || '').includes('P00')
+          ? 'OPTIONS'
+          : 'US_STOCK');
+    const parsedStatus = String(parsed.status || '').toUpperCase();
+    const normalizedStatus: SignalStatus =
+      parsedStatus === 'PENDING' ? 'NEW' : ((parsed.status as SignalStatus) || 'NEW');
+    if (!parsed.payload) {
+      const entryMid = (Number(parsed.entry_zone?.low ?? 0) + Number(parsed.entry_zone?.high ?? 0)) / 2 || 1;
+      parsed.payload = buildPayload(
+        {
+          signal_id: String(parsed.id || 'LEGACY'),
+          asset_class: assetClass,
+          market,
+          symbol: String(parsed.symbol || '--'),
+          direction: (parsed.direction as 'LONG' | 'SHORT') || 'LONG',
+          status: 'PENDING',
+          confidence: Number(parsed.confidence || 0.5) * 5,
+          generated_at: String(parsed.created_at || new Date().toISOString()),
+          entry_min: Number(parsed.entry_zone?.low ?? 0),
+          entry_max: Number(parsed.entry_zone?.high ?? 0),
+          stop_loss: Number(parsed.stop_loss?.price ?? 0),
+          take_profit: Number(parsed.take_profit_levels?.[0]?.price ?? 0),
+          position_size_pct: Number(parsed.position_advice?.position_pct ?? 0),
+          validity: '24H',
+          rationale: Array.isArray(parsed.explain_bullets) ? parsed.explain_bullets : []
+        },
+        assetClass,
+        entryMid
+      );
+    }
+    return {
+      ...(parsed as SignalContract),
+      asset_class: assetClass,
+      status: normalizedStatus
+    };
   } catch {
     return null;
   }
+}
+
+function buildOptionsPayload(raw: RawSignal, entryMid: number): OptionsIntradayPayload {
+  const put = raw.direction === 'SHORT';
+  const strike = Math.round(entryMid);
+  const expiry = new Date(Date.now() + 6 * 24 * 3600 * 1000).toISOString().slice(0, 10);
+  return {
+    underlying: {
+      symbol: raw.symbol.match(/^[A-Z]+/)?.[0] || raw.symbol,
+      spot_price: round(entryMid, 2),
+      session: 'REG'
+    },
+    option_contract: {
+      side: put ? 'PUT' : 'CALL',
+      expiry,
+      strike,
+      dte: 6,
+      contract_symbol: raw.symbol
+    },
+    time_stop: {
+      eod_flatten: true,
+      latest_exit_utc: new Date(Date.now() + 8 * 3600 * 1000).toISOString()
+    },
+    greeks_iv: {
+      delta: round(put ? -0.35 : 0.35, 2),
+      iv_percentile: round(45 + (hashCode(raw.signal_id) % 50), 2),
+      expected_move: round(entryMid * 0.012, 3)
+    }
+  };
+}
+
+function buildStockPayload(raw: RawSignal): StockSwingPayload {
+  const horizon: StockSwingPayload['horizon'] =
+    raw.strategy_id === 'EQ_SWING'
+      ? 'MEDIUM'
+      : raw.strategy_id === 'EQ_EVT'
+        ? 'SHORT'
+        : 'LONG';
+  return {
+    horizon,
+    catalysts: raw.strategy_id === 'EQ_EVT' ? ['earnings-window', 'macro-vol-burst'] : ['index-regime', 'sector-leadership']
+  };
+}
+
+function buildCryptoPayload(raw: RawSignal): CryptoPayload {
+  const h = hashCode(raw.signal_id);
+  const funding = round((((h % 30) - 15) / 10000) * (raw.direction === 'LONG' ? 1 : -1), 6);
+  const basisBps = round(10 + (h % 90), 2);
+  const basisPct = round(15 + (h % 80), 2);
+  return {
+    venue: 'BINANCE',
+    instrument_type: 'PERP',
+    perp_metrics: {
+      funding_rate_current: funding,
+      funding_rate_8h: round(funding * 0.9, 6),
+      funding_rate_24h: round(funding * 2.2, 6),
+      basis_bps: basisBps,
+      basis_percentile: basisPct,
+      open_interest: 1_500_000 + (h % 400_000),
+      premium_index: round(((h % 120) - 60) / 10_000, 6)
+    },
+    flow_state: {
+      spot_led_breakout: h % 2 === 0,
+      perp_led_breakout: h % 3 === 0,
+      funding_state: Math.abs(funding) > 0.0012 ? 'EXTREME' : 'NEUTRAL'
+    },
+    leverage_suggestion: {
+      suggested_leverage: raw.status === 'TRIGGERED' ? 1.5 : 1.2,
+      capped_by_profile: true
+    }
+  };
+}
+
+function buildPayload(raw: RawSignal, assetClass: AssetClass, entryMid: number): SignalContract['payload'] {
+  if (assetClass === 'OPTIONS') {
+    return { kind: 'OPTIONS_INTRADAY', data: buildOptionsPayload(raw, entryMid) };
+  }
+  if (assetClass === 'US_STOCK') {
+    return { kind: 'STOCK_SWING', data: buildStockPayload(raw) };
+  }
+  return { kind: 'CRYPTO', data: buildCryptoPayload(raw) };
 }
 
 function buildContracts(args: {
@@ -396,6 +601,7 @@ function buildContracts(args: {
   const contracts = args.signals.map((raw) => {
     const strategyKey = resolveStrategy(raw);
     const template = STRATEGY_LIBRARY[strategyKey];
+    const assetClass = template.asset_class || inferAssetClass(raw);
     const createdAtMs = Date.parse(raw.generated_at) || Date.now();
     const expiresAtMs = inferExpiresAt(raw);
     const marketState = deriveMarketState(raw, args.velocityPct);
@@ -433,11 +639,13 @@ function buildContracts(args: {
     });
     const status = resolveStatus(raw.status, createdAtMs, expiresAtMs);
     const strength = clamp(Math.round((conf * 70 + (expectedRValue / 3) * 20 + score * 7) * 10) / 10, 0, 100);
+    const payload = buildPayload(raw, assetClass, entryMid);
 
     const contract: SignalContract = {
       id: raw.signal_id,
       created_at: new Date(createdAtMs).toISOString(),
       expires_at: new Date(expiresAtMs).toISOString(),
+      asset_class: assetClass,
       market: raw.market,
       symbol: raw.symbol,
       timeframe: template.timeframe,
@@ -504,7 +712,9 @@ function buildContracts(args: {
         ...template.failure_modes.slice(0, 2).map((item) => `Avoid execution when: ${item}.`)
       ],
       execution_checklist: buildExecutionChecklist({
+        assetClass,
         symbol: raw.symbol,
+        entryMethod: template.entry_method,
         entryLow,
         entryHigh,
         stop,
@@ -514,6 +724,7 @@ function buildContracts(args: {
       }),
       tags: [...template.tags, marketState.regime_id.toLowerCase(), status.toLowerCase()],
       status,
+      payload,
       references: {
         chart_url: `/charts/${raw.market}/${raw.symbol}`,
         docs_url: `/docs/strategies/${template.strategy_id.toLowerCase()}`
@@ -827,8 +1038,18 @@ export function ensureQuantData(repo: MarketRepository, userId = 'guest-default'
     const prev = existing.get(signal.id);
     if (!prev) {
       repo.appendSignalEvent(signal.id, 'CREATED', { status: signal.status });
+      void deliverSignalToDiscord({
+        repo,
+        signal,
+        eventType: 'CREATED'
+      });
     } else if (prev !== signal.status) {
       repo.appendSignalEvent(signal.id, 'STATUS_CHANGED', { from: prev, to: signal.status });
+      void deliverSignalToDiscord({
+        repo,
+        signal,
+        eventType: 'STATUS_CHANGED'
+      });
     }
   }
 

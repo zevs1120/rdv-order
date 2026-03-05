@@ -1,7 +1,10 @@
+import fs from 'node:fs';
+import path from 'node:path';
+import { createHash } from 'node:crypto';
 import { getDb } from '../db/database.js';
 import { MarketRepository } from '../db/repository.js';
 import { ensureSchema } from '../db/schema.js';
-import type { ExecutionAction, ExecutionMode, Market, SignalContract, Timeframe } from '../types.js';
+import type { AssetClass, ExecutionAction, ExecutionMode, Market, SignalContract, Timeframe } from '../types.js';
 import { createExecutionRecord, decodeSignalContract, ensureQuantData } from '../quant/service.js';
 
 function getRepo(): MarketRepository {
@@ -47,14 +50,16 @@ export function syncQuantState(userId = 'guest-default', force = false) {
 
 export function listSignalContracts(args: {
   userId?: string;
+  assetClass?: AssetClass;
   market?: Market;
   symbol?: string;
-  status?: 'ALL' | 'NEW' | 'TRIGGERED' | 'EXPIRED' | 'INVALIDATED';
+  status?: 'ALL' | 'NEW' | 'TRIGGERED' | 'EXPIRED' | 'INVALIDATED' | 'CLOSED';
   limit?: number;
 }): SignalContract[] {
   const repo = getRepo();
   syncQuantState(args.userId || 'guest-default');
   const rows = repo.listSignals({
+    assetClass: args.assetClass,
     market: args.market,
     symbol: args.symbol,
     status: args.status,
@@ -173,4 +178,81 @@ export function getRiskProfile(userId = 'guest-default') {
   const repo = getRepo();
   syncQuantState(userId);
   return repo.getUserRiskProfile(userId);
+}
+
+function hashApiKey(key: string): string {
+  return createHash('sha256').update(key).digest('hex');
+}
+
+export function ensureDefaultPublicSignalsApiKey(): string {
+  const repo = getRepo();
+  const plainKey = String(process.env.PUBLIC_SIGNALS_API_KEY || 'nova-public-demo-key');
+  repo.upsertApiKey({
+    key_id: 'public-signals-default',
+    key_hash: hashApiKey(plainKey),
+    label: 'Default Public Signals Key',
+    scope: 'signals:read',
+    status: 'ACTIVE'
+  });
+  return plainKey;
+}
+
+export function verifyPublicSignalsApiKey(rawKey?: string): boolean {
+  if (!rawKey) return false;
+  const repo = getRepo();
+  const row = repo.getApiKeyByHash(hashApiKey(rawKey));
+  return Boolean(row && row.status === 'ACTIVE');
+}
+
+function readJson<T>(filePath: string, fallback: T): T {
+  try {
+    const full = path.join(process.cwd(), filePath);
+    return JSON.parse(fs.readFileSync(full, 'utf-8')) as T;
+  } catch {
+    return fallback;
+  }
+}
+
+export function getMarketModules(args?: { market?: Market; assetClass?: AssetClass }) {
+  const payload = readJson<Record<string, unknown>>('public/mock/market-features.json', {});
+  const modules = (payload.modules as Array<Record<string, unknown>> | undefined) || [];
+  return modules.filter((item) => {
+    if (args?.market && item.market && item.market !== args.market) return false;
+    if (args?.assetClass && item.asset_class && item.asset_class !== args.assetClass) return false;
+    return true;
+  });
+}
+
+export function upsertExternalConnection(args: {
+  userId: string;
+  connectionType: 'BROKER' | 'EXCHANGE';
+  provider: string;
+  mode: 'READ_ONLY' | 'TRADING';
+  status: 'CONNECTED' | 'DISCONNECTED' | 'PENDING';
+  meta?: Record<string, unknown>;
+}) {
+  const repo = getRepo();
+  const id = `${args.connectionType}-${args.provider}-${args.userId}`;
+  repo.upsertExternalConnection({
+    connection_id: id,
+    user_id: args.userId,
+    connection_type: args.connectionType,
+    provider: args.provider,
+    mode: args.mode,
+    status: args.status,
+    meta_json: args.meta ? JSON.stringify(args.meta) : null
+  });
+  return { connection_id: id };
+}
+
+export function listExternalConnections(args: { userId: string; connectionType?: 'BROKER' | 'EXCHANGE' }) {
+  const repo = getRepo();
+  const rows = repo.listExternalConnections({
+    userId: args.userId,
+    connectionType: args.connectionType
+  });
+  return rows.map((row) => ({
+    ...row,
+    meta: row.meta_json ? JSON.parse(row.meta_json) : null
+  }));
 }

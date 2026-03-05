@@ -73,39 +73,28 @@
   gap: 8px;
 }
 
-.moreWrap {
-  position: relative;
+.actionsSheet {
+  display: grid;
+  gap: 8px;
 }
 
-.moreMenu {
-  position: absolute;
-  top: calc(100% + 6px);
-  right: 0;
-  z-index: 44;
-  min-width: 138px;
-  border: 1px solid var(--line-default);
-  border-radius: var(--radius-md);
-  background: #fff;
-  box-shadow: var(--shadow-2);
-  overflow: hidden;
-}
-
-.moreMenu button {
+.actionsSheetRow {
   width: 100%;
-  min-height: 38px;
-  border: 0;
-  border-bottom: 1px solid var(--line-default);
-  border-radius: 0;
-  background: #fff;
+  min-height: 46px;
+  border: 1px solid var(--glass-border);
+  border-radius: 12px;
+  background: color-mix(in srgb, #ffffff 90%, #f8fafc);
   color: var(--text-primary);
   text-align: left;
-  font-size: 13px;
-  font-weight: 560;
-  padding: 0 10px;
+  font-size: 15px;
+  font-weight: 620;
+  padding: 0 12px;
 }
 
-.moreMenu button:last-child {
-  border-bottom: 0;
+.actionsSheetRowDanger {
+  border-color: color-mix(in srgb, var(--danger-500) 32%, #fff);
+  color: var(--danger-500);
+  background: color-mix(in srgb, var(--danger-500) 7%, #fff);
 }
 
 .shiftPanel {
@@ -253,7 +242,7 @@
 .addBtn {
   grid-area: add;
   min-width: 78px;
-  min-height: 34px;
+  min-height: 44px;
   padding: 0 12px;
   justify-self: end;
   white-space: nowrap;
@@ -388,7 +377,7 @@
 
   .addBtn {
     min-width: 72px;
-    min-height: 34px;
+    min-height: 44px;
     font-size: 12px;
     padding: 0 8px;
   }
@@ -411,5 +400,6 @@
   .addBtn {
     min-width: 68px;
     font-size: 11px;
+    min-height: 44px;
   }
 }

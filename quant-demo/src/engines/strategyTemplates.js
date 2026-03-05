@@ -4,6 +4,7 @@ const STRATEGY_TEMPLATES = {
   CR_BAS: {
     strategy_id: 'CR_BAS',
     strategy_family: 'Carry/Basis',
+    asset_class: 'CRYPTO',
     market: 'CRYPTO',
     default_timeframe: '4H',
     name: 'Crypto Basis/Funding State Capture',
@@ -26,6 +27,7 @@ const STRATEGY_TEMPLATES = {
   CR_VEL: {
     strategy_id: 'CR_VEL',
     strategy_family: 'Momentum/Breakout',
+    asset_class: 'CRYPTO',
     market: 'CRYPTO',
     default_timeframe: '2H',
     name: 'Crypto Velocity Breakout + Retest',
@@ -45,6 +47,7 @@ const STRATEGY_TEMPLATES = {
   CR_TRAP: {
     strategy_id: 'CR_TRAP',
     strategy_family: 'Defensive Vol',
+    asset_class: 'CRYPTO',
     market: 'CRYPTO',
     default_timeframe: '1H',
     name: 'Crypto Extreme Volatility Defensive',
@@ -61,9 +64,30 @@ const STRATEGY_TEMPLATES = {
     ],
     trailing_rule: { mode: 'tight-chandelier', trigger_r_multiple: 0.8, trail_distance_pct: 0.9 }
   },
+  CR_CARRY: {
+    strategy_id: 'CR_CARRY',
+    strategy_family: 'Carry/Bias',
+    asset_class: 'CRYPTO',
+    market: 'CRYPTO',
+    default_timeframe: '8H',
+    name: 'Crypto Carry Bias',
+    features: ['funding_rate', 'basis_percentile', 'trend_alignment', 'risk_off_score'],
+    trigger_conditions: ['Funding and basis are aligned with trend.'],
+    invalidation: ['Funding flips extreme against trend.'],
+    tp_ladder_rule: 'TP1 at 1R, TP2 at 1.5R.',
+    not_to_trade: ['Funding reset turbulence', 'basis percentile crowded'],
+    cost_assumptions: { fee_bps: 4, spread_bps: 3, slippage_bps: 4, funding_est_bps: 2, basis_est: 2 },
+    rules: [
+      'Bias with carry when funding and basis align with direction.',
+      'Reduce size if risk-off score rises.',
+      'Stop quickly if carry state flips.'
+    ],
+    trailing_rule: { mode: 'ema-trail', trigger_r_multiple: 1.1, trail_distance_pct: 1.2 }
+  },
   EQ_VEL: {
     strategy_id: 'EQ_VEL',
     strategy_family: 'Trend/Velocity',
+    asset_class: 'US_STOCK',
     market: 'US',
     default_timeframe: '1D',
     name: 'Equity Velocity Trend Following',
@@ -83,6 +107,7 @@ const STRATEGY_TEMPLATES = {
   EQ_EVT: {
     strategy_id: 'EQ_EVT',
     strategy_family: 'Event/Vol Expansion',
+    asset_class: 'US_STOCK',
     market: 'US',
     default_timeframe: '4H',
     name: 'Earnings/Event Volatility Expansion',
@@ -102,6 +127,7 @@ const STRATEGY_TEMPLATES = {
   EQ_REG: {
     strategy_id: 'EQ_REG',
     strategy_family: 'Regime Filter',
+    asset_class: 'US_STOCK',
     market: 'US',
     default_timeframe: '1D',
     name: 'Index-led Regime Gating (QQQ/SPY)',
@@ -117,18 +143,64 @@ const STRATEGY_TEMPLATES = {
       'Hold neutral when risk-off score breaches hard threshold.'
     ],
     trailing_rule: { mode: 'index-gated', trigger_r_multiple: 1.1, trail_distance_pct: 1.5 }
+  },
+  EQ_SWING: {
+    strategy_id: 'EQ_SWING',
+    strategy_family: 'Swing/Horizon',
+    asset_class: 'US_STOCK',
+    market: 'US',
+    default_timeframe: '1D',
+    name: 'Equity Swing Multi-Horizon',
+    features: ['trend_strength', 'breadth', 'catalyst_window', 'volatility_percentile'],
+    trigger_conditions: ['Trend intact and macro/event risk acceptable.'],
+    invalidation: ['Trend break and catalyst reversal.'],
+    tp_ladder_rule: 'TP1 at 1R, TP2 at 2R with trail.',
+    not_to_trade: ['Major event risk within 24h', 'market breadth collapse'],
+    cost_assumptions: { fee_bps: 3, spread_bps: 1, slippage_bps: 2, basis_est: 0 },
+    rules: [
+      'Use pullback entries in aligned trend.',
+      'Adjust horizon by catalyst intensity.',
+      'Exit fast on trend failure.'
+    ],
+    trailing_rule: { mode: 'ema-trail', trigger_r_multiple: 1.3, trail_distance_pct: 1.5 }
+  },
+  OP_INTRADAY: {
+    strategy_id: 'OP_INTRADAY',
+    strategy_family: 'Options Intraday',
+    asset_class: 'OPTIONS',
+    market: 'US',
+    default_timeframe: '15M',
+    name: 'US Options Intraday',
+    features: ['delta', 'iv_percentile', 'flow_spike', 'session_momentum'],
+    trigger_conditions: ['Intraday flow and momentum align for directional option contract.'],
+    invalidation: ['Underlying structure break or IV crush against setup.'],
+    tp_ladder_rule: 'Fast TP ladder with strict EOD flatten.',
+    not_to_trade: ['Wide option spread', 'illiquid strike'],
+    cost_assumptions: { fee_bps: 8, spread_bps: 9, slippage_bps: 7, basis_est: 0 },
+    rules: [
+      'Trade liquid strikes only.',
+      'Use strict invalidation and quick partials.',
+      'Force flatten by EOD.'
+    ],
+    trailing_rule: { mode: 'none' }
   }
 };
 
 const SYMBOL_TO_STRATEGY = {
   'CRYPTO:BTC-USDT': 'CR_BAS',
   'CRYPTO:ETH-USDT': 'CR_VEL',
+  'CRYPTO:XRP-USDT': 'CR_CARRY',
   'CRYPTO:SOL-USDT': 'CR_VEL',
   'CRYPTO:BNB-USDT': 'CR_TRAP',
+  'US:SPY': 'EQ_REG',
   'US:AAPL': 'EQ_VEL',
+  'US:AMZN': 'EQ_SWING',
   'US:TSLA': 'EQ_VEL',
   'US:NVDA': 'EQ_EVT',
-  'US:MSFT': 'EQ_REG'
+  'US:MSFT': 'EQ_SWING',
+  'US:SPY240621C00540000': 'OP_INTRADAY',
+  'US:QQQ240621P00460000': 'OP_INTRADAY',
+  'US:AAPL240621C00215000': 'OP_INTRADAY'
 };
 
 export function listStrategyTemplates() {
@@ -145,6 +217,8 @@ export function resolveStrategyId(signal) {
   }
   const mapped = SYMBOL_TO_STRATEGY[`${signal.market}:${signal.symbol}`];
   if (mapped) return mapped;
+  if (signal.asset_class === 'OPTIONS') return 'OP_INTRADAY';
+  if (signal.asset_class === 'US_STOCK') return 'EQ_SWING';
   return signal.market === 'CRYPTO' ? 'CR_VEL' : 'EQ_REG';
 }
 

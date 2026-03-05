@@ -173,7 +173,6 @@ export default function OrderPage() {
   const submitPressedTimerRef = useRef<number | null>(null);
   const lastSubmittedSignatureRef = useRef("");
   const lastSubmittedAtRef = useRef(0);
-  const actionMenuRef = useRef<HTMLDivElement | null>(null);
   const isMergedTable = tableNo.includes("+");
   const canRunAction = useActionGuard();
   const deferredKeyword = useDeferredValue(keyword);
@@ -314,16 +313,6 @@ export default function OrderPage() {
     const timer = window.setTimeout(() => setToast(null), 4200);
     return () => window.clearTimeout(timer);
   }, [toast]);
-
-  useEffect(() => {
-    if (!actionMenuOpen) return;
-    const onPointerDown = (event: MouseEvent) => {
-      if (actionMenuRef.current?.contains(event.target as Node)) return;
-      setActionMenuOpen(false);
-    };
-    window.addEventListener("mousedown", onPointerDown);
-    return () => window.removeEventListener("mousedown", onPointerDown);
-  }, [actionMenuOpen]);
 
   useEffect(() => {
     cartSelectionsRef.current = cartSelections;
@@ -1208,48 +1197,9 @@ export default function OrderPage() {
           }
           right={
             <div className={styles.topActions}>
-              <div className={styles.moreWrap} ref={actionMenuRef}>
-                <Button variant="secondary" onClick={() => setActionMenuOpen((v) => !v)}>
-                  {lang === "en" ? "Actions" : "操作"}
-                </Button>
-                {actionMenuOpen ? (
-                  <div className={styles.moreMenu}>
-                    <button
-                      type="button"
-                      onClick={async () => {
-                        setActionMenuOpen(false);
-                        setShowBill(true);
-                        await loadBill();
-                      }}
-                    >
-                      {t("order.ordered", "Items")}
-                    </button>
-                    <button type="button" onClick={() => { setShowAddDish(true); setActionMenuOpen(false); }}>
-                      {t("order.addDish", "Add")}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setActionMenuOpen(false);
-                        router.push(`/manage/orders?tableNo=${encodeURIComponent(tableNo)}`);
-                      }}
-                    >
-                      {t("orders.title", "Orders")}
-                    </button>
-                    {isMergedTable ? (
-                      <button type="button" onClick={() => { setActionMenuOpen(false); void unmergeTable(); }}>
-                        {t("order.unmerge", "Unmerge")}
-                      </button>
-                    ) : null}
-                    <button type="button" onClick={() => { setActionMenuOpen(false); void checkout(); }}>
-                      {t("order.checkout", "Checkout")}
-                    </button>
-                    <button type="button" onClick={() => { setActionMenuOpen(false); void closeTable(); }}>
-                      {t("order.closeTable", "Close")}
-                    </button>
-                  </div>
-                ) : null}
-              </div>
+              <Button variant="secondary" onClick={() => setActionMenuOpen(true)}>
+                {lang === "en" ? "Actions" : "操作"}
+              </Button>
             </div>
           }
           subline={
@@ -1374,6 +1324,78 @@ export default function OrderPage() {
           </div>
         ) : null}
       </div>
+
+      <BottomSheet
+        open={actionMenuOpen}
+        onClose={() => setActionMenuOpen(false)}
+        title={lang === "en" ? "Actions" : "操作"}
+      >
+        <div className={styles.actionsSheet}>
+          <button
+            type="button"
+            className={styles.actionsSheetRow}
+            onClick={async () => {
+              setActionMenuOpen(false);
+              setShowBill(true);
+              await loadBill();
+            }}
+          >
+            {t("order.ordered", "Items")}
+          </button>
+          <button
+            type="button"
+            className={styles.actionsSheetRow}
+            onClick={() => {
+              setActionMenuOpen(false);
+              setShowAddDish(true);
+            }}
+          >
+            {t("order.addDish", "Add")}
+          </button>
+          <button
+            type="button"
+            className={styles.actionsSheetRow}
+            onClick={() => {
+              setActionMenuOpen(false);
+              router.push(`/manage/orders?tableNo=${encodeURIComponent(tableNo)}`);
+            }}
+          >
+            {t("orders.title", "Orders")}
+          </button>
+          {isMergedTable ? (
+            <button
+              type="button"
+              className={styles.actionsSheetRow}
+              onClick={() => {
+                setActionMenuOpen(false);
+                void unmergeTable();
+              }}
+            >
+              {t("order.unmerge", "Unmerge")}
+            </button>
+          ) : null}
+          <button
+            type="button"
+            className={styles.actionsSheetRow}
+            onClick={() => {
+              setActionMenuOpen(false);
+              void checkout();
+            }}
+          >
+            {t("order.checkout", "Checkout")}
+          </button>
+          <button
+            type="button"
+            className={`${styles.actionsSheetRow} ${styles.actionsSheetRowDanger}`}
+            onClick={() => {
+              setActionMenuOpen(false);
+              void closeTable();
+            }}
+          >
+            {t("order.closeTable", "Close")}
+          </button>
+        </div>
+      </BottomSheet>
 
       <BottomSheet
         open={showAddDish}

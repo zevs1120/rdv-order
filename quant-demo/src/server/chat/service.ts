@@ -5,7 +5,13 @@ import { createProvider, getProviderOrder, isProviderConfigured } from './provid
 import { ProviderRateLimitError } from './providers/errors.js';
 
 function detectMode(input: ChatRequestInput): ChatMode {
-  if (input.context?.signalId || input.context?.symbol || input.context?.market || input.context?.timeframe) {
+  if (
+    input.context?.signalId ||
+    input.context?.symbol ||
+    input.context?.market ||
+    input.context?.assetClass ||
+    input.context?.timeframe
+  ) {
     return 'context-aware';
   }
   return 'general-coach';

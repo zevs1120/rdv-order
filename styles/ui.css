@@ -1,6 +1,6 @@
 .ui-btn {
   min-height: var(--tap-min);
-  border-radius: var(--radius-md);
+  border-radius: 14px;
   border: var(--border-1) solid transparent;
   padding: 0 var(--space-4);
   font-size: var(--font-body);
@@ -46,7 +46,9 @@
 
 .ui-btn--primary {
   background: var(--brand-500);
+  border-color: color-mix(in srgb, var(--brand-500) 50%, #fff);
   color: #fff;
+  box-shadow: 0 5px 12px rgba(127, 15, 22, 0.18);
 }
 
 .ui-btn--primary:hover {
@@ -54,14 +56,17 @@
 }
 
 .ui-btn--secondary {
-  border-color: var(--line-default);
-  background: var(--gray-0);
+  border-color: var(--glass-border);
+  background: color-mix(in srgb, #ffffff 90%, #f8fafc);
   color: var(--text-primary);
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
 }
 
 .ui-btn--ghost {
+  border-color: transparent;
   background: transparent;
-  color: var(--text-primary);
+  color: var(--text-secondary);
+  box-shadow: none;
 }
 
 .ui-btn--danger {

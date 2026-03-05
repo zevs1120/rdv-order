@@ -137,6 +137,7 @@ export function runQuantPipeline(raw) {
     trades: enrichedTrades,
     velocity,
     config: nextConfig,
+    market_modules: raw.market_features?.modules || [],
     analytics: {
       pipeline_version: PIPELINE_VERSION,
       parameter_version: PARAM_VERSION,

@@ -1,4 +1,7 @@
 import { formatPercent } from '../utils/format';
+import GlassCard from './GlassCard';
+import GridOverlay from './GridOverlay';
+import NoiseOverlay from './NoiseOverlay';
 
 export default function VelocityTab({ velocity, t, lang, onExplainRisk }) {
   const regimeLabel = t(`velocity.regime.${velocity.regime}`, undefined, velocity.regime ?? '--');
@@ -19,8 +22,10 @@ export default function VelocityTab({ velocity, t, lang, onExplainRisk }) {
         : t('velocity.stanceNeutral');
 
   return (
-    <section className="stack-gap">
-      <article className="glass-card velocity-hero">
+    <section className="stack-gap dashboard-surface">
+      <GridOverlay />
+      <NoiseOverlay />
+      <GlassCard className="velocity-hero">
         <p className="muted">{t('velocity.current')}</p>
         <h1 className="velocity-value">{velocity.current?.toFixed(2) ?? '--'}</h1>
         <div className="velocity-meta">
@@ -30,9 +35,9 @@ export default function VelocityTab({ velocity, t, lang, onExplainRisk }) {
           <span className={`badge badge-${regimeClass}`}>{regimeLabel}</span>
         </div>
         <p className="muted status-line">{t('velocity.systemStance')}: {stanceText}</p>
-      </article>
+      </GlassCard>
 
-      <article className="glass-card">
+      <GlassCard>
         <h3 className="card-title">{t('velocity.similarStats')}</h3>
         <div className="kpi-grid">
           <div className="kpi-card">
@@ -67,9 +72,9 @@ export default function VelocityTab({ velocity, t, lang, onExplainRisk }) {
             {t('velocity.whyRiskReduced')}
           </button>
         </div>
-      </article>
+      </GlassCard>
 
-      <article className="glass-card">
+      <GlassCard>
         <h3 className="card-title">{t('velocity.howUsed')}</h3>
         <p className="muted">{ruleSummary}</p>
         <ul className="bullet-list">
@@ -77,7 +82,7 @@ export default function VelocityTab({ velocity, t, lang, onExplainRisk }) {
             <li key={`${line}-${index}`}>{line}</li>
           ))}
         </ul>
-      </article>
+      </GlassCard>
     </section>
   );
 }

@@ -1,9 +1,10 @@
-import type { Market } from '../types.js';
+import type { AssetClass, Market } from '../types.js';
 
 export interface ChatContextInput {
   signalId?: string;
   symbol?: string;
   market?: Market;
+  assetClass?: AssetClass;
   timeframe?: string;
 }
 

@@ -80,6 +80,34 @@ npm run db:migrate
 
 For AI chat on free tier, `AI_PROVIDER=groq` + `GROQ_API_KEY` is enough (no credit card binding needed).
 
+## Run Locally (UI + API)
+
+Start mobile H5 UI:
+
+```bash
+npm run dev
+```
+
+Open:
+
+- `http://localhost:5173` (Vite default)
+
+Start local API service in another terminal:
+
+```bash
+npm run api:data
+```
+
+Open:
+
+- `http://localhost:8787/healthz`
+
+The app now supports multi-asset signals:
+
+- `OPTIONS` (US intraday options)
+- `US_STOCK` (US swing/trend)
+- `CRYPTO` (spot/perp with funding/basis context)
+
 ## Config
 
 Main config file: `config/ingestion.config.json`
@@ -96,6 +124,8 @@ Env overrides:
 - `INGEST_CONFIG_PATH`
 - `CRYPTO_SYMBOLS`
 - `US_SYMBOLS`
+- `PUBLIC_SIGNALS_API_KEY`
+- `DISCORD_WEBHOOK_URL`
 
 ## Backfill Jobs
 
@@ -201,6 +231,17 @@ curl -X POST 'http://localhost:8787/api/executions' \
 curl 'http://localhost:8787/api/market-state?market=CRYPTO&symbol=BTC-USDT'
 
 curl 'http://localhost:8787/api/performance?market=US&range=ALL'
+
+curl 'http://localhost:8787/api/market/modules?market=US&assetClass=OPTIONS'
+
+curl -H 'x-api-key: nova-public-demo-key' \
+  'http://localhost:8787/api/public/signals?assetClass=CRYPTO&status=ALL&limit=20'
+
+curl 'http://localhost:8787/api/connect/broker?userId=guest-001&provider=ALPACA'
+
+curl -X POST 'http://localhost:8787/api/connect/exchange' \
+  -H 'Content-Type: application/json' \
+  -d '{"userId":"guest-001","provider":"BINANCE","mode":"READ_ONLY"}'
 ```
 
 Response order is ascending by `ts_open`.

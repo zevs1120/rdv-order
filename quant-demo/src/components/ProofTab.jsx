@@ -44,8 +44,8 @@ export default function ProofTab({ market, setMarket, performance, trades, loadi
         {
           label: t('proof.chartBacktest'),
           data: currentRecord.equity_curve.backtest,
-          borderColor: '#5be7c4',
-          backgroundColor: 'rgba(91, 231, 196, 0.15)',
+          borderColor: '#2563EB',
+          backgroundColor: 'rgba(37, 99, 235, 0.10)',
           tension: 0.35,
           pointRadius: 0,
           fill: false
@@ -53,8 +53,8 @@ export default function ProofTab({ market, setMarket, performance, trades, loadi
         {
           label: t('proof.chartLive'),
           data: currentRecord.equity_curve.live,
-          borderColor: '#7aa7ff',
-          backgroundColor: 'rgba(122, 167, 255, 0.15)',
+          borderColor: 'rgba(37, 99, 235, 0.62)',
+          backgroundColor: 'rgba(37, 99, 235, 0.06)',
           tension: 0.35,
           pointRadius: 0,
           fill: false
@@ -69,26 +69,26 @@ export default function ProofTab({ market, setMarket, performance, trades, loadi
     plugins: {
       legend: {
         labels: {
-          color: '#ccd5f6'
+          color: 'rgba(0,0,0,0.55)'
         }
       }
     },
     scales: {
       x: {
         ticks: {
-          color: '#8c95b5',
+          color: 'rgba(0,0,0,0.55)',
           maxTicksLimit: 6
         },
         grid: {
-          color: 'rgba(140,149,181,0.12)'
+          color: 'rgba(0,0,0,0.06)'
         }
       },
       y: {
         ticks: {
-          color: '#8c95b5'
+          color: 'rgba(0,0,0,0.55)'
         },
         grid: {
-          color: 'rgba(140,149,181,0.12)'
+          color: 'rgba(0,0,0,0.06)'
         }
       }
     }

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import SegmentedControl from './SegmentedControl';
 import SignalCard from './SignalCard';
 import SignalDetail from './SignalDetail';
@@ -14,11 +14,11 @@ function confidenceValue(signal) {
   return Number(signal.confidence || 3);
 }
 
-function buildStrategyDeck(signals, market) {
+function buildStrategyDeck(signals, assetClass) {
   const map = new Map();
 
   for (const item of signals) {
-    if (item.market !== market) continue;
+    if ((item.asset_class || (item.market === 'CRYPTO' ? 'CRYPTO' : 'US_STOCK')) !== assetClass) continue;
     const key = item.strategy_id || 'UNCLASSIFIED';
     const prev = map.get(key) || { id: key, count: 0, active: 0, confidenceSum: 0 };
     prev.count += 1;
@@ -35,9 +35,9 @@ function buildStrategyDeck(signals, market) {
     .sort((a, b) => b.active - a.active || b.count - a.count || b.avgConfidence - a.avgConfidence);
 }
 
-function buildOpportunityStack(signals, market) {
+function buildOpportunityStack(signals, assetClass) {
   return signals
-    .filter((item) => item.market === market)
+    .filter((item) => (item.asset_class || (item.market === 'CRYPTO' ? 'CRYPTO' : 'US_STOCK')) === assetClass)
     .sort((a, b) => {
       const aActive = ACTIVE_STATUSES.has(a.status) ? 1 : 0;
       const bActive = ACTIVE_STATUSES.has(b.status) ? 1 : 0;
@@ -53,6 +53,8 @@ function buildOpportunityStack(signals, market) {
 export default function SignalsTab({
   market,
   setMarket,
+  assetClass,
+  setAssetClass,
   signals,
   loading,
   watchlist,
@@ -70,6 +72,14 @@ export default function SignalsTab({
   const [activeSignal, setActiveSignal] = useState(null);
   const [eligibilitySignal, setEligibilitySignal] = useState(null);
 
+  useEffect(() => {
+    if (assetClass === 'CRYPTO' && market !== 'CRYPTO') {
+      setMarket('CRYPTO');
+    } else if (assetClass !== 'CRYPTO' && market !== 'US') {
+      setMarket('US');
+    }
+  }, [assetClass, market, setMarket]);
+
   const statusOptions = [
     { label: t('common.all'), value: 'ALL' },
     { label: t('status.NEW'), value: 'NEW' },
@@ -80,7 +90,11 @@ export default function SignalsTab({
 
   const filteredSignals = useMemo(() => {
     const scoped = signals
-      .filter((item) => item.market === market && (status === 'ALL' || item.status === status))
+      .filter(
+        (item) =>
+          (item.asset_class || (item.market === 'CRYPTO' ? 'CRYPTO' : 'US_STOCK')) === assetClass &&
+          (status === 'ALL' || item.status === status)
+      )
       .sort((a, b) => new Date(b.created_at ?? b.generated_at) - new Date(a.created_at ?? a.generated_at));
 
     if (status === 'ALL' && watchlist.length) {
@@ -99,13 +113,18 @@ export default function SignalsTab({
     }
 
     return scoped;
-  }, [signals, market, status, sortBy, watchlist]);
+  }, [signals, assetClass, status, sortBy, watchlist]);
 
-  const strategyDeck = useMemo(() => buildStrategyDeck(signals, market), [signals, market]);
-  const opportunityStack = useMemo(() => buildOpportunityStack(signals, market), [signals, market]);
+  const strategyDeck = useMemo(() => buildStrategyDeck(signals, assetClass), [signals, assetClass]);
+  const opportunityStack = useMemo(() => buildOpportunityStack(signals, assetClass), [signals, assetClass]);
   const activeSignalCount = useMemo(
-    () => signals.filter((item) => item.market === market && ACTIVE_STATUSES.has(item.status)).length,
-    [signals, market]
+    () =>
+      signals.filter(
+        (item) =>
+          (item.asset_class || (item.market === 'CRYPTO' ? 'CRYPTO' : 'US_STOCK')) === assetClass &&
+          ACTIVE_STATUSES.has(item.status)
+      ).length,
+    [signals, assetClass]
   );
 
   const toggleWatch = (symbol) => {
@@ -178,7 +197,12 @@ export default function SignalsTab({
               {t('signals.activeSignals')}: {activeSignalCount}
             </div>
             <div className="mini-stat">
-              {t('signals.totalSignals')}: {signals.filter((item) => item.market === market).length}
+              {t('signals.totalSignals')}:{' '}
+              {
+                signals.filter(
+                  (item) => (item.asset_class || (item.market === 'CRYPTO' ? 'CRYPTO' : 'US_STOCK')) === assetClass
+                ).length
+              }
             </div>
           </div>
 
@@ -232,13 +256,14 @@ export default function SignalsTab({
         </article>
 
         <SegmentedControl
-          label={t('common.market')}
+          label={t('common.assetClass')}
           options={[
-            { label: t('common.usStocks'), value: 'US' },
+            { label: t('common.options'), value: 'OPTIONS' },
+            { label: t('common.stocks'), value: 'US_STOCK' },
             { label: t('common.crypto'), value: 'CRYPTO' }
           ]}
-          value={market}
-          onChange={setMarket}
+          value={assetClass}
+          onChange={setAssetClass}
         />
 
         <SegmentedControl label={t('common.status')} options={statusOptions} value={status} onChange={setStatus} compact />
@@ -282,7 +307,12 @@ export default function SignalsTab({
             <p>
               {t('signals.noSignals', {
                 status: status === 'ALL' ? t('common.all') : t(`status.${status}`),
-                market: market === 'US' ? t('common.usStocks') : t('common.crypto')
+                market:
+                  assetClass === 'OPTIONS'
+                    ? t('common.options')
+                    : assetClass === 'US_STOCK'
+                      ? t('common.stocks')
+                      : t('common.crypto')
               })}
             </p>
           </article>

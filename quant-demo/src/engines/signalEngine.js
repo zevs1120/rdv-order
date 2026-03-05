@@ -13,6 +13,13 @@ function inferTimeframe(signal, template) {
   return signal.timeframe || template.default_timeframe || (signal.market === 'CRYPTO' ? '4H' : '1D');
 }
 
+function inferAssetClass(signal, strategyId) {
+  if (signal.asset_class) return signal.asset_class;
+  if (strategyId === 'OP_INTRADAY') return 'OPTIONS';
+  if (signal.market === 'CRYPTO') return 'CRYPTO';
+  return 'US_STOCK';
+}
+
 function getSignalSeries(signal, timeframe, velocityState) {
   const direct = velocityState.series_index[getSeriesKey(signal.market, signal.symbol, timeframe)];
   if (direct) return direct;
@@ -37,12 +44,14 @@ function getRegimeSnapshot(signal, timeframe, regimeState) {
 }
 
 function inferEntryMethod(strategyId) {
+  if (strategyId === 'OP_INTRADAY') return 'LIMIT';
   if (strategyId === 'EQ_REG') return 'MARKET';
   if (strategyId === 'CR_BAS' || strategyId === 'EQ_EVT') return 'SPLIT_LIMIT';
   return 'LIMIT';
 }
 
 function inferStopType(strategyId) {
+  if (strategyId === 'OP_INTRADAY') return 'STRUCTURE';
   if (strategyId === 'EQ_REG' || strategyId === 'CR_TRAP') return 'STRUCTURE';
   if (strategyId === 'CR_VEL' || strategyId === 'EQ_VEL') return 'ATR';
   return 'HYBRID';
@@ -149,15 +158,93 @@ function computeSignalScore({ expectedR, confidenceNorm, regimeId, totalCostBps,
   return round(expectedR * confidenceNorm * regimeFit - costPenalty - tailRiskPenalty, 4);
 }
 
-function buildExecutionChecklist({ signal, entryMin, entryMax, stopLoss, tp1, positionPct, bucketState }) {
-  return [
+function buildExecutionChecklist({ signal, assetClass, entryMethod, entryMin, entryMax, stopLoss, tp1, positionPct, bucketState }) {
+  const lines = [
     `Confirm spread and liquidity for ${signal.symbol} before entering.`,
-    `Place entry orders in ${round(entryMin, 2)}-${round(entryMax, 2)}; do not chase outside zone.`,
+    `Use ${entryMethod} entry in ${round(entryMin, 2)}-${round(entryMax, 2)}; do not chase outside zone.`,
     `Set hard stop at ${round(stopLoss, 2)} immediately after fill.`,
     `Set TP1 near ${round(tp1, 2)} and scale out at least 50-60%.`,
     `Limit initial size to ${round(positionPct, 2)}% under ${bucketState} risk bucket.`,
     'Skip if volatility spikes further or regime flips risk-off.'
   ];
+  if (assetClass === 'CRYPTO') {
+    lines.push('Avoid entries around funding reset windows; keep leverage conservative to reduce liquidation risk.');
+  }
+  if (assetClass === 'OPTIONS') {
+    lines.push('Use liquid strikes only and enforce end-of-day flatten if setup has not resolved.');
+  }
+  if (assetClass === 'US_STOCK') {
+    lines.push('Check catalyst calendar before close when holding as swing exposure.');
+  }
+  return lines;
+}
+
+function buildAssetPayload({ signal, assetClass, entryMid, strategyId }) {
+  if (assetClass === 'OPTIONS') {
+    const put = signal.direction === 'SHORT';
+    return {
+      kind: 'OPTIONS_INTRADAY',
+      data: {
+        underlying: {
+          symbol: String(signal.symbol || '').match(/^[A-Z]+/)?.[0] || signal.symbol,
+          spot_price: round(entryMid, 2),
+          session: 'REG'
+        },
+        option_contract: {
+          side: put ? 'PUT' : 'CALL',
+          expiry: '2026-06-21',
+          strike: Math.round(entryMid),
+          dte: 6,
+          contract_symbol: signal.symbol
+        },
+        time_stop: {
+          eod_flatten: true,
+          latest_exit_utc: new Date(Date.now() + 8 * 3600 * 1000).toISOString()
+        },
+        greeks_iv: {
+          delta: round(put ? -0.35 : 0.35, 2),
+          iv_percentile: round(48 + (Number(signal.confidence || 3) - 3) * 8, 2),
+          expected_move: round(entryMid * 0.012, 2)
+        }
+      }
+    };
+  }
+  if (assetClass === 'US_STOCK') {
+    const horizon = strategyId === 'EQ_SWING' ? 'MEDIUM' : strategyId === 'EQ_EVT' ? 'SHORT' : 'LONG';
+    return {
+      kind: 'STOCK_SWING',
+      data: {
+        horizon,
+        catalysts: strategyId === 'EQ_EVT' ? ['earnings_window', 'macro_event'] : ['index_regime', 'sector_leadership']
+      }
+    };
+  }
+  const confidenceBias = Number(signal.confidence || 3) - 3;
+  return {
+    kind: 'CRYPTO',
+    data: {
+      venue: 'BINANCE',
+      instrument_type: 'PERP',
+      perp_metrics: {
+        funding_rate_current: round(confidenceBias * 0.0002, 6),
+        funding_rate_8h: round(confidenceBias * 0.00018, 6),
+        funding_rate_24h: round(confidenceBias * 0.00044, 6),
+        basis_bps: round(18 + confidenceBias * 6, 2),
+        basis_percentile: round(62 + confidenceBias * 9, 2),
+        open_interest: 1625000 + Math.round(confidenceBias * 120000),
+        premium_index: round(confidenceBias * 0.0003, 6)
+      },
+      flow_state: {
+        spot_led_breakout: signal.direction === 'LONG',
+        perp_led_breakout: signal.direction === 'SHORT',
+        funding_state: Math.abs(confidenceBias) > 1.2 ? 'EXTREME' : 'NEUTRAL'
+      },
+      leverage_suggestion: {
+        suggested_leverage: signal.status === 'TRIGGERED' ? 1.5 : 1.2,
+        capped_by_profile: true
+      }
+    }
+  };
 }
 
 function resolveExpiresAt(signal) {
@@ -199,6 +286,7 @@ export function runSignalEngine({ signals, velocityState, regimeState, riskState
   const contracts = signals.map((signal) => {
     const strategyId = resolveStrategyId(signal);
     const template = getStrategyTemplate(strategyId);
+    const assetClass = inferAssetClass(signal, strategyId);
     const timeframe = inferTimeframe(signal, template);
     const series = getSignalSeries(signal, timeframe, velocityState);
     const regime = getRegimeSnapshot(signal, timeframe, regimeState);
@@ -226,8 +314,11 @@ export function runSignalEngine({ signals, velocityState, regimeState, riskState
     const createdAtMs = new Date(signal.generated_at).getTime() || Date.now();
     const expiresAtMs = resolveExpiresAt(signal);
     const status = inferStatus(signal.status, expiresAtMs);
+    const entryMethod = inferEntryMethod(strategyId);
     const executionChecklist = buildExecutionChecklist({
       signal,
+      assetClass,
+      entryMethod,
       entryMin,
       entryMax,
       stopLoss: Number(signal.stop_loss),
@@ -269,6 +360,7 @@ export function runSignalEngine({ signals, velocityState, regimeState, riskState
       id: signal.signal_id,
       created_at: new Date(createdAtMs).toISOString(),
       expires_at: new Date(expiresAtMs).toISOString(),
+      asset_class: assetClass,
       strategy_id: strategyId,
       strategy_family: template.strategy_family || template.name,
       strategy_version: signal.model_version || strategyTemplateVersion,
@@ -283,7 +375,7 @@ export function runSignalEngine({ signals, velocityState, regimeState, riskState
       entry_zone: {
         low: entryMin,
         high: entryMax,
-        method: inferEntryMethod(strategyId),
+        method: entryMethod,
         notes: `Valid until ${new Date(expiresAtMs).toISOString()}`
       },
       invalidation_level: Number(signal.invalidation_level ?? signal.stop_loss),
@@ -314,12 +406,14 @@ export function runSignalEngine({ signals, velocityState, regimeState, riskState
       explain_bullets: explainBullets,
       execution_checklist: executionChecklist,
       tags: [
+        assetClass.toLowerCase(),
         strategyId,
         regimeId.toLowerCase(),
         temperaturePercentile > 90 ? 'temp-extreme' : 'temp-normal',
         volatilityPercentile > 90 ? 'vol-extreme' : 'vol-normal'
       ],
       status,
+      payload: buildAssetPayload({ signal, assetClass, entryMid, strategyId }),
       references: {
         chart_url: `/charts/${signal.market}/${signal.symbol}`,
         docs_url: `/docs/strategies/${strategyId.toLowerCase()}`

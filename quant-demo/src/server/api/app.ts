@@ -1,8 +1,11 @@
 import express from 'express';
 import { isoToMs } from '../utils/time.js';
-import type { Market, Timeframe } from '../types.js';
+import type { AssetClass, Market, Timeframe } from '../types.js';
 import {
+  ensureDefaultPublicSignalsApiKey,
   getMarketState,
+  getMarketModules,
+  listExternalConnections,
   getPerformanceSummary,
   getRiskProfile,
   getSignalContract,
@@ -11,11 +14,14 @@ import {
   listSignalContracts,
   queryOhlcv,
   syncQuantState,
-  upsertExecution
+  upsertExecution,
+  upsertExternalConnection,
+  verifyPublicSignalsApiKey
 } from './queries.js';
 import { checkRateLimit } from '../chat/rateLimit.js';
 import { streamChat } from '../chat/service.js';
 import { logChatAudit } from '../chat/audit.js';
+import { createBrokerAdapter, createExchangeAdapter } from '../connect/adapters.js';
 
 function parseMarket(value?: string): Market | undefined {
   if (!value) return undefined;
@@ -31,10 +37,24 @@ function parseTimeframe(value?: string): Timeframe | undefined {
   return undefined;
 }
 
-function parseSignalStatus(value?: string): 'ALL' | 'NEW' | 'TRIGGERED' | 'EXPIRED' | 'INVALIDATED' | undefined {
+function parseAssetClass(value?: string): AssetClass | undefined {
   if (!value) return undefined;
   const upper = value.toUpperCase();
-  if (upper === 'ALL' || upper === 'NEW' || upper === 'TRIGGERED' || upper === 'EXPIRED' || upper === 'INVALIDATED') {
+  if (upper === 'OPTIONS' || upper === 'US_STOCK' || upper === 'CRYPTO') return upper;
+  return undefined;
+}
+
+function parseSignalStatus(value?: string): 'ALL' | 'NEW' | 'TRIGGERED' | 'EXPIRED' | 'INVALIDATED' | 'CLOSED' | undefined {
+  if (!value) return undefined;
+  const upper = value.toUpperCase();
+  if (
+    upper === 'ALL' ||
+    upper === 'NEW' ||
+    upper === 'TRIGGERED' ||
+    upper === 'EXPIRED' ||
+    upper === 'INVALIDATED' ||
+    upper === 'CLOSED'
+  ) {
     return upper;
   }
   return undefined;
@@ -43,6 +63,7 @@ function parseSignalStatus(value?: string): 'ALL' | 'NEW' | 'TRIGGERED' | 'EXPIR
 export function createApiApp() {
   const app = express();
   app.use(express.json({ limit: '1mb' }));
+  ensureDefaultPublicSignalsApiKey();
 
   app.get('/healthz', (_req, res) => {
     res.json({ ok: true, ts: Date.now() });
@@ -61,13 +82,19 @@ export function createApiApp() {
 
   app.get('/api/signals', (req, res) => {
     const market = parseMarket(req.query.market as string | undefined);
+    const assetClass = parseAssetClass(req.query.assetClass as string | undefined);
     const status = parseSignalStatus(req.query.status as string | undefined) || 'ALL';
     const symbol = (req.query.symbol as string | undefined)?.toUpperCase();
     const limit = req.query.limit ? Number(req.query.limit) : 40;
     const userId = (req.query.userId as string | undefined) || 'guest-default';
+    if (req.query.assetClass && !assetClass) {
+      res.status(400).json({ error: 'Invalid assetClass, use OPTIONS | US_STOCK | CRYPTO' });
+      return;
+    }
     syncQuantState(userId);
     const data = listSignalContracts({
       userId,
+      assetClass,
       market,
       symbol,
       status,
@@ -77,6 +104,46 @@ export function createApiApp() {
       asof: new Date().toISOString(),
       count: data.length,
       data
+    });
+  });
+
+  app.get('/api/public/signals', (req, res) => {
+    const key = (req.header('x-api-key') || req.query.apikey || req.query.apiKey || '').toString();
+    if (!verifyPublicSignalsApiKey(key)) {
+      res.status(401).json({ error: 'Invalid API key' });
+      return;
+    }
+    const market = parseMarket(req.query.market as string | undefined);
+    const assetClass = parseAssetClass(req.query.assetClass as string | undefined);
+    const status = parseSignalStatus(req.query.status as string | undefined) || 'ALL';
+    const symbol = (req.query.symbol as string | undefined)?.toUpperCase();
+    const limit = req.query.limit ? Number(req.query.limit) : 50;
+    const data = listSignalContracts({
+      userId: 'public-api',
+      assetClass,
+      market,
+      symbol,
+      status,
+      limit
+    });
+    res.json({
+      asof: new Date().toISOString(),
+      count: data.length,
+      data
+    });
+  });
+
+  app.get('/api/market/modules', (req, res) => {
+    const market = parseMarket(req.query.market as string | undefined);
+    const assetClass = parseAssetClass(req.query.assetClass as string | undefined);
+    const modules = getMarketModules({
+      market,
+      assetClass
+    });
+    res.json({
+      asof: new Date().toISOString(),
+      count: modules.length,
+      data: modules
     });
   });
 
@@ -162,6 +229,70 @@ export function createApiApp() {
     res.json({ data });
   });
 
+  app.get('/api/connect/broker', async (req, res) => {
+    const userId = (req.query.userId as string | undefined) || 'guest-default';
+    const provider = String((req.query.provider as string | undefined) || 'ALPACA').toUpperCase();
+    const adapter = createBrokerAdapter(provider);
+    const snapshot = await adapter.fetchSnapshot();
+    const connections = listExternalConnections({ userId, connectionType: 'BROKER' });
+    res.json({
+      provider,
+      mode: 'READ_ONLY',
+      snapshot,
+      connections
+    });
+  });
+
+  app.post('/api/connect/broker', (req, res) => {
+    const body = req.body as { userId?: string; provider?: string; mode?: 'READ_ONLY' | 'TRADING' };
+    const userId = body.userId || 'guest-default';
+    const provider = String(body.provider || 'ALPACA').toUpperCase();
+    const mode = body.mode || 'READ_ONLY';
+    const saved = upsertExternalConnection({
+      userId,
+      connectionType: 'BROKER',
+      provider,
+      mode,
+      status: 'CONNECTED',
+      meta: {
+        capabilities: ['positions', 'buying_power']
+      }
+    });
+    res.json({ ok: true, ...saved });
+  });
+
+  app.get('/api/connect/exchange', async (req, res) => {
+    const userId = (req.query.userId as string | undefined) || 'guest-default';
+    const provider = String((req.query.provider as string | undefined) || 'BINANCE').toUpperCase();
+    const adapter = createExchangeAdapter(provider);
+    const snapshot = await adapter.fetchSnapshot();
+    const connections = listExternalConnections({ userId, connectionType: 'EXCHANGE' });
+    res.json({
+      provider,
+      mode: 'READ_ONLY',
+      snapshot,
+      connections
+    });
+  });
+
+  app.post('/api/connect/exchange', (req, res) => {
+    const body = req.body as { userId?: string; provider?: string; mode?: 'READ_ONLY' | 'TRADING' };
+    const userId = body.userId || 'guest-default';
+    const provider = String(body.provider || 'BINANCE').toUpperCase();
+    const mode = body.mode || 'READ_ONLY';
+    const saved = upsertExternalConnection({
+      userId,
+      connectionType: 'EXCHANGE',
+      provider,
+      mode,
+      status: 'CONNECTED',
+      meta: {
+        capabilities: ['balances', 'positions']
+      }
+    });
+    res.json({ ok: true, ...saved });
+  });
+
   app.get('/api/ohlcv', (req, res) => {
     const market = parseMarket(req.query.market as string | undefined);
     const symbol = (req.query.symbol as string | undefined)?.toUpperCase();
@@ -204,7 +335,7 @@ export function createApiApp() {
     const body = req.body as {
       userId?: string;
       message?: string;
-      context?: { signalId?: string; symbol?: string; market?: Market; timeframe?: string };
+      context?: { signalId?: string; symbol?: string; market?: Market; assetClass?: AssetClass; timeframe?: string };
     };
     const userId = String(body?.userId || '').trim();
     const message = String(body?.message || '').trim();
@@ -287,9 +418,10 @@ export function createApiApp() {
 
   // Internal tool endpoints consumed by AI assistant service.
   app.post('/getSignalCards', (req, res) => {
-    const body = req.body as { userId?: string; market?: Market };
+    const body = req.body as { userId?: string; market?: Market; assetClass?: AssetClass };
     const data = listSignalContracts({
       userId: body.userId || 'guest-default',
+      assetClass: body.assetClass,
       market: body.market,
       status: 'ALL',
       limit: 40
@@ -313,7 +445,7 @@ export function createApiApp() {
   });
 
   app.post('/getMarketTemperature', (req, res) => {
-    const body = req.body as { market?: Market; symbol?: string; timeframe?: string; userId?: string };
+    const body = req.body as { market?: Market; symbol?: string; assetClass?: AssetClass; timeframe?: string; userId?: string };
     const data = getMarketState({
       userId: body.userId || 'guest-default',
       market: body.market,

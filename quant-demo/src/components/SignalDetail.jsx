@@ -24,6 +24,7 @@ export default function SignalDetail({ signal, onBack, t }) {
   const orderText = useMemo(
     () => [
       `symbol: ${signal.symbol}`,
+      `asset_class: ${signal.asset_class || (signal.market === 'CRYPTO' ? 'CRYPTO' : 'US_STOCK')}`,
       `market: ${signal.market}`,
       `strategy_id: ${signal.strategy_id ?? '--'}`,
       `timeframe: ${signal.timeframe ?? '--'}`,
@@ -91,7 +92,14 @@ export default function SignalDetail({ signal, onBack, t }) {
           <div>
             <h2 className="headline">{signal.symbol}</h2>
             <p className="muted">
-              {signal.market === 'US' ? t('common.usStocks') : t('common.crypto')} · {t(`direction.${signal.direction}`, undefined, signal.direction)}
+              {signal.asset_class === 'OPTIONS'
+                ? t('common.options')
+                : signal.asset_class === 'US_STOCK'
+                  ? t('common.stocks')
+                  : signal.market === 'US'
+                    ? t('common.usStocks')
+                    : t('common.crypto')}{' '}
+              · {t(`direction.${signal.direction}`, undefined, signal.direction)}
             </p>
           </div>
           <div className={`badge badge-${signal.status.toLowerCase()}`}>{t(`status.${signal.status}`, undefined, signal.status)}</div>
@@ -109,6 +117,40 @@ export default function SignalDetail({ signal, onBack, t }) {
           ].map(([label, value]) => infoRow(label, value))}
         </div>
       </article>
+
+      {signal.payload?.kind === 'OPTIONS_INTRADAY' ? (
+        <article className="glass-card">
+          <h3 className="card-title">{t('signals.optionContract')}</h3>
+          <div className="detail-list">
+            {[
+              ['Underlying', signal.payload.data?.underlying?.symbol || '--'],
+              ['Contract', signal.payload.data?.option_contract?.contract_symbol || '--'],
+              ['DTE', signal.payload.data?.option_contract?.dte ?? '--'],
+              ['Delta', signal.payload.data?.greeks_iv?.delta ?? '--']
+            ].map(([label, value]) => infoRow(label, value))}
+          </div>
+        </article>
+      ) : null}
+
+      {signal.payload?.kind === 'STOCK_SWING' ? (
+        <article className="glass-card">
+          <h3 className="card-title">{t('signals.stockHorizon')}</h3>
+          <div className="detail-list">{infoRow('Horizon', signal.payload.data?.horizon || '--')}</div>
+        </article>
+      ) : null}
+
+      {signal.payload?.kind === 'CRYPTO' ? (
+        <article className="glass-card">
+          <h3 className="card-title">{t('signals.cryptoFundingBasis')}</h3>
+          <div className="detail-list">
+            {[
+              ['Funding', signal.payload.data?.perp_metrics?.funding_rate_current ?? '--'],
+              ['Basis(bps)', signal.payload.data?.perp_metrics?.basis_bps ?? '--'],
+              ['Basis %ile', signal.payload.data?.perp_metrics?.basis_percentile ?? '--']
+            ].map(([label, value]) => infoRow(label, value))}
+          </div>
+        </article>
+      ) : null}
 
       <article className="glass-card">
         <h3 className="card-title">{t('signals.rationale')}</h3>
