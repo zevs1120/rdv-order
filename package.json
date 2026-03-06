@@ -9,7 +9,9 @@
     "check:print-env": "node scripts/check-print-env.js",
     "lint": "tsc --noEmit",
     "test": "VITE_CJS_IGNORE_WARNING=true vitest run",
-    "test:watch": "VITE_CJS_IGNORE_WARNING=true vitest"
+    "test:watch": "VITE_CJS_IGNORE_WARNING=true vitest",
+    "verify": "npm run lint && npm run test && npm run build",
+    "precommit:baseline": "npm run verify"
   },
   "dependencies": {
     "jose": "^5.9.4",

@@ -1,220 +1,130 @@
 # API Reference
 
-## Auth
+Base: Next.js Route Handlers under `app/api`.
 
-### `POST /api/login`
+## Auth & Permission
+- JWT bearer token: `Authorization: Bearer <token>`
+- Permission checks are enforced server-side (`requirePermission`).
+- Worker-only header for print dispatch: `X-Print-Worker-Key`.
 
-请求：
+## Endpoint Index
 
+| Method | Path | Permission |
+|---|---|---|
+| POST | `/api/login` | public |
+| GET | `/api/menu` | public |
+| POST | `/api/menu/custom` | `order.create` (+ `menu.manage` for permanent mode) |
+| GET, POST | `/api/tables` | `order.create` |
+| POST | `/api/tables/merge` | `order.create` |
+| POST | `/api/tables/unmerge` | `order.create` |
+| GET | `/api/tables/bill` | `report.orders` |
+| POST | `/api/tables/print-bill` | `order.create` |
+| POST | `/api/tables/checkout` | `order.create` |
+| POST | `/api/tables/close` | `order.create` |
+| POST | `/api/tables/reverse-checkout` | `cashier.reverse_checkout` |
+| POST, GET | `/api/orders` | `order.create` / `report.orders` |
+| DELETE | `/api/orders/[id]` | `order.delete` |
+| POST | `/api/orders/[id]/cancel` | `order.cancel` |
+| POST | `/api/orders/[id]/return-item` | `order.return_item` |
+| POST | `/api/orders/[id]/charges` | `order.adjust_charge` |
+| POST | `/api/orders/[id]/split` | `order.split_merge` |
+| POST | `/api/orders/merge` | `order.split_merge` |
+| GET | `/api/manage/orders` | `report.orders` |
+| GET | `/api/manage/income` | `report.finance` |
+| GET | `/api/manage/hot-items` | `report.finance` |
+| GET | `/api/manage/ops` | `report.ops` |
+| GET | `/api/summary` | `report.finance` |
+| GET, PATCH | `/api/pricing/rules` | `cashier.close_shift` |
+| DELETE | `/api/pricing/rules/[id]` | `cashier.close_shift` |
+| GET, PATCH | `/api/devices` | `device.view` / `device.manage` |
+| POST | `/api/devices/heartbeat` | key-based (`DEVICE_HEARTBEAT_KEY`) |
+| POST | `/api/print/dispatch` | `device.manage` or worker key |
+| GET | `/api/print/health` | `device.view` |
+| POST | `/api/print/self-test` | `device.manage` |
+| GET, PATCH | `/api/admin/permissions` | `rbac.manage` |
+| GET, POST | `/api/admin/menu-items` | `menu.manage` |
+| PATCH, DELETE | `/api/admin/menu-items/[id]` | `menu.manage` |
+| GET, PUT | `/api/admin/menu-items/[id]/components` | `menu.manage` |
+| GET, POST | `/api/admin/menu-categories` | `menu.manage` |
+| DELETE | `/api/admin/menu-categories/[key]` | `menu.manage` |
+| GET, POST | `/api/admin/menu-subcategories` | `menu.manage` |
+| DELETE | `/api/admin/menu-subcategories/[id]` | `menu.manage` |
+| GET, POST | `/api/cashier/close` | `cashier.close_shift` |
+
+## Core Payload Examples
+
+### Login
+`POST /api/login`
 ```json
-{
-  "username": "Mercy",
-  "pin": "admin"
-}
+{ "username": "Mercy", "pin": "admin" }
 ```
 
-## Menu
-
-### `GET /api/menu?shift=breakfast|lunch|dinner|beverage|cocktail|package`
-
-返回当前班次菜单。
-
-### `POST /api/menu/custom`
-
-请求头：`Authorization: Bearer <jwt>`
-
-请求：
-
+### Submit Order
+`POST /api/orders`
+- header (optional but recommended): `X-Idempotency-Key: <8-80 chars>`
 ```json
 {
-  "name": "Seasonal Fish",
-  "price": 420,
-  "category": "Special",
-  "description": "off menu",
-  "shift": "dinner",
-  "mode": "temporary"
-}
-```
-
-说明：
-
-- `mode=temporary`：创建临时菜（仅本次点单使用，不进入公开菜单）
-- `mode=permanent`：创建永久菜（仅经理允许）
-
-## Orders
-
-### `POST /api/orders`
-
-请求头：`Authorization: Bearer <jwt>`
-可选请求头：`X-Idempotency-Key: <8-80位字母数字_-组合>`（弱网重试防重复下单）
-
-请求：
-
-```json
-{
-  "tableNo": "A1",
-  "guestCount": 4,
+  "tableNo": "05",
+  "guestCount": 2,
   "shift": "lunch",
-  "items": [{ "menuItemId": "uuid", "qty": 2, "note": "no ice" }]
+  "items": [
+    { "menuItemId": "uuid", "qty": 1, "note": "no onion" }
+  ]
 }
 ```
 
-说明：桌台必须是已开台状态。
-说明：如同一服务员重复提交相同 `X-Idempotency-Key`，接口会返回已有订单，不重复创建。
-说明：`note` 可选，最多 120 字，会写入订单明细并进入打印 payload。
+### Open Table
+`POST /api/tables`
+```json
+{ "tableNo": "05", "guestCount": 2 }
+```
 
-### `DELETE /api/orders/{id}`
+### Merge Tables
+`POST /api/tables/merge`
+```json
+{ "primaryTable": "01", "secondaryTable": "02", "guestCount": 4 }
+```
 
-请求头：`Authorization: Bearer <jwt>`（必须 manager）
+### Checkout
+`POST /api/tables/checkout`
+```json
+{ "tableNo": "05" }
+```
 
-删除任意订单（用于经理纠错）。
-
-## Tables
-
-### `GET /api/tables`
-
-请求头：`Authorization: Bearer <jwt>`
-
-返回图形化桌台数据，含开台状态（红/绿）与拼桌显示。
-
-### `POST /api/tables`
-
-请求头：`Authorization: Bearer <jwt>`
-
-普通开台：
-
+### Update Pricing Rules
+`PATCH /api/pricing/rules`
 ```json
 {
-  "tableNo": "A1",
-  "guestCount": 4
+  "rules": [
+    {
+      "id": "optional-uuid",
+      "name": "Service Fee 10%",
+      "charge_type": "service_fee",
+      "mode": "percent",
+      "value": 10,
+      "is_active": true,
+      "sort_order": 10
+    }
+  ]
 }
 ```
 
-### `POST /api/tables/merge`
-
-请求头：`Authorization: Bearer <jwt>`
-
-拼桌开台：
-
+### Create Subcategory
+`POST /api/admin/menu-subcategories`
 ```json
 {
-  "primaryTable": "A1",
-  "secondaryTable": "A2",
-  "guestCount": 8
+  "shift": "beverage",
+  "name": "Tea",
+  "displayNameZh": "茶"
 }
 ```
 
-成功后桌号会变成 `A1+A2`，`A2` 在选桌页消失。
+## Error Style
+- 401: unauthorized / not signed in
+- 403: forbidden / insufficient permission
+- 400: validation/input error
+- 500: internal or operation failure
 
-### `POST /api/tables/unmerge`
-
-请求头：`Authorization: Bearer <jwt>`
-
-取消拼桌（仅当该拼桌还没有订单）：
-
-```json
-{
-  "tableNo": "A1+A2"
-}
-```
-
-### `GET /api/tables/bill?tableNo=A1%2BA2`
-
-请求头：`Authorization: Bearer <jwt>`
-
-返回该桌当前账单明细与总价。
-
-### `POST /api/tables/checkout`
-
-请求头：`Authorization: Bearer <jwt>`
-
-请求：
-
-```json
-{
-  "tableNo": "A1+A2"
-}
-```
-
-执行结账确认：
-
-- 订单状态更新为 `submitted -> paid -> closed`
-- 当前桌台自动关台（恢复绿色）
-
-### `POST /api/tables/close`
-
-请求头：`Authorization: Bearer <jwt>`
-
-手动关台（不结账）：
-
-```json
-{
-  "tableNo": "A1"
-}
-```
-
-限制：如果该桌还有 `submitted` 未结订单，会返回冲突并提示先结账。
-
-## Summary
-
-### `GET /api/summary?from=ISO&to=ISO`
-
-请求头：`Authorization: Bearer <jwt>`（必须 manager）
-
-## Manage
-
-### `GET /api/manage/orders?from=ISO&to=ISO`
-
-请求头：`Authorization: Bearer <jwt>`（waiter / manager）
-
-返回指定时间范围订单列表（每单金额、菜品数量、状态、时间、明细 items）。
-
-### `GET /api/manage/income?from=ISO&to=ISO`
-
-请求头：`Authorization: Bearer <jwt>`（必须 manager）
-
-返回已结账（`paid`/`closed`）收入汇总与按天统计，用于“当天/昨天/过去一周/过去一月/过去三月/过去一年/自定时间”筛选。
-
-## Print
-
-### `POST /api/print/dispatch`
-
-请求头（任选其一）：
-
-- `X-Print-Worker-Key: <PRINT_WORKER_KEY>`（调度器调用）
-- 或经理权限 JWT（手动触发）
-
-请求：
-
-```json
-{
-  "limit": 10
-}
-```
-
-触发打印任务消费（调度 `print_jobs` 队列）。
-
-- 方式 1：经理身份调用（`Authorization: Bearer <jwt>`）
-- 方式 2：Worker Key 调用（请求头 `X-Print-Worker-Key`）
-
-请求体可选，`limit` 默认为 6。
-
-### `GET /api/print/health`
-
-请求头：`Authorization: Bearer <jwt>`（必须 manager）
-
-返回打印部署就绪状态（主/备通道配置、队列积压、关键密钥是否已配置、吧台路由规则）。
-
-### `POST /api/print/self-test`
-
-请求头：`Authorization: Bearer <jwt>`（必须 manager）
-
-请求：
-
-```json
-{
-  "target": "kitchen"
-}
-```
-
-`target` 可选值：`kitchen | bar | both`（默认 `both`）。
+## Source of Truth
+- API implementation paths: `app/api/**/route.ts`
+- Permission logic: `lib/permissions.ts`

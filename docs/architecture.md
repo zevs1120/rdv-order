@@ -1,50 +1,61 @@
 # Architecture
 
-## 新增核心流程
+## System Topology
+- Client: Next.js mobile web app (PWA-capable)
+- API: Next.js Route Handlers (`app/api/*`)
+- DB: PostgreSQL
+- Print pipeline: async `print_jobs` queue + worker dispatch
+- Deployment: Vercel serverless + external Postgres
 
-1. 登录后服务员进入 `/tables` 图形化选桌页。
-2. 选择绿色桌开台并填写人数，或选择两张绿色桌拼桌开台。
-3. 进入 `/order` 点餐页按分类下单。
-4. 点餐过程支持草稿自动恢复（按桌号）与菜品备注。
-5. 在点餐页查看已点餐品与总价。
-6. 提交后进入打印队列，按分类/关键词路由后厨或吧台。
-7. 可在管理端做后厨/吧台/双通道打印自检。
-8. 点击结账确认，系统自动关台并返回选桌。
-9. 打印由 `print_jobs` 异步队列处理，不依赖厨房系统回传状态。
+## End-to-End Order Flow
+1. User login (`/api/login`) -> JWT in local storage.
+2. Open table (`/api/tables`) or merge table (`/api/tables/merge`).
+3. Fetch menu (`/api/menu`) by major category/shift.
+4. Submit order (`/api/orders`):
+   - permission check
+   - idempotency + duplicate guard
+   - write `orders` + `order_items`
+   - auto-apply active pricing rules (`order_charges`)
+   - enqueue `print_jobs`
+   - trigger one print worker pass
+5. Bill review (`/api/tables/bill`), optional guest copy print (`/api/tables/print-bill`).
+6. Checkout (`/api/tables/checkout`) -> close table and finalize states.
 
-## 稳定性基线（弱网场景）
+## Order State Model
+Current enforced core states in schema:
+- `submitted`
+- `paid`
+- `closed`
 
-1. 下单请求支持幂等键，服务员重复提交不会重复出单。
-2. 开台/拼桌/结账/关台使用数据库事务 + advisory lock，避免并发冲突。
-3. 打印采用 `print_jobs` 队列，提交订单后异步消费，失败自动记录并可重试。
-4. 管理端收入统计仅计算已结账订单（`paid`/`closed`），口径与结账一致。
-5. 前端统一请求超时与有限重试，降低弱网卡顿和误触发重试风险。
-6. 数据库连接池小规模配置 + 语句超时，避免弱网下慢查询拖垮整个服务。
-7. PWA 仅缓存静态资源，业务请求不走离线缓存，避免脏数据。
-8. 顶部网络状态栏实时提示在线/弱网/离线，降低误操作。
+Compatibility note:
+- Some query logic still tolerates historical states (`preparing`, `served`) from older data.
 
-## 权限模型
+## Permission Model
+- API-level RBAC via `requirePermission(req, permission)`.
+- Permission defaults + DB overrides in `role_permissions`.
+- Manager-only capabilities include menu admin, fees, devices, RBAC, finance reports.
 
-- 服务员（waiter）
-  - 可点餐、开台/拼桌、查看“订单”及订单明细
-- 经理（manager）
-  - 拥有服务员全部能力
-  - 可删除任意订单
-  - 可使用收入页与菜单管理（列表式全量管理）
+## Data Model Highlights
+- `table_sessions` + `table_session_tables` represent table lifecycle and merge mapping.
+- `orders`, `order_items`, `order_charges`, `order_events` represent financial and audit trail.
+- `pricing_rules` controls auto fees/discount/tax application.
+- `print_jobs` decouples order submit from physical printing.
+- `menu_major_categories` + `menu_subcategories` drive top tabs + left category rail.
 
-## 数据模型
+## Reliability Design
+- Idempotency key support: `X-Idempotency-Key`.
+- Duplicate submit detection window (`ORDER_DEDUPE_WINDOW_SECONDS`).
+- Print retries and stale-printing recovery.
+- API client timeout + retries.
+- Audit logs for sensitive actions.
 
-- `table_sessions`
-  - 开台记录（桌号、人数、开台时间、关台时间）
-- `table_session_tables`
-  - 开台桌号映射（支持拼桌：一个 session 对应两张基础桌）
+## UI Runtime Shell
+- Fixed TopBar
+- Scrollable content region
+- Fixed bottom TabBar
+- Safe-area handling for iOS/Android
+- Layer token system to prevent overlay collisions
 
-## 颜色状态
-
-- 绿色：未开台（可开台）
-- 红色：已开台（可继续点餐或结账）
-
-## 关键页面
-
-- `/tables`：选桌与拼桌
-- `/order`：点餐 + 已点餐品 + 结账
+See also:
+- `/Users/qiao/Downloads/rdv-order/docs/ui-shell.md`
+- `/Users/qiao/Downloads/rdv-order/docs/visual-system.md`
