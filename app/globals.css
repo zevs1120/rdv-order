@@ -227,7 +227,6 @@ button {
   letter-spacing: 0;
   white-space: nowrap;
   cursor: pointer;
-  will-change: transform, opacity;
   touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;
   box-shadow: 0 3px 8px rgba(127, 15, 22, 0.12);
@@ -1233,28 +1232,26 @@ button:disabled {
 .manage-home-screen {
   min-height: 100%;
   display: grid;
-  grid-template-rows: auto minmax(0, 1fr);
   gap: 8px;
-  overflow: hidden;
+  align-content: start;
 }
 
 .manage-home-scroll {
-  min-height: 0;
-  overflow-y: auto;
+  min-height: auto;
+  overflow: visible;
   padding-bottom: 8px;
 }
 
 .manage-subpage-screen {
   min-height: 100%;
   display: grid;
-  grid-template-rows: auto minmax(0, 1fr);
   gap: 8px;
-  overflow: hidden;
+  align-content: start;
 }
 
 .manage-subpage-scroll {
-  min-height: 0;
-  overflow-y: auto;
+  min-height: auto;
+  overflow: visible;
   padding-bottom: 8px;
 }
 
