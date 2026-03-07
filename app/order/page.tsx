@@ -823,9 +823,11 @@ export default function OrderPage() {
     setQty(itemId, previousQty + 1);
     setNoteSheetOpen(false);
     setCartSheetOpen(true);
-    window.requestAnimationFrame(() => {
-      finishMeasure({ nextQty: previousQty + 1 });
-    });
+    if (finishMeasure) {
+      window.requestAnimationFrame(() => {
+        finishMeasure({ nextQty: previousQty + 1 });
+      });
+    }
   }, [setQty]);
 
   function closeNoteSheet(shouldSaveInput = true) {
@@ -849,33 +851,41 @@ export default function OrderPage() {
   const onSelectShift = useCallback((nextShift: ShiftKey) => {
     const finishMeasure = beginPerfInteraction("order:switch-shift", { nextShift });
     setShift((prev) => (prev === nextShift ? prev : nextShift));
-    window.requestAnimationFrame(() => {
-      finishMeasure();
-    });
+    if (finishMeasure) {
+      window.requestAnimationFrame(() => {
+        finishMeasure();
+      });
+    }
   }, []);
 
   const onSelectCategory = useCallback((value: string) => {
     const finishMeasure = beginPerfInteraction("order:switch-category", { category: value });
     setSelectedCategory((prev) => (prev === value ? prev : value));
-    window.requestAnimationFrame(() => {
-      finishMeasure();
-    });
+    if (finishMeasure) {
+      window.requestAnimationFrame(() => {
+        finishMeasure();
+      });
+    }
   }, []);
 
   const openActionMenu = useCallback(() => {
     const finishMeasure = beginPerfInteraction("order:open-action-sheet");
     setActionMenuOpen(true);
-    window.requestAnimationFrame(() => {
-      finishMeasure();
-    });
+    if (finishMeasure) {
+      window.requestAnimationFrame(() => {
+        finishMeasure();
+      });
+    }
   }, []);
 
   const closeActionMenu = useCallback(() => {
     const finishMeasure = beginPerfInteraction("order:close-action-sheet");
     setActionMenuOpen(false);
-    window.requestAnimationFrame(() => {
-      finishMeasure();
-    });
+    if (finishMeasure) {
+      window.requestAnimationFrame(() => {
+        finishMeasure();
+      });
+    }
   }, []);
 
   async function loadBill() {
@@ -1071,7 +1081,7 @@ export default function OrderPage() {
       setToast({ message: waitMsg });
       setSubmitNotice(waitMsg);
       debugSubmit("blocked_inflight", { clickCount: submitClickCountRef.current });
-      finishSubmitPerf({ status: "blocked_inflight" });
+      finishSubmitPerf?.({ status: "blocked_inflight" });
       return;
     }
 
@@ -1093,7 +1103,7 @@ export default function OrderPage() {
         onAction: () => { void submitOrder(); }
       });
       debugSubmit("blocked_offline");
-      finishSubmitPerf({ status: "blocked_offline" });
+      finishSubmitPerf?.({ status: "blocked_offline" });
       return;
     }
 
@@ -1103,7 +1113,7 @@ export default function OrderPage() {
       setSubmitNotice(msg);
       setError(msg);
       debugSubmit("blocked_no_table");
-      finishSubmitPerf({ status: "blocked_no_table" });
+      finishSubmitPerf?.({ status: "blocked_no_table" });
       return;
     }
     if (cart.length === 0) {
@@ -1112,7 +1122,7 @@ export default function OrderPage() {
       setSubmitNotice(msg);
       setError(msg);
       debugSubmit("blocked_empty_cart");
-      finishSubmitPerf({ status: "blocked_empty_cart" });
+      finishSubmitPerf?.({ status: "blocked_empty_cart" });
       return;
     }
     if (
@@ -1126,7 +1136,7 @@ export default function OrderPage() {
       setError(msg);
       setToast({ message: msg });
       debugSubmit("blocked_recent_duplicate");
-      finishSubmitPerf({ status: "blocked_recent_duplicate" });
+      finishSubmitPerf?.({ status: "blocked_recent_duplicate" });
       return;
     }
 
@@ -1199,7 +1209,7 @@ export default function OrderPage() {
         dedupeReason: body.dedupeReason || "none",
         latencyMs
       });
-      finishSubmitPerf({
+      finishSubmitPerf?.({
         status: body.deduped ? "deduped" : "success",
         attemptNo,
         latencyMs
@@ -1225,7 +1235,7 @@ export default function OrderPage() {
         latencyMs: Math.round(performance.now() - startedAt),
         error: normalized
       });
-      finishSubmitPerf({
+      finishSubmitPerf?.({
         status: "error",
         attemptNo,
         latencyMs: Math.round(performance.now() - startedAt)
@@ -1239,7 +1249,7 @@ export default function OrderPage() {
   async function checkout() {
     const finishCheckoutPerf = beginPerfInteraction("order:checkout", { tableNo });
     if (!canRunAction()) {
-      finishCheckoutPerf({ status: "blocked_guard" });
+      finishCheckoutPerf?.({ status: "blocked_guard" });
       return;
     }
     const confirmed = window.confirm(
@@ -1248,7 +1258,7 @@ export default function OrderPage() {
         : `确认结账并关台吗？\n桌号：${tableNo}`
     );
     if (!confirmed) {
-      finishCheckoutPerf({ status: "cancelled" });
+      finishCheckoutPerf?.({ status: "cancelled" });
       return;
     }
 
@@ -1274,7 +1284,7 @@ export default function OrderPage() {
       localStorage.removeItem(`rdv_order_draft:${tableNo}`);
       draftSerializedRef.current = "";
       billCacheRef.current = null;
-      finishCheckoutPerf({
+      finishCheckoutPerf?.({
         status: "success",
         latencyMs: Math.round(performance.now() - checkoutStartedAt),
         orderCount: body.orderCount
@@ -1282,7 +1292,7 @@ export default function OrderPage() {
       router.replace("/tables");
     } catch (err: any) {
       setError(err.message || t("order.checkoutFailed", "Checkout failed"));
-      finishCheckoutPerf({
+      finishCheckoutPerf?.({
         status: "error",
         latencyMs: Math.round(performance.now() - checkoutStartedAt)
       });

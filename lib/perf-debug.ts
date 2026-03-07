@@ -107,7 +107,7 @@ export function setupPerfDebugObserver() {
 export function beginPerfInteraction(name: string, meta?: Record<string, unknown>) {
   const store = getStore();
   if (!store || !store.enabled) {
-    return () => undefined;
+    return null;
   }
 
   const startedAt = performance.now();
