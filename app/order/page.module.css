@@ -259,8 +259,10 @@
 
 .bottomFixed {
   min-width: 0;
-  position: relative;
+  position: sticky;
+  bottom: 0;
   z-index: var(--z-actionbar);
+  background: var(--bg-page);
 }
 
 .cartDock {
