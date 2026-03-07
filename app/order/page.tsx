@@ -1345,16 +1345,18 @@ export default function OrderPage() {
             {submitState === "loading" ? t("order.submitting", "Submitting...") : t("order.submit", "Submit Order")}
           </Button>
         </Card>
-        {submitState === "loading" ? (
-          <div className={styles.submitProgressHint}>
-            {submitNotice || t("order.submitProgress", "Submitting order, please wait...")}
-          </div>
-        ) : null}
-        {submitState === "error" && submitNotice ? (
-          <div className={styles.submitErrorHint}>
-            {submitNotice} · {t("order.submitRetryHint", "Tap Submit to retry")}
-          </div>
-        ) : null}
+        <div className={styles.submitFeedbackSlot} aria-live="polite">
+          {submitState === "loading" ? (
+            <div className={styles.submitProgressHint}>
+              {submitNotice || t("order.submitProgress", "Submitting order, please wait...")}
+            </div>
+          ) : null}
+          {submitState === "error" && submitNotice ? (
+            <div className={styles.submitErrorHint}>
+              {submitNotice} · {t("order.submitRetryHint", "Tap Submit to retry")}
+            </div>
+          ) : null}
+        </div>
       </div>
 
       <BottomSheet

@@ -176,6 +176,7 @@
   overflow-x: hidden;
   -webkit-overflow-scrolling: touch;
   scrollbar-gutter: stable;
+  contain: layout paint;
 }
 
 .menuList {
@@ -183,6 +184,7 @@
   grid-template-columns: 1fr;
   gap: 8px;
   min-width: 0;
+  contain: layout style paint;
 }
 
 .menuRow {
@@ -199,6 +201,7 @@
   border-radius: var(--radius-md);
   background: #fff;
   padding: 10px 12px;
+  contain: layout paint;
 }
 
 .menuMain {
@@ -287,19 +290,22 @@
 }
 
 .submitProgressHint {
-  margin-top: 6px;
-  padding: 4px 2px 0;
+  padding: 0 2px;
   font-size: 12px;
   font-weight: 560;
   color: var(--text-secondary);
 }
 
 .submitErrorHint {
-  margin-top: 6px;
-  padding: 4px 2px 0;
+  padding: 0 2px;
   font-size: 12px;
   font-weight: 620;
   color: var(--danger-500);
+}
+
+.submitFeedbackSlot {
+  min-height: 16px;
+  padding-top: 6px;
 }
 
 @media (min-width: 407px) and (max-width: 430px) {
