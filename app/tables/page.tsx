@@ -37,7 +37,7 @@ export default function TablesPage() {
   const [selectMode, setSelectMode] = useState(false);
   const [mergeSelection, setMergeSelection] = useState<string[]>([]);
   const [mergeGuestCount, setMergeGuestCount] = useState(4);
-  const [, setMinuteTick] = useState(0);
+  const [minuteTick, setMinuteTick] = useState(0);
   const loadMoreAnchorRef = useRef<HTMLDivElement | null>(null);
   const canRunAction = useActionGuard();
 
@@ -194,6 +194,18 @@ export default function TablesPage() {
     if (!shouldProgressiveTables) return null;
     return new Set(tables.slice(0, tableRenderLimit).map((table) => table.tableNo));
   }, [shouldProgressiveTables, tableRenderLimit, tables]);
+  const selectedBaseSet = useMemo(() => new Set(mergeSelection), [mergeSelection]);
+  const tableDisplayByNo = useMemo(() => {
+    const map = new Map<string, { statusLabel: string; durationLabel: string; billLabel: string }>();
+    for (const table of tables) {
+      map.set(table.tableNo, {
+        statusLabel: tableStatusLabel(table),
+        durationLabel: openDuration(table.openedAt),
+        billLabel: formatPhp(table.currentAmount)
+      });
+    }
+    return map;
+  }, [lang, minuteTick, t, tables]);
 
   useEffect(() => {
     if (!shouldProgressiveTables) return;
@@ -253,30 +265,15 @@ export default function TablesPage() {
         </PerfSection>
       ) : (
         <PerfSection id="Tables/Grid">
-          <div className="table-grid-shell">
-            {columns.map((items, idx) => (
-              <div key={idx} className="table-column">
-                {(shouldProgressiveTables
-                  ? items.filter((table) => visibleTableSet?.has(table.tableNo))
-                  : items
-                ).map((table) => {
-                  const selected = mergeSelection.includes(table.baseTables[0]);
-                  return (
-                    <TableGridCard
-                      key={table.tableNo}
-                      table={table}
-                      selected={selected}
-                      lang={lang}
-                      statusLabel={tableStatusLabel(table)}
-                      durationLabel={openDuration(table.openedAt)}
-                      billLabel={formatPhp(table.currentAmount)}
-                      onClick={onTableClick}
-                    />
-                  );
-                })}
-              </div>
-            ))}
-          </div>
+          <TablesGrid
+            columns={columns}
+            shouldProgressiveTables={shouldProgressiveTables}
+            visibleTableSet={visibleTableSet}
+            selectedBaseSet={selectedBaseSet}
+            tableDisplayByNo={tableDisplayByNo}
+            lang={lang}
+            onClick={onTableClick}
+          />
         </PerfSection>
       )}
 
@@ -360,6 +357,54 @@ type TableGridCardProps = {
   billLabel: string;
   onClick: (table: TableItem) => void;
 };
+
+type TablesGridProps = {
+  columns: TableItem[][];
+  shouldProgressiveTables: boolean;
+  visibleTableSet: Set<string> | null;
+  selectedBaseSet: Set<string>;
+  tableDisplayByNo: Map<string, { statusLabel: string; durationLabel: string; billLabel: string }>;
+  lang: "en" | "zh";
+  onClick: (table: TableItem) => void;
+};
+
+const TablesGrid = memo(function TablesGrid({
+  columns,
+  shouldProgressiveTables,
+  visibleTableSet,
+  selectedBaseSet,
+  tableDisplayByNo,
+  lang,
+  onClick
+}: TablesGridProps) {
+  return (
+    <div className="table-grid-shell">
+      {columns.map((items, idx) => (
+        <div key={idx} className="table-column">
+          {(shouldProgressiveTables
+            ? items.filter((table) => visibleTableSet?.has(table.tableNo))
+            : items
+          ).map((table) => {
+            const display = tableDisplayByNo.get(table.tableNo);
+            const selected = selectedBaseSet.has(table.baseTables[0]);
+            return (
+              <TableGridCard
+                key={table.tableNo}
+                table={table}
+                selected={selected}
+                lang={lang}
+                statusLabel={display?.statusLabel || ""}
+                durationLabel={display?.durationLabel || "-"}
+                billLabel={display?.billLabel || "₱0"}
+                onClick={onClick}
+              />
+            );
+          })}
+        </div>
+      ))}
+    </div>
+  );
+});
 
 const TableGridCard = memo(function TableGridCard({
   table,

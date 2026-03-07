@@ -129,7 +129,7 @@ export default function OrderPage() {
   const [submitPressed, setSubmitPressed] = useState(false);
   const [menuLoading, setMenuLoading] = useState(false);
   const [menuViewportHeight, setMenuViewportHeight] = useState(0);
-  const [menuScrollTop, setMenuScrollTop] = useState(0);
+  const [menuScrollRow, setMenuScrollRow] = useState(0);
   const [shift, setShift] = useState<ShiftKey>("lunch");
   const [shiftOptions, setShiftOptions] = useState<MajorCategoryOption[]>(DEFAULT_SHIFT_OPTIONS);
   const [keyword, setKeyword] = useState("");
@@ -529,7 +529,7 @@ export default function OrderPage() {
 
     const syncMetrics = () => {
       setMenuViewportHeight(pane.clientHeight);
-      setMenuScrollTop(pane.scrollTop);
+      setMenuScrollRow(Math.max(0, Math.floor(pane.scrollTop / MENU_ROW_ESTIMATE)));
     };
     syncMetrics();
 
@@ -537,7 +537,8 @@ export default function OrderPage() {
       if (menuScrollRafRef.current !== null) return;
       menuScrollRafRef.current = window.requestAnimationFrame(() => {
         menuScrollRafRef.current = null;
-        setMenuScrollTop(pane.scrollTop);
+        const nextRow = Math.max(0, Math.floor(pane.scrollTop / MENU_ROW_ESTIMATE));
+        setMenuScrollRow((prev) => (prev === nextRow ? prev : nextRow));
       });
     };
 
@@ -618,7 +619,7 @@ export default function OrderPage() {
     }
 
     const visibleRows = Math.ceil(menuViewportHeight / MENU_ROW_ESTIMATE);
-    const start = Math.max(0, Math.floor(menuScrollTop / MENU_ROW_ESTIMATE) - MENU_OVERSCAN_ROWS);
+    const start = Math.max(0, menuScrollRow - MENU_OVERSCAN_ROWS);
     const end = Math.min(
       visibleItems.length,
       start + visibleRows + MENU_OVERSCAN_ROWS * 2
@@ -626,10 +627,20 @@ export default function OrderPage() {
     const topSpacer = start * MENU_ROW_ESTIMATE;
     const bottomSpacer = Math.max(0, (visibleItems.length - end) * MENU_ROW_ESTIMATE);
     return { start, end, topSpacer, bottomSpacer };
-  }, [menuScrollTop, menuViewportHeight, shouldVirtualizeMenu, visibleItems.length]);
+  }, [menuScrollRow, menuViewportHeight, shouldVirtualizeMenu, visibleItems.length]);
   const renderedMenuItems = useMemo(() => {
     return visibleItems.slice(menuVirtualWindow.start, menuVirtualWindow.end);
   }, [menuVirtualWindow.end, menuVirtualWindow.start, visibleItems]);
+  const menuQtyById = useMemo(() => {
+    const next: Record<string, number> = {};
+    for (const [itemId, selected] of Object.entries(cartSelections)) {
+      const qty = Number(selected?.qty || 0);
+      if (qty > 0) {
+        next[itemId] = qty;
+      }
+    }
+    return next;
+  }, [cartSelections]);
 
   const cart = useMemo(() => {
     const meta = new Map(menuMetaRef.current);
@@ -1261,17 +1272,12 @@ export default function OrderPage() {
       <div className={styles.middle}>
         <aside className={styles.sidebar}>
           <PerfSection id="Order/CategorySidebar">
-            <>
-              {categories.map((category) => (
-                <CategoryOptionButton
-                  key={category}
-                  category={category}
-                  lang={lang}
-                  active={selectedCategory === category}
-                  onSelect={onSelectCategory}
-                />
-              ))}
-            </>
+            <CategorySidebarList
+              categories={categories}
+              lang={lang}
+              selectedCategory={selectedCategory}
+              onSelect={onSelectCategory}
+            />
           </PerfSection>
         </aside>
 
@@ -1294,23 +1300,14 @@ export default function OrderPage() {
           ) : null}
           {!menuLoading ? (
             <PerfSection id="Order/MenuList">
-              <div className={styles.menuList}>
-                {menuVirtualWindow.topSpacer > 0 ? (
-                  <div aria-hidden="true" style={{ height: menuVirtualWindow.topSpacer }} />
-                ) : null}
-                {renderedMenuItems.map((item) => (
-                  <MenuListItem
-                    key={item.id}
-                    item={item}
-                    lang={lang}
-                    qty={cartSelections[item.id]?.qty || 0}
-                    onAdd={addFromMenu}
-                  />
-                ))}
-                {menuVirtualWindow.bottomSpacer > 0 ? (
-                  <div aria-hidden="true" style={{ height: menuVirtualWindow.bottomSpacer }} />
-                ) : null}
-              </div>
+              <MenuVirtualList
+                items={renderedMenuItems}
+                lang={lang}
+                qtyById={menuQtyById}
+                onAdd={addFromMenu}
+                topSpacer={menuVirtualWindow.topSpacer}
+                bottomSpacer={menuVirtualWindow.bottomSpacer}
+              />
             </PerfSection>
           ) : null}
         </section>
@@ -1675,6 +1672,34 @@ type CategoryOptionButtonProps = {
   onSelect: (value: string) => void;
 };
 
+type CategorySidebarListProps = {
+  categories: string[];
+  lang: "en" | "zh";
+  selectedCategory: string;
+  onSelect: (value: string) => void;
+};
+
+const CategorySidebarList = memo(function CategorySidebarList({
+  categories,
+  lang,
+  selectedCategory,
+  onSelect
+}: CategorySidebarListProps) {
+  return (
+    <>
+      {categories.map((category) => (
+        <CategoryOptionButton
+          key={category}
+          category={category}
+          lang={lang}
+          active={selectedCategory === category}
+          onSelect={onSelect}
+        />
+      ))}
+    </>
+  );
+});
+
 const CategoryOptionButton = memo(function CategoryOptionButton({
   category,
   lang,
@@ -1698,6 +1723,40 @@ type MenuListItemProps = {
   qty: number;
   onAdd: (itemId: string) => void;
 };
+
+type MenuVirtualListProps = {
+  items: MenuItem[];
+  lang: "en" | "zh";
+  qtyById: Record<string, number>;
+  onAdd: (itemId: string) => void;
+  topSpacer: number;
+  bottomSpacer: number;
+};
+
+const MenuVirtualList = memo(function MenuVirtualList({
+  items,
+  lang,
+  qtyById,
+  onAdd,
+  topSpacer,
+  bottomSpacer
+}: MenuVirtualListProps) {
+  return (
+    <div className={styles.menuList}>
+      {topSpacer > 0 ? <div aria-hidden="true" style={{ height: topSpacer }} /> : null}
+      {items.map((item) => (
+        <MenuListItem
+          key={item.id}
+          item={item}
+          lang={lang}
+          qty={qtyById[item.id] || 0}
+          onAdd={onAdd}
+        />
+      ))}
+      {bottomSpacer > 0 ? <div aria-hidden="true" style={{ height: bottomSpacer }} /> : null}
+    </div>
+  );
+});
 
 const MenuListItem = memo(function MenuListItem({ item, lang, qty, onAdd }: MenuListItemProps) {
   return (
