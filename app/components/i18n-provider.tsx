@@ -1,7 +1,9 @@
 "use client";
 
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
-import { type Lang, translate } from "../../lib/i18n";
+
+type Lang = "zh" | "en";
+type TranslateFn = (lang: Lang, key: string, fallback?: string) => string;
 
 type I18nContextValue = {
   lang: Lang;
@@ -33,11 +35,28 @@ export default function I18nProvider({ children }: { children: ReactNode }) {
     document.documentElement.lang = lang === "zh" ? "zh-CN" : "en";
   }, [lang]);
 
+  const [translateFn, setTranslateFn] = useState<TranslateFn>(() => {
+    return (_lang: Lang, key: string, fallback?: string) => fallback || key;
+  });
+
+  useEffect(() => {
+    let alive = true;
+    import("../../lib/i18n")
+      .then((mod) => {
+        if (!alive) return;
+        setTranslateFn(() => mod.translate);
+      })
+      .catch(() => undefined);
+    return () => {
+      alive = false;
+    };
+  }, []);
+
   const value = useMemo<I18nContextValue>(() => ({
     lang,
     setLang,
-    t: (key: string, fallback?: string) => translate(lang, key, fallback)
-  }), [lang]);
+    t: (key: string, fallback?: string) => translateFn(lang, key, fallback)
+  }), [lang, translateFn]);
 
   return <I18nContext.Provider value={value}>{children}</I18nContext.Provider>;
 }
