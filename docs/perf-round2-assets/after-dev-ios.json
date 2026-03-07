@@ -1,0 +1,108 @@
+{
+  "label": "after-dev",
+  "profile": "ios",
+  "profileMeta": {
+    "name": "iOS Safari (DevTools Emulation)",
+    "width": 390,
+    "height": 844,
+    "deviceScaleFactor": 3,
+    "mobile": true,
+    "userAgent": "Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Mobile/15E148 Safari/604.1"
+  },
+  "capturedAt": "2026-03-07T16:39:52.929Z",
+  "baseUrl": "http://localhost:3004",
+  "categoryProbe": {
+    "index": 7,
+    "count": 23,
+    "label": "Chinese"
+  },
+  "domInfo": {
+    "domNodes": 265,
+    "menuRows": 23,
+    "scrollContainers": 1,
+    "overlayLayers": 3,
+    "glassLayers": 3
+  },
+  "order": {
+    "scrollPerf": {
+      "elapsedMs": 3207.7,
+      "fps": 120.02,
+      "droppedFrames": 0,
+      "longTaskCount": 0,
+      "longTaskTotalMs": 0
+    },
+    "scrollTrace": {
+      "eventCount": 36639,
+      "layoutMs": 0,
+      "styleMs": 0.04,
+      "paintMs": 26.13,
+      "compositeMs": 1.1,
+      "scriptMs": 35.75,
+      "longTaskCount": 0,
+      "longTaskMs": 0
+    },
+    "addResult": {
+      "latencyMs": 32.9
+    },
+    "sheetPerf": {
+      "fps": 40.84,
+      "droppedFrames": 71,
+      "longTaskCount": 0,
+      "longTaskTotalMs": 0
+    },
+    "sheetTrace": {
+      "eventCount": 13998,
+      "layoutMs": 3.27,
+      "styleMs": 7.93,
+      "paintMs": 14.08,
+      "compositeMs": 5.29,
+      "scriptMs": 291.93,
+      "longTaskCount": 0,
+      "longTaskMs": 0
+    }
+  },
+  "reactProfiler": {
+    "entryCount": 88,
+    "topComponents": [
+      {
+        "id": "Order/MenuList",
+        "commits": 32,
+        "totalActualDuration": 134.9,
+        "maxActualDuration": 73.8
+      },
+      {
+        "id": "Order/CartSheetList",
+        "commits": 21,
+        "totalActualDuration": 16.5,
+        "maxActualDuration": 2.4
+      },
+      {
+        "id": "Order/CategorySidebar",
+        "commits": 35,
+        "totalActualDuration": 12.8,
+        "maxActualDuration": 3.2
+      }
+    ]
+  },
+  "network": {
+    "totalResponses": 9,
+    "apiResponses": 1,
+    "encodedDataLength": 1619,
+    "byPath": {
+      "Document /tables": 1,
+      "Stylesheet /_next/static/css/app/layout.css": 1,
+      "Script /_next/static/chunks/webpack.js": 1,
+      "Script /_next/static/chunks/app-pages-internals.js": 1,
+      "Script /_next/static/chunks/app/layout.js": 1,
+      "Script /_next/static/chunks/app/tables/page.js": 1,
+      "Script /_next/static/chunks/main-app.js": 1,
+      "Script /_next/static/chunks/_app-pages-browser_lib_i18n_ts.js": 1,
+      "Fetch /api/tables": 1
+    }
+  },
+  "tables": {
+    "cards": 11,
+    "domNodes": 141,
+    "scrollContainers": 0
+  }
+}
