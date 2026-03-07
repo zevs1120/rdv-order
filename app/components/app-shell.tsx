@@ -20,11 +20,17 @@ export default function AppShell({ children }: Props) {
   const pathname = usePathname();
   const hideTopBar = HIDE_TOP_BAR_PATHS.has(pathname);
   const hideTabBar = shouldHideTabBar(pathname);
+  const lockRootScroll = pathname.startsWith("/order");
 
   return (
     <div className="app-shell">
       {!hideTopBar ? <TopBar /> : null}
-      <div className={hideTabBar ? "app-shell-main no-tabbar" : "app-shell-main has-tabbar"}>
+      <div
+        className={[
+          hideTabBar ? "app-shell-main no-tabbar" : "app-shell-main has-tabbar",
+          lockRootScroll ? "app-shell-main--locked" : ""
+        ].filter(Boolean).join(" ")}
+      >
         <main className="app-main">{children}</main>
       </div>
       {!hideTabBar ? <BottomNav global /> : null}

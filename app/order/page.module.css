@@ -138,9 +138,7 @@
   display: grid;
   gap: 4px;
   align-content: start;
-  overflow-y: auto;
-  overflow-x: hidden;
-  -webkit-overflow-scrolling: touch;
+  overflow: hidden;
 }
 
 .categoryBtn {
