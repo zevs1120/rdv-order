@@ -162,7 +162,6 @@ export default function OrderPage() {
   const [cartSheetOpen, setCartSheetOpen] = useState(false);
   const [actionMenuOpen, setActionMenuOpen] = useState(false);
   const [toast, setToast] = useState<ToastState | null>(null);
-  const shouldTrackMenuScroll = menu.length >= MENU_VIRTUALIZE_MIN;
 
   const menuCacheRef = useRef<Record<string, MenuItem[]>>({});
   const subcategoryCacheRef = useRef<Record<string, string[]>>({});
@@ -526,59 +525,6 @@ export default function OrderPage() {
     return () => window.clearTimeout(timer);
   }, [paramsReady, tableNo, shift, keyword, selectedCategory, cartSelections]);
 
-  useEffect(() => {
-    if (!shouldTrackMenuScroll) {
-      setMenuScrollRow(0);
-      return;
-    }
-    const pane = menuPaneRef.current;
-    if (!pane) return;
-
-    const syncMetrics = () => {
-      setMenuViewportHeight(pane.clientHeight);
-      setMenuScrollRow(Math.max(0, Math.floor(pane.scrollTop / MENU_ROW_ESTIMATE)));
-    };
-    syncMetrics();
-
-    const onScroll = () => {
-      document.documentElement.classList.add("rdv-scroll-active");
-      if (menuScrollClassTimerRef.current !== null) {
-        window.clearTimeout(menuScrollClassTimerRef.current);
-      }
-      menuScrollClassTimerRef.current = window.setTimeout(() => {
-        document.documentElement.classList.remove("rdv-scroll-active");
-        menuScrollClassTimerRef.current = null;
-      }, 160);
-
-      if (menuScrollRafRef.current !== null) return;
-      menuScrollRafRef.current = window.requestAnimationFrame(() => {
-        menuScrollRafRef.current = null;
-        const nextRow = Math.max(0, Math.floor(pane.scrollTop / MENU_ROW_ESTIMATE));
-        setMenuScrollRow((prev) => (prev === nextRow ? prev : nextRow));
-      });
-    };
-
-    pane.addEventListener("scroll", onScroll, { passive: true });
-    const observer = new ResizeObserver(() => {
-      setMenuViewportHeight(pane.clientHeight);
-    });
-    observer.observe(pane);
-
-    return () => {
-      pane.removeEventListener("scroll", onScroll);
-      observer.disconnect();
-      if (menuScrollRafRef.current !== null) {
-        window.cancelAnimationFrame(menuScrollRafRef.current);
-        menuScrollRafRef.current = null;
-      }
-      if (menuScrollClassTimerRef.current !== null) {
-        window.clearTimeout(menuScrollClassTimerRef.current);
-        menuScrollClassTimerRef.current = null;
-      }
-      document.documentElement.classList.remove("rdv-scroll-active");
-    };
-  }, [shouldTrackMenuScroll]);
-
   const normalizedKeyword = deferredKeyword.trim().toLowerCase();
   const menuSearchIndex = useMemo(() => {
     const index = new Map<string, string>();
@@ -629,6 +575,62 @@ export default function OrderPage() {
     return filteredMenu.filter((item) => (item.category || uncategorizedLabel) === selectedCategory);
   }, [filteredMenu, selectedCategory, uncategorizedLabel]);
   const shouldVirtualizeMenu = visibleItems.length >= MENU_VIRTUALIZE_MIN;
+
+  useEffect(() => {
+    if (!shouldVirtualizeMenu) {
+      setMenuScrollRow(0);
+      setMenuViewportHeight(0);
+      document.documentElement.classList.remove("rdv-scroll-active");
+      return;
+    }
+    const pane = menuPaneRef.current;
+    if (!pane) return;
+
+    const syncMetrics = () => {
+      setMenuViewportHeight(pane.clientHeight);
+      setMenuScrollRow(Math.max(0, Math.floor(pane.scrollTop / MENU_ROW_ESTIMATE)));
+    };
+    syncMetrics();
+
+    const onScroll = () => {
+      document.documentElement.classList.add("rdv-scroll-active");
+      if (menuScrollClassTimerRef.current !== null) {
+        window.clearTimeout(menuScrollClassTimerRef.current);
+      }
+      menuScrollClassTimerRef.current = window.setTimeout(() => {
+        document.documentElement.classList.remove("rdv-scroll-active");
+        menuScrollClassTimerRef.current = null;
+      }, 160);
+
+      if (menuScrollRafRef.current !== null) return;
+      menuScrollRafRef.current = window.requestAnimationFrame(() => {
+        menuScrollRafRef.current = null;
+        const nextRow = Math.max(0, Math.floor(pane.scrollTop / MENU_ROW_ESTIMATE));
+        setMenuScrollRow((prev) => (prev === nextRow ? prev : nextRow));
+      });
+    };
+
+    pane.addEventListener("scroll", onScroll, { passive: true });
+    const observer = new ResizeObserver(() => {
+      setMenuViewportHeight(pane.clientHeight);
+    });
+    observer.observe(pane);
+
+    return () => {
+      pane.removeEventListener("scroll", onScroll);
+      observer.disconnect();
+      if (menuScrollRafRef.current !== null) {
+        window.cancelAnimationFrame(menuScrollRafRef.current);
+        menuScrollRafRef.current = null;
+      }
+      if (menuScrollClassTimerRef.current !== null) {
+        window.clearTimeout(menuScrollClassTimerRef.current);
+        menuScrollClassTimerRef.current = null;
+      }
+      document.documentElement.classList.remove("rdv-scroll-active");
+    };
+  }, [shouldVirtualizeMenu]);
+
   const menuVirtualWindow = useMemo(() => {
     if (!shouldVirtualizeMenu || menuViewportHeight <= 0) {
       return {
