@@ -1,0 +1,111 @@
+{
+  "label": "after-final-dev",
+  "profile": "android",
+  "profileMeta": {
+    "name": "Android Chrome (DevTools Emulation)",
+    "width": 412,
+    "height": 915,
+    "deviceScaleFactor": 2.625,
+    "mobile": true,
+    "userAgent": "Mozilla/5.0 (Linux; Android 14; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Mobile Safari/537.36"
+  },
+  "capturedAt": "2026-03-07T17:32:34.381Z",
+  "baseUrl": "http://localhost:3004",
+  "categoryProbe": {
+    "index": 7,
+    "count": 23,
+    "label": "Chinese"
+  },
+  "domInfo": {
+    "domNodes": 265,
+    "menuRows": 23,
+    "scrollContainers": 1,
+    "overlayLayers": 3,
+    "glassLayers": 0
+  },
+  "order": {
+    "scrollPerf": {
+      "elapsedMs": 3205.6,
+      "fps": 120.1,
+      "droppedFrames": 0,
+      "longTaskCount": 0,
+      "longTaskTotalMs": 0
+    },
+    "scrollTrace": {
+      "eventCount": 36959,
+      "layoutMs": 0,
+      "styleMs": 0.49,
+      "paintMs": 38.78,
+      "compositeMs": 2.43,
+      "scriptMs": 77.67,
+      "longTaskCount": 0,
+      "longTaskMs": 0
+    },
+    "addResult": {
+      "latencyMs": 41.3
+    },
+    "sheetPerf": {
+      "fps": 40.86,
+      "droppedFrames": 71,
+      "longTaskCount": 0,
+      "longTaskTotalMs": 0
+    },
+    "sheetTrace": {
+      "eventCount": 13111,
+      "layoutMs": 5.71,
+      "styleMs": 6.36,
+      "paintMs": 16.15,
+      "compositeMs": 6.6,
+      "scriptMs": 333.29,
+      "longTaskCount": 0,
+      "longTaskMs": 0
+    }
+  },
+  "reactProfiler": {
+    "entryCount": 88,
+    "topComponents": [
+      {
+        "id": "Order/MenuList",
+        "commits": 32,
+        "totalActualDuration": 147.6,
+        "maxActualDuration": 81.1
+      },
+      {
+        "id": "Order/CartSheetList",
+        "commits": 21,
+        "totalActualDuration": 19.1,
+        "maxActualDuration": 2.5
+      },
+      {
+        "id": "Order/CategorySidebar",
+        "commits": 35,
+        "totalActualDuration": 12.4,
+        "maxActualDuration": 4
+      }
+    ]
+  },
+  "network": {
+    "totalResponses": 12,
+    "apiResponses": 1,
+    "encodedDataLength": 1619,
+    "byPath": {
+      "Fetch /_next/static/webpack/ddef9a1d990c5b4b.webpack.hot-update.json": 1,
+      "Document /tables": 1,
+      "Stylesheet /_next/static/css/app/layout.css": 1,
+      "Script /_next/static/chunks/webpack.js": 1,
+      "Script /_next/static/chunks/app/layout.js": 1,
+      "Script /_next/static/chunks/app-pages-internals.js": 1,
+      "Script /_next/static/chunks/app/tables/page.js": 1,
+      "Script /_next/static/chunks/main-app.js": 1,
+      "Script /_next/static/chunks/_app-pages-browser_lib_i18n_ts.js": 1,
+      "Fetch /_next/static/webpack/35f23ef441b01860.webpack.hot-update.json": 1,
+      "Script /_next/static/webpack/webpack.35f23ef441b01860.hot-update.js": 1,
+      "Fetch /api/tables": 1
+    }
+  },
+  "tables": {
+    "cards": 11,
+    "domNodes": 141,
+    "scrollContainers": 0
+  }
+}

@@ -1,0 +1,108 @@
+{
+  "label": "after-mid-dev",
+  "profile": "ios",
+  "profileMeta": {
+    "name": "iOS Safari (DevTools Emulation)",
+    "width": 390,
+    "height": 844,
+    "deviceScaleFactor": 3,
+    "mobile": true,
+    "userAgent": "Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Mobile/15E148 Safari/604.1"
+  },
+  "capturedAt": "2026-03-07T17:09:23.217Z",
+  "baseUrl": "http://localhost:3004",
+  "categoryProbe": {
+    "index": 7,
+    "count": 23,
+    "label": "Chinese"
+  },
+  "domInfo": {
+    "domNodes": 265,
+    "menuRows": 23,
+    "scrollContainers": 1,
+    "overlayLayers": 3,
+    "glassLayers": 3
+  },
+  "order": {
+    "scrollPerf": {
+      "elapsedMs": 3204.1,
+      "fps": 120.16,
+      "droppedFrames": 0,
+      "longTaskCount": 0,
+      "longTaskTotalMs": 0
+    },
+    "scrollTrace": {
+      "eventCount": 37025,
+      "layoutMs": 0,
+      "styleMs": 0.62,
+      "paintMs": 28.59,
+      "compositeMs": 0.72,
+      "scriptMs": 38.68,
+      "longTaskCount": 0,
+      "longTaskMs": 0
+    },
+    "addResult": {
+      "latencyMs": 32.8
+    },
+    "sheetPerf": {
+      "fps": 40.86,
+      "droppedFrames": 71,
+      "longTaskCount": 0,
+      "longTaskTotalMs": 0
+    },
+    "sheetTrace": {
+      "eventCount": 12992,
+      "layoutMs": 5.27,
+      "styleMs": 3.68,
+      "paintMs": 15.32,
+      "compositeMs": 5.02,
+      "scriptMs": 287.73,
+      "longTaskCount": 0,
+      "longTaskMs": 0
+    }
+  },
+  "reactProfiler": {
+    "entryCount": 108,
+    "topComponents": [
+      {
+        "id": "Order/MenuList",
+        "commits": 42,
+        "totalActualDuration": 135.4,
+        "maxActualDuration": 72.9
+      },
+      {
+        "id": "Order/CartSheetList",
+        "commits": 21,
+        "totalActualDuration": 17.2,
+        "maxActualDuration": 2.9
+      },
+      {
+        "id": "Order/CategorySidebar",
+        "commits": 45,
+        "totalActualDuration": 12.4,
+        "maxActualDuration": 2.9
+      }
+    ]
+  },
+  "network": {
+    "totalResponses": 9,
+    "apiResponses": 1,
+    "encodedDataLength": 1619,
+    "byPath": {
+      "Document /tables": 1,
+      "Stylesheet /_next/static/css/app/layout.css": 1,
+      "Script /_next/static/chunks/webpack.js": 1,
+      "Script /_next/static/chunks/app/layout.js": 1,
+      "Script /_next/static/chunks/app-pages-internals.js": 1,
+      "Script /_next/static/chunks/app/tables/page.js": 1,
+      "Script /_next/static/chunks/main-app.js": 1,
+      "Script /_next/static/chunks/_app-pages-browser_lib_i18n_ts.js": 1,
+      "Fetch /api/tables": 1
+    }
+  },
+  "tables": {
+    "cards": 11,
+    "domNodes": 141,
+    "scrollContainers": 0
+  }
+}

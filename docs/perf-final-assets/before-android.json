@@ -1,0 +1,94 @@
+{
+  "label": "before",
+  "profile": "android",
+  "profileMeta": {
+    "name": "Android Chrome (DevTools Emulation)",
+    "width": 412,
+    "height": 915,
+    "deviceScaleFactor": 2.625,
+    "mobile": true,
+    "userAgent": "Mozilla/5.0 (Linux; Android 14; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Mobile Safari/537.36"
+  },
+  "capturedAt": "2026-03-07T16:52:18.445Z",
+  "baseUrl": "http://localhost:3002",
+  "categoryProbe": {
+    "index": 7,
+    "count": 23,
+    "label": "Chinese"
+  },
+  "domInfo": {
+    "domNodes": 255,
+    "menuRows": 23,
+    "scrollContainers": 1,
+    "overlayLayers": 3,
+    "glassLayers": 0
+  },
+  "order": {
+    "scrollPerf": {
+      "elapsedMs": 3209.9,
+      "fps": 120.25,
+      "droppedFrames": 0,
+      "longTaskCount": 0,
+      "longTaskTotalMs": 0
+    },
+    "scrollTrace": {
+      "eventCount": 37294,
+      "layoutMs": 0,
+      "styleMs": 0,
+      "paintMs": 16.08,
+      "compositeMs": 0.41,
+      "scriptMs": 13.15,
+      "longTaskCount": 0,
+      "longTaskMs": 0
+    },
+    "addResult": {
+      "latencyMs": 5.8
+    },
+    "sheetPerf": {
+      "fps": 40.88,
+      "droppedFrames": 71,
+      "longTaskCount": 0,
+      "longTaskTotalMs": 0
+    },
+    "sheetTrace": {
+      "eventCount": 12659,
+      "layoutMs": 3.6,
+      "styleMs": 3.79,
+      "paintMs": 11.93,
+      "compositeMs": 3.32,
+      "scriptMs": 15.17,
+      "longTaskCount": 0,
+      "longTaskMs": 0
+    }
+  },
+  "reactProfiler": {
+    "entryCount": 0,
+    "topComponents": []
+  },
+  "network": {
+    "totalResponses": 14,
+    "apiResponses": 1,
+    "encodedDataLength": 1861,
+    "byPath": {
+      "Document /tables": 1,
+      "Stylesheet /_next/static/css/762509bf6a7d26a3.css": 1,
+      "Script /_next/static/chunks/webpack-e26f63c867eddc9b.js": 1,
+      "Script /_next/static/chunks/4bd1b696-f785427dddbba9fb.js": 1,
+      "Script /_next/static/chunks/1255-7f732c419c6a4bd8.js": 1,
+      "Script /_next/static/chunks/main-app-a86400c95d4a7a4e.js": 1,
+      "Script /_next/static/chunks/176-dbfe7d379a5d476e.js": 1,
+      "Script /_next/static/chunks/app/layout-05d8b09cdffb001d.js": 1,
+      "Script /_next/static/chunks/8951-c1517720e9f94c97.js": 1,
+      "Script /_next/static/chunks/app/tables/page-4b0e40294ec6e7ae.js": 1,
+      "Manifest /manifest.webmanifest": 1,
+      "Script /_next/static/chunks/2391.9d6383cf6d68308d.js": 1,
+      "Other /icons/icon.svg": 1,
+      "Fetch /api/tables": 1
+    }
+  },
+  "tables": {
+    "cards": 11,
+    "domNodes": 133,
+    "scrollContainers": 0
+  }
+}
