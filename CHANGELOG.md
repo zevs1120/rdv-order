@@ -5,6 +5,11 @@ All notable changes to this project are documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
+### Added
+- Revenue CSV export from Manage → Revenue with natural-month range selection (single month or month range).
+- New export API endpoint: `/api/manage/income/export`.
+- Documentation: `docs/revenue-export.md`.
+
 ### Changed
 - Documentation system refactor and governance baseline (README/docs/contributing).
 
