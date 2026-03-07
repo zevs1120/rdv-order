@@ -99,10 +99,8 @@
 
 .shiftPanel {
   padding: 8px;
-  border-color: var(--glass-border);
-  background: color-mix(in srgb, #ffffff 92%, #f8fafc);
-  -webkit-backdrop-filter: saturate(var(--glass-sat)) blur(var(--glass-blur));
-  backdrop-filter: saturate(var(--glass-sat)) blur(var(--glass-blur));
+  border-color: var(--line-default);
+  background: #fff;
 }
 
 .shiftRow {
@@ -270,11 +268,9 @@
   gap: 8px;
   align-items: center;
   padding: 8px;
-  border-color: var(--glass-border);
-  background: var(--glass-surface);
-  -webkit-backdrop-filter: saturate(var(--glass-sat)) blur(var(--glass-blur));
-  backdrop-filter: saturate(var(--glass-sat)) blur(var(--glass-blur));
-  box-shadow: 0 -6px 16px rgba(15, 23, 42, 0.08);
+  border-color: var(--line-default);
+  background: #fff;
+  box-shadow: 0 -2px 8px rgba(15, 23, 42, 0.04);
 }
 
 .cartSummaryBtn {
