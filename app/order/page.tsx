@@ -1,6 +1,6 @@
 "use client";
 
-import { useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
+import { memo, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import BottomNav from "../components/bottom-nav";
 import { apiFetchJson, getStoredAuth } from "../../lib/client-api";
@@ -160,7 +160,6 @@ export default function OrderPage() {
   const menuCacheRef = useRef<Record<string, MenuItem[]>>({});
   const subcategoryCacheRef = useRef<Record<string, string[]>>({});
   const menuRequestRef = useRef(0);
-  const menuIndexRef = useRef<Map<string, number>>(new Map());
   const menuMetaRef = useRef<Map<string, MenuItem>>(new Map());
   const cartSelectionsRef = useRef<Record<string, CartSelection>>({});
   const billCacheRef = useRef<BillCachePayload | null>(null);
@@ -250,18 +249,7 @@ export default function OrderPage() {
     }
   }
 
-  function hydrateMenuItems(items: MenuItem[], selections: Record<string, CartSelection>) {
-    return items.map((item) => {
-      const picked = selections[item.id];
-      return {
-        ...item,
-        qty: picked && picked.qty > 0 ? picked.qty : 0,
-        note: picked?.note || undefined
-      };
-    });
-  }
-
-  function updateCartSelection(id: string, nextQty: number, nextNote?: string) {
+  const updateCartSelection = useCallback((id: string, nextQty: number, nextNote?: string) => {
     setCartSelections((prev) => {
       const current = prev[id];
       if (nextQty <= 0) {
@@ -283,7 +271,7 @@ export default function OrderPage() {
         }
       };
     });
-  }
+  }, []);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -394,7 +382,7 @@ export default function OrderPage() {
     const cached = menuCacheRef.current[shift];
     const cachedSubcategories = subcategoryCacheRef.current[shift] || [];
     if (cached) {
-      setMenu(hydrateMenuItems(cached, cartSelectionsRef.current));
+      setMenu(cached);
       setShiftSubcategories((prev) => ({ ...prev, [shift]: cachedSubcategories }));
     }
 
@@ -411,7 +399,7 @@ export default function OrderPage() {
     })
       .then((data) => {
         if (requestId !== menuRequestRef.current) return;
-        const items = data.items || [];
+        const items = (data.items || []).map((item) => stripTransientFields(item));
         const majorCategories = Array.isArray(data.majorCategories)
           ? data.majorCategories
             .map((row) => ({
@@ -432,13 +420,12 @@ export default function OrderPage() {
           ? data.subcategories.map((value) => String(value || "").trim()).filter(Boolean)
           : [];
         for (const item of items) {
-          menuMetaRef.current.set(item.id, stripTransientFields(item));
+          menuMetaRef.current.set(item.id, item);
         }
-        const hydrated = hydrateMenuItems(items, cartSelectionsRef.current);
-        menuCacheRef.current[shift] = items.map((item) => stripTransientFields(item));
+        menuCacheRef.current[shift] = items;
         subcategoryCacheRef.current[shift] = subcategories;
         writeMenuCache(shift, items, subcategories);
-        setMenu(hydrated);
+        setMenu(items);
         setShiftSubcategories((prev) => ({ ...prev, [shift]: subcategories }));
       })
       .catch((err: Error) => {
@@ -486,16 +473,8 @@ export default function OrderPage() {
   }, [menu, selectedCategory, shift, shiftSubcategories, uncategorizedLabel]);
 
   useEffect(() => {
-    const next = new Map<string, number>();
-    for (let i = 0; i < menu.length; i += 1) {
-      next.set(menu[i].id, i);
-    }
-    menuIndexRef.current = next;
-  }, [menu]);
-
-  useEffect(() => {
     if (!shift) return;
-    const baseItems = menu.map((item) => stripTransientFields(item));
+    const baseItems = menu;
     menuCacheRef.current[shift] = baseItems;
     for (const item of baseItems) {
       menuMetaRef.current.set(item.id, item);
@@ -536,17 +515,22 @@ export default function OrderPage() {
     return () => window.clearTimeout(timer);
   }, [paramsReady, tableNo, shift, keyword, selectedCategory, cartSelections]);
 
-  const derivedMenu = useMemo(() => menu.map((item) => ({
-    ...item,
-    _search: `${item.name} ${item.category || ""}`.toLowerCase(),
-    _category: item.category || uncategorizedLabel
-  })), [menu, uncategorizedLabel]);
+  const normalizedKeyword = deferredKeyword.trim().toLowerCase();
+  const menuSearchIndex = useMemo(() => {
+    const index = new Map<string, string>();
+    for (const item of menu) {
+      index.set(item.id, `${item.name} ${item.category || ""}`.toLowerCase());
+    }
+    return index;
+  }, [menu]);
 
   const filteredMenu = useMemo(() => {
-    const key = deferredKeyword.trim().toLowerCase();
-    if (!key) return derivedMenu;
-    return derivedMenu.filter((item) => item._search.includes(key));
-  }, [derivedMenu, deferredKeyword]);
+    if (!normalizedKeyword) return menu;
+    return menu.filter((item) => {
+      const source = menuSearchIndex.get(item.id) || "";
+      return source.includes(normalizedKeyword);
+    });
+  }, [menu, menuSearchIndex, normalizedKeyword]);
 
   const baseCategories = useMemo(() => {
     const fromShift = shiftSubcategories[shift] || [];
@@ -571,15 +555,15 @@ export default function OrderPage() {
   }, [menu, shift, shiftSubcategories, uncategorizedLabel]);
 
   const categories = useMemo(() => {
-    if (!deferredKeyword.trim()) return baseCategories;
-    const matched = new Set(filteredMenu.map((item) => item._category));
+    if (!normalizedKeyword) return baseCategories;
+    const matched = new Set(filteredMenu.map((item) => item.category || uncategorizedLabel));
     return baseCategories.filter((category) => matched.has(category));
-  }, [baseCategories, filteredMenu, deferredKeyword]);
+  }, [baseCategories, filteredMenu, normalizedKeyword, uncategorizedLabel]);
 
   const visibleItems = useMemo(() => {
     if (!selectedCategory) return filteredMenu;
-    return filteredMenu.filter((item) => item._category === selectedCategory);
-  }, [filteredMenu, selectedCategory]);
+    return filteredMenu.filter((item) => (item.category || uncategorizedLabel) === selectedCategory);
+  }, [filteredMenu, selectedCategory, uncategorizedLabel]);
 
   const cart = useMemo(() => {
     const meta = new Map(menuMetaRef.current);
@@ -605,7 +589,7 @@ export default function OrderPage() {
       .sort()
       .join("|");
   }, [cart]);
-  const total = cart.reduce((sum, item) => sum + item.price * item.qty, 0);
+  const total = useMemo(() => cart.reduce((sum, item) => sum + item.price * item.qty, 0), [cart]);
   const menuById = useMemo(() => {
     const map = new Map<string, MenuItem>();
     for (const item of menu) {
@@ -617,27 +601,13 @@ export default function OrderPage() {
     () => menuById.get(noteSheetItemId) || null,
     [menuById, noteSheetItemId]
   );
+  const noteSheetSelection = noteSheetItemId ? cartSelections[noteSheetItemId] : undefined;
 
-  function setQty(id: string, qty: number) {
-    const current = menuById.get(id);
-    setMenu((prev) => {
-      const hintedIndex = menuIndexRef.current.get(id);
-      const index = typeof hintedIndex === "number" && prev[hintedIndex]?.id === id
-        ? hintedIndex
-        : prev.findIndex((item) => item.id === id);
-      if (index < 0) return prev;
-      const target = prev[index];
-      if ((target.qty || 0) === qty) return prev;
-      const next = prev.slice();
-      next[index] = {
-        ...target,
-        qty,
-        note: qty > 0 ? target.note : undefined
-      };
-      return next;
-    });
-    updateCartSelection(id, qty, qty > 0 ? current?.note : undefined);
-  }
+  const setQty = useCallback((id: string, qty: number) => {
+    const nextQty = Number.isFinite(qty) ? Math.max(0, Math.trunc(qty)) : 0;
+    const current = cartSelectionsRef.current[id];
+    updateCartSelection(id, nextQty, nextQty > 0 ? current?.note : undefined);
+  }, [updateCartSelection]);
 
   function openNoteSheetFor(itemId: string) {
     setNoteSheetItemId(itemId);
@@ -666,34 +636,32 @@ export default function OrderPage() {
   function applyManualNote(itemId: string, input = noteInput) {
     const clean = input.trim();
     if (!clean) return;
-    const current = menuById.get(itemId);
-    if (!current) return;
+    const current = cartSelectionsRef.current[itemId];
+    if (!current || current.qty <= 0) return;
     const token = `${noteMode} ${clean}`;
     const tokens = parseNoteTokens(current.note);
     const exists = tokens.some((v) => v.toLowerCase() === token.toLowerCase());
     const nextTokens = exists ? tokens : [...tokens, token];
     const nextNote = serializeNoteTokens(nextTokens) || undefined;
-    setMenu((prev) => prev.map((item) => (item.id === itemId ? { ...item, note: nextNote } : item)));
-    updateCartSelection(itemId, current.qty || 0, nextNote);
+    updateCartSelection(itemId, current.qty, nextNote);
     if (input === noteInput) {
       setNoteInput("");
     }
   }
 
   function clearManualNote(itemId: string) {
-    const current = menuById.get(itemId);
-    if (!current) return;
-    setMenu((prev) => prev.map((item) => (item.id === itemId ? { ...item, note: undefined } : item)));
-    updateCartSelection(itemId, current.qty || 0, undefined);
+    const current = cartSelectionsRef.current[itemId];
+    if (!current || current.qty <= 0) return;
+    updateCartSelection(itemId, current.qty, undefined);
     setNoteInput("");
   }
 
-  function addFromMenu(item: MenuItem) {
-    const previousQty = item.qty || 0;
-    setQty(item.id, previousQty + 1);
+  const addFromMenu = useCallback((itemId: string) => {
+    const previousQty = cartSelectionsRef.current[itemId]?.qty || 0;
+    setQty(itemId, previousQty + 1);
     setNoteSheetOpen(false);
     setCartSheetOpen(true);
-  }
+  }, [setQty]);
 
   function closeNoteSheet(shouldSaveInput = true) {
     if (shouldSaveInput && noteSheetItemId && noteInput.trim()) {
@@ -707,6 +675,10 @@ export default function OrderPage() {
     if (!option) return value;
     return lang === "en" ? option.label_en : option.label_zh;
   }
+
+  const onSelectCategory = useCallback((value: string) => {
+    setSelectedCategory(value);
+  }, []);
 
   async function loadBill() {
     if (!tableNo) return;
@@ -857,14 +829,12 @@ export default function OrderPage() {
         }
       );
 
-      const item = body.item;
-      menuMetaRef.current.set(item.id, stripTransientFields(item));
+      const item = stripTransientFields(body.item);
+      menuMetaRef.current.set(item.id, item);
       setMenu((prev) => {
-        const found = prev.find((it) => it.id === item.id);
-        if (found) {
-          return prev.map((it) => it.id === item.id ? { ...it, qty: (it.qty || 0) + 1 } : it);
-        }
-        return [...prev, { ...item, qty: 1 }];
+        const found = prev.some((it) => it.id === item.id);
+        if (found) return prev;
+        return [...prev, item];
       });
       setCartSelections((prev) => {
         const current = prev[item.id];
@@ -985,7 +955,6 @@ export default function OrderPage() {
         retries: 0
       });
 
-      setMenu((prev) => prev.map((item) => ({ ...item, qty: 0, note: undefined })));
       setCartSelections({});
       cartSelectionsRef.current = {};
       setCartSheetOpen(false);
@@ -1160,11 +1129,11 @@ export default function OrderPage() {
       setNoteSheetItemId("");
       return;
     }
-    if ((noteSheetItem.qty || 0) <= 0) {
+    if ((noteSheetSelection?.qty || 0) <= 0) {
       setNoteSheetOpen(false);
       setNoteSheetItemId("");
     }
-  }, [noteSheetOpen, noteSheetItem]);
+  }, [noteSheetOpen, noteSheetItem, noteSheetSelection]);
 
   useEffect(() => {
     return () => {
@@ -1226,14 +1195,13 @@ export default function OrderPage() {
       <div className={styles.middle}>
         <aside className={styles.sidebar}>
           {categories.map((category) => (
-            <button
+            <CategoryOptionButton
               key={category}
-              type="button"
-              className={`${styles.categoryBtn} ${selectedCategory === category ? styles.categoryBtnActive : ""}`}
-              onClick={() => setSelectedCategory(category)}
-            >
-              {shortCategoryLabel(category, lang)}
-            </button>
+              category={category}
+              lang={lang}
+              active={selectedCategory === category}
+              onSelect={onSelectCategory}
+            />
           ))}
         </aside>
 
@@ -1254,27 +1222,13 @@ export default function OrderPage() {
           {!menuLoading ? (
             <div className={styles.menuList}>
               {visibleItems.map((item) => (
-                <div key={item.id} className={styles.menuRow}>
-                  <div className={styles.menuMain}>
-                    <div className={styles.menuTitle}>
-                      {localizeMenuText(item.name, lang)}
-                      {item.item_type === "set" ? (lang === "en" ? " (Set)" : "（套餐）") : ""}
-                    </div>
-                    <div className={styles.menuSubtitle}>
-                      {localizeMenuText(item.category || "", lang) || item.description || " "}
-                    </div>
-                  </div>
-                  <strong className={styles.menuPrice}>₱{item.price}</strong>
-                  <Button
-                    variant="secondary"
-                    type="button"
-                    className={styles.addBtn}
-                    onClick={() => addFromMenu(item)}
-                  >
-                    {lang === "en" ? "Add +" : "加入 +"}
-                  </Button>
-                  {(item.qty || 0) > 0 ? <Badge className={styles.qtyBadge} tone="brand">x{item.qty}</Badge> : null}
-                </div>
+                <MenuListItem
+                  key={item.id}
+                  item={item}
+                  lang={lang}
+                  qty={cartSelections[item.id]?.qty || 0}
+                  onAdd={addFromMenu}
+                />
               ))}
             </div>
           ) : null}
@@ -1608,7 +1562,7 @@ export default function OrderPage() {
               }}
             />
             <div className="muted">
-              {t("order.noteLabel", "Note")}: {noteSheetItem.note || "-"}
+              {t("order.noteLabel", "Note")}: {noteSheetSelection?.note || "-"}
             </div>
           </div>
         ) : null}
@@ -1628,3 +1582,60 @@ export default function OrderPage() {
     </div>
   );
 }
+
+type CategoryOptionButtonProps = {
+  category: string;
+  lang: "en" | "zh";
+  active: boolean;
+  onSelect: (value: string) => void;
+};
+
+const CategoryOptionButton = memo(function CategoryOptionButton({
+  category,
+  lang,
+  active,
+  onSelect
+}: CategoryOptionButtonProps) {
+  return (
+    <button
+      type="button"
+      className={`${styles.categoryBtn} ${active ? styles.categoryBtnActive : ""}`}
+      onClick={() => onSelect(category)}
+    >
+      {shortCategoryLabel(category, lang)}
+    </button>
+  );
+});
+
+type MenuListItemProps = {
+  item: MenuItem;
+  lang: "en" | "zh";
+  qty: number;
+  onAdd: (itemId: string) => void;
+};
+
+const MenuListItem = memo(function MenuListItem({ item, lang, qty, onAdd }: MenuListItemProps) {
+  return (
+    <div className={styles.menuRow}>
+      <div className={styles.menuMain}>
+        <div className={styles.menuTitle}>
+          {localizeMenuText(item.name, lang)}
+          {item.item_type === "set" ? (lang === "en" ? " (Set)" : "（套餐）") : ""}
+        </div>
+        <div className={styles.menuSubtitle}>
+          {localizeMenuText(item.category || "", lang) || item.description || " "}
+        </div>
+      </div>
+      <strong className={styles.menuPrice}>₱{item.price}</strong>
+      <Button
+        variant="secondary"
+        type="button"
+        className={styles.addBtn}
+        onClick={() => onAdd(item.id)}
+      >
+        {lang === "en" ? "Add +" : "加入 +"}
+      </Button>
+      {qty > 0 ? <Badge className={styles.qtyBadge} tone="brand">x{qty}</Badge> : null}
+    </div>
+  );
+});

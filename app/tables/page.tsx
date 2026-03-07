@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import BottomNav from "../components/bottom-nav";
 import { apiFetchJson, getStoredAuth } from "../../lib/client-api";
@@ -71,11 +71,11 @@ export default function TablesPage() {
     }
   }
 
-  function enterMenu(tableNo: string, guests: number) {
+  const enterMenu = useCallback((tableNo: string, guests: number) => {
     localStorage.setItem("rdv_recent_table", tableNo);
     localStorage.setItem("rdv_recent_guests", String(guests));
     router.push(`/order?tableNo=${encodeURIComponent(tableNo)}&guests=${guests}`);
-  }
+  }, [router]);
 
   async function openTable() {
     if (!canRunAction()) return;
@@ -129,7 +129,7 @@ export default function TablesPage() {
     }
   }
 
-  function onTableClick(table: TableItem) {
+  const onTableClick = useCallback((table: TableItem) => {
     if (submitting) return;
 
     if (selectMode) {
@@ -150,7 +150,7 @@ export default function TablesPage() {
 
     setGuestCount(2);
     setOpeningTable(table);
-  }
+  }, [enterMenu, selectMode, submitting]);
 
   function tableStatusLabel(table: TableItem) {
     if (table.status === "open") return lang === "en" ? "In Service" : "服务中";
@@ -220,27 +220,16 @@ export default function TablesPage() {
               {items.map((table) => {
                 const selected = mergeSelection.includes(table.baseTables[0]);
                 return (
-                  <Card
+                  <TableGridCard
                     key={table.tableNo}
-                    className={`table-card ${selected ? "is-selected" : ""} ${table.status === "open" ? "is-open" : ""}`}
-                    onClick={() => onTableClick(table)}
-                  >
-                    <div className="table-card__head">
-                      <div className="table-card__title">{table.tableNo}</div>
-                      <div className="table-card__status">{tableStatusLabel(table)}</div>
-                    </div>
-                    <div className="table-card__meta">
-                      {table.status === "open" ? (
-                        <>
-                          <div className="table-card__line">{lang === "en" ? "Guests" : "人数"}: {table.guestCount || 1}</div>
-                          <div className="table-card__line">{lang === "en" ? "Time" : "时长"}: {openDuration(table.openedAt)}</div>
-                          <div className="table-card__line">{lang === "en" ? "Bill" : "账单"}: {formatPhp(table.currentAmount)}</div>
-                        </>
-                      ) : (
-                        <div className="table-card__idleHint">{lang === "en" ? "Tap to open" : "点击开台"}</div>
-                      )}
-                    </div>
-                  </Card>
+                    table={table}
+                    selected={selected}
+                    lang={lang}
+                    statusLabel={tableStatusLabel(table)}
+                    durationLabel={openDuration(table.openedAt)}
+                    billLabel={formatPhp(table.currentAmount)}
+                    onClick={onTableClick}
+                  />
                 );
               })}
             </div>
@@ -310,3 +299,46 @@ export default function TablesPage() {
     </div>
   );
 }
+
+type TableGridCardProps = {
+  table: TableItem;
+  selected: boolean;
+  lang: "en" | "zh";
+  statusLabel: string;
+  durationLabel: string;
+  billLabel: string;
+  onClick: (table: TableItem) => void;
+};
+
+const TableGridCard = memo(function TableGridCard({
+  table,
+  selected,
+  lang,
+  statusLabel,
+  durationLabel,
+  billLabel,
+  onClick
+}: TableGridCardProps) {
+  return (
+    <Card
+      className={`table-card ${selected ? "is-selected" : ""} ${table.status === "open" ? "is-open" : ""}`}
+      onClick={() => onClick(table)}
+    >
+      <div className="table-card__head">
+        <div className="table-card__title">{table.tableNo}</div>
+        <div className="table-card__status">{statusLabel}</div>
+      </div>
+      <div className="table-card__meta">
+        {table.status === "open" ? (
+          <>
+            <div className="table-card__line">{lang === "en" ? "Guests" : "人数"}: {table.guestCount || 1}</div>
+            <div className="table-card__line">{lang === "en" ? "Time" : "时长"}: {durationLabel}</div>
+            <div className="table-card__line">{lang === "en" ? "Bill" : "账单"}: {billLabel}</div>
+          </>
+        ) : (
+          <div className="table-card__idleHint">{lang === "en" ? "Tap to open" : "点击开台"}</div>
+        )}
+      </div>
+    </Card>
+  );
+});
