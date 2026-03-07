@@ -46,16 +46,14 @@ function detectPerfDebug() {
 
 function getStore() {
   if (typeof window === "undefined") return null;
-  const enabled = detectPerfDebug();
   if (!window.__rdvPerfDebug) {
+    const enabled = detectPerfDebug();
     window.__rdvPerfDebug = {
       enabled,
       interactions: [],
       longTasks: [],
       observerAttached: false
     };
-  } else {
-    window.__rdvPerfDebug.enabled = enabled;
   }
   return window.__rdvPerfDebug;
 }
