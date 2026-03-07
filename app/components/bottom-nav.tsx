@@ -22,7 +22,11 @@ export default function BottomNav({ global = false }: Props) {
         <Link href="/tables" className={tablesActive ? "bottom-nav-item active" : "bottom-nav-item"}>
           {t("nav.tables", "桌台")}
         </Link>
-        <Link href="/manage" className={manageActive ? "bottom-nav-item active" : "bottom-nav-item"}>
+        <Link
+          href="/manage"
+          prefetch={false}
+          className={manageActive ? "bottom-nav-item active" : "bottom-nav-item"}
+        >
           {t("nav.more", "更多")}
         </Link>
       </nav>

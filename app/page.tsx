@@ -29,7 +29,6 @@ export default function LoginPage() {
 
   useEffect(() => {
     router.prefetch("/tables");
-    router.prefetch("/manage/orders");
   }, [router]);
 
   async function onSubmit(e: React.FormEvent) {
