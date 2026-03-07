@@ -1,0 +1,140 @@
+{
+  "label": "after",
+  "capturedAt": "2026-03-07T15:43:38.016Z",
+  "baseUrl": "http://localhost:3002",
+  "categoryProbe": {
+    "index": 7,
+    "count": 18,
+    "label": "Chinese"
+  },
+  "domInfo": {
+    "domNodes": 230,
+    "menuRows": 18,
+    "avgNodesPerRow": 7,
+    "scrollContainers": 1,
+    "fixedOrSticky": 3
+  },
+  "order": {
+    "scrollPerf": {
+      "elapsedMs": 3602.3,
+      "fps": 120.2,
+      "droppedFrames": 0,
+      "longTaskCount": 0,
+      "longTaskTotalMs": 0,
+      "longTaskAvgMs": 0,
+      "maxScroll": 2061,
+      "targetClass": "page_menuPane__5n3UA"
+    },
+    "scrollTrace": {
+      "eventCount": 52480,
+      "layoutMs": 1.53,
+      "styleMs": 0.1,
+      "paintMs": 26.64,
+      "compositeMs": 1.81,
+      "scriptMs": 113.57,
+      "longTaskCount": 1,
+      "longTaskMs": 52.95
+    },
+    "visualSheetPerf": {
+      "fps": 40.77,
+      "droppedFrames": 71,
+      "longTaskCount": 0,
+      "longTaskTotalMs": 0
+    },
+    "addResult": {
+      "latencyMs": 37.7
+    },
+    "addCpu": {
+      "topFunctions": [
+        {
+          "name": "(program)",
+          "ms": 513.23
+        },
+        {
+          "name": "(idle)",
+          "ms": 235.19
+        },
+        {
+          "name": "exports.jsxDEV",
+          "ms": 41
+        },
+        {
+          "name": "(anonymous)",
+          "ms": 4.15
+        },
+        {
+          "name": "createTask",
+          "ms": 2.65
+        },
+        {
+          "name": "MenuListItem",
+          "ms": 1.49
+        },
+        {
+          "name": "updateHookTypesDev",
+          "ms": 1.34
+        },
+        {
+          "name": "OrderPage.useCallback[addFromMenu]",
+          "ms": 1.28
+        },
+        {
+          "name": "OrderPage",
+          "ms": 1.12
+        },
+        {
+          "name": "updateReducerImpl",
+          "ms": 0.93
+        },
+        {
+          "name": "validateProperties$2",
+          "ms": 0.88
+        },
+        {
+          "name": "createFiberFromTypeAndProps",
+          "ms": 0.83
+        },
+        {
+          "name": "setValueForStyles",
+          "ms": 0.71
+        },
+        {
+          "name": "runWithFiberInDEV",
+          "ms": 0.7
+        },
+        {
+          "name": "OrderPage.useMemo[cartSignature]",
+          "ms": 0.6
+        },
+        {
+          "name": "setInitialProperties",
+          "ms": 0.53
+        }
+      ],
+      "reactRenderMs": 0.38,
+      "orderPageMs": 3,
+      "localizeMenuTextMs": 0
+    },
+    "sheetPerf": {
+      "fps": 40.83,
+      "droppedFrames": 71,
+      "longTaskCount": 0,
+      "longTaskTotalMs": 0
+    },
+    "sheetTrace": {
+      "eventCount": 12237,
+      "layoutMs": 3.67,
+      "styleMs": 5.92,
+      "paintMs": 14.97,
+      "compositeMs": 12.22,
+      "scriptMs": 324.88,
+      "longTaskCount": 0,
+      "longTaskMs": 0
+    }
+  },
+  "tables": {
+    "cards": 11,
+    "domNodes": 139,
+    "scrollContainers": 0
+  }
+}

@@ -1,0 +1,140 @@
+{
+  "label": "before",
+  "capturedAt": "2026-03-07T15:21:59.137Z",
+  "baseUrl": "http://localhost:3002",
+  "categoryProbe": {
+    "index": 7,
+    "count": 23,
+    "label": "Chinese"
+  },
+  "domInfo": {
+    "domNodes": 264,
+    "menuRows": 23,
+    "avgNodesPerRow": 7,
+    "scrollContainers": 1,
+    "fixedOrSticky": 3
+  },
+  "order": {
+    "scrollPerf": {
+      "elapsedMs": 3605.1,
+      "fps": 120.39,
+      "droppedFrames": 0,
+      "longTaskCount": 0,
+      "longTaskTotalMs": 0,
+      "longTaskAvgMs": 0,
+      "maxScroll": 2061,
+      "targetClass": "app-shell-main has-tabbar"
+    },
+    "scrollTrace": {
+      "eventCount": 51759,
+      "layoutMs": 0,
+      "styleMs": 0,
+      "paintMs": 14.63,
+      "compositeMs": 0.72,
+      "scriptMs": 22.71,
+      "longTaskCount": 0,
+      "longTaskMs": 0
+    },
+    "visualSheetPerf": {
+      "fps": 40.95,
+      "droppedFrames": 71,
+      "longTaskCount": 9,
+      "longTaskTotalMs": 454
+    },
+    "addResult": {
+      "latencyMs": 58.6
+    },
+    "addCpu": {
+      "topFunctions": [
+        {
+          "name": "(program)",
+          "ms": 461.6
+        },
+        {
+          "name": "(idle)",
+          "ms": 265.88
+        },
+        {
+          "name": "exports.jsxDEV",
+          "ms": 47.17
+        },
+        {
+          "name": "validateProperty",
+          "ms": 1.98
+        },
+        {
+          "name": "dispatchEventForPluginEventSystem",
+          "ms": 1.42
+        },
+        {
+          "name": "bailoutOnAlreadyFinishedWork",
+          "ms": 1.19
+        },
+        {
+          "name": "localizeMenuText",
+          "ms": 1.16
+        },
+        {
+          "name": "completeWork",
+          "ms": 1.01
+        },
+        {
+          "name": "shiftLabel",
+          "ms": 0.98
+        },
+        {
+          "name": "OrderPage",
+          "ms": 0.92
+        },
+        {
+          "name": "now",
+          "ms": 0.9
+        },
+        {
+          "name": "setInitialProperties",
+          "ms": 0.74
+        },
+        {
+          "name": "commitMutationEffectsOnFiber",
+          "ms": 0.63
+        },
+        {
+          "name": "performUnitOfWork",
+          "ms": 0.6
+        },
+        {
+          "name": "findInstanceBlockingTarget",
+          "ms": 0.56
+        },
+        {
+          "name": "getNearestMountedFiber",
+          "ms": 0.27
+        }
+      ],
+      "reactRenderMs": 1.13,
+      "orderPageMs": 0.92,
+      "localizeMenuTextMs": 1.16
+    },
+    "sheetPerf": {
+      "fps": 40.88,
+      "droppedFrames": 71,
+      "longTaskCount": 10,
+      "longTaskTotalMs": 515
+    },
+    "sheetTrace": {
+      "eventCount": 15899,
+      "layoutMs": 6.4,
+      "styleMs": 3.35,
+      "paintMs": 12.59,
+      "compositeMs": 9.95,
+      "scriptMs": 580.6,
+      "longTaskCount": 10,
+      "longTaskMs": 525.05
+    }
+  },
+  "tables": {
+    "cards": 11,
+    "domNodes": 139,
+    "scrollContainers": 0
+  }
+}
