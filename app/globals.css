@@ -95,6 +95,7 @@ body {
   width: min(100%, var(--app-max));
   max-width: var(--app-max);
   margin: 0 auto;
+  height: 100%;
   padding: var(--space-3) max(var(--space-3), env(safe-area-inset-right)) var(--space-3) max(var(--space-3), env(safe-area-inset-left));
   background: transparent;
   border-left: 1px solid rgba(148, 163, 184, 0.22);
