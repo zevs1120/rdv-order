@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import BottomNav from "../../components/bottom-nav";
 import { apiFetchJson, getStoredAuth } from "../../../lib/client-api";
@@ -31,6 +31,9 @@ type OrderRow = {
   items: OrderItemDetail[];
 };
 
+const ORDER_PROGRESSIVE_THRESHOLD = 36;
+const ORDER_PROGRESSIVE_STEP = 24;
+
 export default function ManageOrdersPage() {
   const router = useRouter();
   const { t, lang } = useI18n();
@@ -46,6 +49,8 @@ export default function ManageOrdersPage() {
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
   const [sectionOpen, setSectionOpen] = useState(true);
+  const [renderLimit, setRenderLimit] = useState(ORDER_PROGRESSIVE_THRESHOLD);
+  const loadMoreAnchorRef = useRef<HTMLDivElement | null>(null);
   const canRunAction = useActionGuard();
 
   const quickButtons: Array<{ key: PresetKey; label: string }> = useMemo(
@@ -280,6 +285,31 @@ export default function ManageOrdersPage() {
     void loadOrders(range.from, range.to, initialTable);
   }, []);
 
+  useEffect(() => {
+    if (orders.length <= ORDER_PROGRESSIVE_THRESHOLD) {
+      setRenderLimit(orders.length);
+      return;
+    }
+    setRenderLimit((prev) => {
+      const next = Math.max(prev, ORDER_PROGRESSIVE_THRESHOLD);
+      return Math.min(next, orders.length);
+    });
+  }, [orders.length]);
+
+  useEffect(() => {
+    if (orders.length <= ORDER_PROGRESSIVE_THRESHOLD) return;
+    if (renderLimit >= orders.length) return;
+    const anchor = loadMoreAnchorRef.current;
+    if (!anchor) return;
+    const observer = new IntersectionObserver((entries) => {
+      if (!entries.some((entry) => entry.isIntersecting)) return;
+      setRenderLimit((prev) => Math.min(orders.length, prev + ORDER_PROGRESSIVE_STEP));
+    }, { rootMargin: "220px 0px" });
+    observer.observe(anchor);
+    return () => observer.disconnect();
+  }, [orders.length, renderLimit]);
+
+  const renderedOrders = useMemo(() => orders.slice(0, renderLimit), [orders, renderLimit]);
   const totalAmount = orders.reduce((sum, row) => sum + row.amount, 0);
 
   return (
@@ -379,7 +409,7 @@ export default function ManageOrdersPage() {
                   </>
                 ) : null}
 
-                {orders.map((order) => {
+                {renderedOrders.map((order) => {
                   const opened = Boolean(expanded[order.id]);
                   const canEdit = order.status === "submitted" && !order.cancelled_at;
 
@@ -487,6 +517,12 @@ export default function ManageOrdersPage() {
                     </div>
                   );
                 })}
+                {renderLimit < orders.length ? (
+                  <>
+                    <div ref={loadMoreAnchorRef} className="tables-load-anchor" aria-hidden="true" />
+                    <div className="muted">{`${t("common.loading", "加载中...")} ${renderLimit}/${orders.length}`}</div>
+                  </>
+                ) : null}
               </div>
             </>
           ) : null}
