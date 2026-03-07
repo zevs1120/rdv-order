@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useI18n } from "./i18n-provider";
+import { createDebounced } from "../../lib/scheduler";
 
 type NetState = "online" | "weak" | "offline";
 
@@ -37,17 +38,20 @@ export default function TopBar() {
   const isLogin = pathname === "/";
 
   useEffect(() => {
-    const onOnline = () => {
+    const applyOnlineSnapshot = () => {
       setOnline(true);
       setWeak(detectWeakConnection());
     };
-    const onOffline = () => {
+    const applyOfflineSnapshot = () => {
       setOnline(false);
       setWeak(false);
     };
-    const onConnChange = () => {
-      if (navigator.onLine) setWeak(detectWeakConnection());
-    };
+    const onOnline = createDebounced(applyOnlineSnapshot, 120);
+    const onOffline = createDebounced(applyOfflineSnapshot, 100);
+    const onConnChange = createDebounced(() => {
+      if (!navigator.onLine) return;
+      setWeak(detectWeakConnection());
+    }, 140);
 
     setOnline(navigator.onLine);
     setWeak(navigator.onLine && detectWeakConnection());
@@ -66,6 +70,9 @@ export default function TopBar() {
       window.removeEventListener("online", onOnline);
       window.removeEventListener("offline", onOffline);
       nav.connection?.removeEventListener?.("change", onConnChange);
+      onOnline.cancel();
+      onOffline.cancel();
+      onConnChange.cancel();
     };
   }, []);
 

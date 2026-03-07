@@ -1,6 +1,6 @@
 "use client";
 
-import { memo, Profiler, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { memo, Profiler, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState, useTransition, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import BottomNav from "../components/bottom-nav";
 import { apiFetchJson, getStoredAuth } from "../../lib/client-api";
@@ -8,6 +8,7 @@ import { useI18n } from "../components/i18n-provider";
 import { localizeMenuText, shortCategoryLabel } from "../../lib/menu-text";
 import { useActionGuard } from "../../lib/use-action-guard";
 import { captureReactProfile } from "../../lib/react-profiler";
+import { createDebounced, scheduleIdleTask } from "../../lib/scheduler";
 import { AppBar, Badge, BottomSheet, Button, Card, Chip, EmptyState, SearchField, Toast } from "../../components/ui";
 import styles from "./page.module.css";
 
@@ -132,6 +133,7 @@ export default function OrderPage() {
   const [menuScrollRow, setMenuScrollRow] = useState(0);
   const [shift, setShift] = useState<ShiftKey>("lunch");
   const [shiftOptions, setShiftOptions] = useState<MajorCategoryOption[]>(DEFAULT_SHIFT_OPTIONS);
+  const [keywordInput, setKeywordInput] = useState("");
   const [keyword, setKeyword] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("");
   const [shiftSubcategories, setShiftSubcategories] = useState<Record<string, string[]>>({});
@@ -162,6 +164,7 @@ export default function OrderPage() {
   const [cartSheetOpen, setCartSheetOpen] = useState(false);
   const [actionMenuOpen, setActionMenuOpen] = useState(false);
   const [toast, setToast] = useState<ToastState | null>(null);
+  const [, startUiTransition] = useTransition();
 
   const menuCacheRef = useRef<Record<string, MenuItem[]>>({});
   const subcategoryCacheRef = useRef<Record<string, string[]>>({});
@@ -179,6 +182,7 @@ export default function OrderPage() {
   const menuPaneRef = useRef<HTMLDivElement | null>(null);
   const menuScrollRafRef = useRef<number | null>(null);
   const menuScrollClassTimerRef = useRef<number | null>(null);
+  const keywordDebouncedSyncRef = useRef<(((nextValue: string) => void) & { cancel: () => void }) | null>(null);
   const lastSubmittedSignatureRef = useRef("");
   const lastSubmittedAtRef = useRef(0);
   const isMergedTable = tableNo.includes("+");
@@ -252,7 +256,13 @@ export default function OrderPage() {
       subcategories
     };
     try {
-      sessionStorage.setItem(key, JSON.stringify(payload));
+      scheduleIdleTask(() => {
+        try {
+          sessionStorage.setItem(key, JSON.stringify(payload));
+        } catch {
+          // Ignore storage errors.
+        }
+      });
     } catch {
       // Ignore storage errors.
     }
@@ -365,6 +375,7 @@ export default function OrderPage() {
         setShift(parsed.shift.trim().toLowerCase());
       }
       if (typeof parsed.keyword === "string") {
+        setKeywordInput(parsed.keyword);
         setKeyword(parsed.keyword);
       }
       if (typeof parsed.selectedCategory === "string") {
@@ -377,6 +388,22 @@ export default function OrderPage() {
       setCartSelections({});
     }
   }, [paramsReady, tableNo]);
+
+  useEffect(() => {
+    const debounced = createDebounced((nextValue: string) => {
+      startUiTransition(() => {
+        setKeyword(nextValue);
+      });
+    }, 120);
+    keywordDebouncedSyncRef.current = debounced;
+
+    return () => {
+      debounced.cancel();
+      if (keywordDebouncedSyncRef.current === debounced) {
+        keywordDebouncedSyncRef.current = null;
+      }
+    };
+  }, [startUiTransition]);
 
   useEffect(() => {
     setError("");
@@ -500,11 +527,12 @@ export default function OrderPage() {
   useEffect(() => {
     if (!paramsReady || !tableNo) return;
     const key = `rdv_order_draft:${tableNo}`;
+    let cancelIdleWrite: (() => void) | null = null;
     const timer = window.setTimeout(() => {
       const draft: OrderDraft = {
         tableNo,
         shift,
-        keyword: keyword.trim(),
+        keyword: keywordInput.trim(),
         selectedCategory,
         items: Object.entries(cartSelections)
           .filter(([, selected]) => Number.isInteger(selected.qty) && selected.qty > 0)
@@ -519,11 +547,20 @@ export default function OrderPage() {
       if (serialized === draftSerializedRef.current) return;
       draftSerializedRef.current = serialized;
       draftRef.current = draft;
-      localStorage.setItem(key, serialized);
+      cancelIdleWrite = scheduleIdleTask(() => {
+        try {
+          localStorage.setItem(key, serialized);
+        } catch {
+          // Ignore storage write errors.
+        }
+      });
     }, 120);
 
-    return () => window.clearTimeout(timer);
-  }, [paramsReady, tableNo, shift, keyword, selectedCategory, cartSelections]);
+    return () => {
+      window.clearTimeout(timer);
+      cancelIdleWrite?.();
+    };
+  }, [paramsReady, tableNo, shift, keywordInput, selectedCategory, cartSelections]);
 
   const normalizedKeyword = deferredKeyword.trim().toLowerCase();
   const menuSearchIndex = useMemo(() => {
@@ -776,9 +813,22 @@ export default function OrderPage() {
     return lang === "en" ? option.label_en : option.label_zh;
   }
 
-  const onSelectCategory = useCallback((value: string) => {
-    setSelectedCategory(value);
+  const onKeywordInputChange = useCallback((nextValue: string) => {
+    setKeywordInput(nextValue);
+    keywordDebouncedSyncRef.current?.(nextValue);
   }, []);
+
+  const onSelectShift = useCallback((nextShift: ShiftKey) => {
+    startUiTransition(() => {
+      setShift(nextShift);
+    });
+  }, [startUiTransition]);
+
+  const onSelectCategory = useCallback((value: string) => {
+    startUiTransition(() => {
+      setSelectedCategory(value);
+    });
+  }, [startUiTransition]);
 
   async function loadBill() {
     if (!tableNo) return;
@@ -1273,8 +1323,8 @@ export default function OrderPage() {
           }
           subline={
             <SearchField
-              value={keyword}
-              onChange={(e) => setKeyword(e.target.value)}
+              value={keywordInput}
+              onChange={(e) => onKeywordInputChange(e.target.value)}
               placeholder={t("order.searchPlaceholder", "Search dishes")}
               className={styles.searchCompact}
             />
@@ -1284,7 +1334,7 @@ export default function OrderPage() {
         <Card className={styles.shiftPanel}>
           <div className={styles.shiftRow}>
             {shiftOptions.map((option) => (
-              <Chip key={option.key} active={shift === option.key} onClick={() => setShift(option.key)}>
+              <Chip key={option.key} active={shift === option.key} onClick={() => onSelectShift(option.key)}>
                 {shiftLabel(option.key)}
               </Chip>
             ))}
