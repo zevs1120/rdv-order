@@ -1,6 +1,6 @@
 "use client";
 
-import type { ReactNode } from "react";
+import { useEffect, type ReactNode } from "react";
 import { usePathname } from "next/navigation";
 import TopBar from "./top-bar";
 import BottomNav from "./bottom-nav";
@@ -21,6 +21,14 @@ export default function AppShell({ children }: Props) {
   const hideTopBar = HIDE_TOP_BAR_PATHS.has(pathname);
   const hideTabBar = shouldHideTabBar(pathname);
   const lockRootScroll = pathname.startsWith("/order");
+
+  useEffect(() => {
+    const ua = navigator.userAgent.toLowerCase();
+    const platform = ua.includes("android")
+      ? "android"
+      : (/iphone|ipad|ipod/.test(ua) ? "ios" : "other");
+    document.documentElement.dataset.platform = platform;
+  }, []);
 
   return (
     <div className="app-shell">

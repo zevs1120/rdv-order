@@ -29,6 +29,28 @@
   }
 }
 
+html[data-platform="android"] {
+  --glass-blur: 0px;
+  --glass-sat: 1;
+  --glass-surface: color-mix(in srgb, #ffffff 94%, #f8fafc);
+}
+
+html[data-platform="android"] .topbar-shell,
+html[data-platform="android"] .bottom-nav-shell,
+html[data-platform="android"] .ui-appbar__row,
+html[data-platform="android"] .ui-sheet {
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+  border-color: color-mix(in srgb, var(--line-default) 92%, #fff);
+}
+
+html.rdv-scroll-active .topbar-shell,
+html.rdv-scroll-active .bottom-nav-shell,
+html.rdv-scroll-active .ui-appbar__row {
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+
 * {
   box-sizing: border-box;
 }
@@ -208,9 +230,9 @@ button {
   will-change: transform, opacity;
   touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;
-  box-shadow: 0 4px 10px rgba(127, 15, 22, 0.16);
+  box-shadow: 0 3px 8px rgba(127, 15, 22, 0.12);
   border-radius: 14px;
-  transition: transform 120ms ease, filter 120ms ease, box-shadow 140ms ease, border-color 140ms ease;
+  transition: transform 100ms ease, opacity 100ms ease, background-color 140ms ease, border-color 140ms ease, color 140ms ease;
 }
 
 button.secondary {
@@ -226,13 +248,9 @@ button.danger-outline {
   background: #fff9f9;
 }
 
-button:not(:disabled):hover {
-  filter: brightness(0.985);
-}
-
 button:not(:disabled):active {
   transform: scale(0.98);
-  filter: brightness(0.98);
+  opacity: 0.92;
 }
 
 button:disabled {

@@ -178,6 +178,7 @@ export default function OrderPage() {
   const submitPressedTimerRef = useRef<number | null>(null);
   const menuPaneRef = useRef<HTMLDivElement | null>(null);
   const menuScrollRafRef = useRef<number | null>(null);
+  const menuScrollClassTimerRef = useRef<number | null>(null);
   const lastSubmittedSignatureRef = useRef("");
   const lastSubmittedAtRef = useRef(0);
   const isMergedTable = tableNo.includes("+");
@@ -534,6 +535,15 @@ export default function OrderPage() {
     syncMetrics();
 
     const onScroll = () => {
+      document.documentElement.classList.add("rdv-scroll-active");
+      if (menuScrollClassTimerRef.current !== null) {
+        window.clearTimeout(menuScrollClassTimerRef.current);
+      }
+      menuScrollClassTimerRef.current = window.setTimeout(() => {
+        document.documentElement.classList.remove("rdv-scroll-active");
+        menuScrollClassTimerRef.current = null;
+      }, 160);
+
       if (menuScrollRafRef.current !== null) return;
       menuScrollRafRef.current = window.requestAnimationFrame(() => {
         menuScrollRafRef.current = null;
@@ -555,6 +565,11 @@ export default function OrderPage() {
         window.cancelAnimationFrame(menuScrollRafRef.current);
         menuScrollRafRef.current = null;
       }
+      if (menuScrollClassTimerRef.current !== null) {
+        window.clearTimeout(menuScrollClassTimerRef.current);
+        menuScrollClassTimerRef.current = null;
+      }
+      document.documentElement.classList.remove("rdv-scroll-active");
     };
   }, []);
 
