@@ -818,14 +818,14 @@ export default function OrderPage() {
   }
 
   const addFromMenu = useCallback((itemId: string) => {
-    const finishMeasure = beginPerfInteraction("order:add-item-feedback", { itemId });
+    const finishMeasure = beginPerfInteraction("order:add-item-feedback");
     const previousQty = cartSelectionsRef.current[itemId]?.qty || 0;
     setQty(itemId, previousQty + 1);
     setNoteSheetOpen(false);
     setCartSheetOpen(true);
     if (finishMeasure) {
       window.requestAnimationFrame(() => {
-        finishMeasure({ nextQty: previousQty + 1 });
+        finishMeasure();
       });
     }
   }, [setQty]);
@@ -849,7 +849,7 @@ export default function OrderPage() {
   }, []);
 
   const onSelectShift = useCallback((nextShift: ShiftKey) => {
-    const finishMeasure = beginPerfInteraction("order:switch-shift", { nextShift });
+    const finishMeasure = beginPerfInteraction("order:switch-shift");
     setShift((prev) => (prev === nextShift ? prev : nextShift));
     if (finishMeasure) {
       window.requestAnimationFrame(() => {
@@ -859,7 +859,7 @@ export default function OrderPage() {
   }, []);
 
   const onSelectCategory = useCallback((value: string) => {
-    const finishMeasure = beginPerfInteraction("order:switch-category", { category: value });
+    const finishMeasure = beginPerfInteraction("order:switch-category");
     setSelectedCategory((prev) => (prev === value ? prev : value));
     if (finishMeasure) {
       window.requestAnimationFrame(() => {
@@ -1071,17 +1071,14 @@ export default function OrderPage() {
   async function submitOrder() {
     submitClickCountRef.current += 1;
     debugSubmit("click", { clickCount: submitClickCountRef.current, submitState });
-    const finishSubmitPerf = beginPerfInteraction("order:submit-order", {
-      tableNo,
-      cartSize: cart.length
-    });
+    const finishSubmitPerf = beginPerfInteraction("order:submit-order");
 
     if (submitInFlightRef.current || submitState === "loading") {
       const waitMsg = t("order.submitInProgressToast", "Submitting... please wait");
       setToast({ message: waitMsg });
       setSubmitNotice(waitMsg);
       debugSubmit("blocked_inflight", { clickCount: submitClickCountRef.current });
-      finishSubmitPerf?.({ status: "blocked_inflight" });
+      finishSubmitPerf?.();
       return;
     }
 
@@ -1103,7 +1100,7 @@ export default function OrderPage() {
         onAction: () => { void submitOrder(); }
       });
       debugSubmit("blocked_offline");
-      finishSubmitPerf?.({ status: "blocked_offline" });
+      finishSubmitPerf?.();
       return;
     }
 
@@ -1113,7 +1110,7 @@ export default function OrderPage() {
       setSubmitNotice(msg);
       setError(msg);
       debugSubmit("blocked_no_table");
-      finishSubmitPerf?.({ status: "blocked_no_table" });
+      finishSubmitPerf?.();
       return;
     }
     if (cart.length === 0) {
@@ -1122,7 +1119,7 @@ export default function OrderPage() {
       setSubmitNotice(msg);
       setError(msg);
       debugSubmit("blocked_empty_cart");
-      finishSubmitPerf?.({ status: "blocked_empty_cart" });
+      finishSubmitPerf?.();
       return;
     }
     if (
@@ -1136,7 +1133,7 @@ export default function OrderPage() {
       setError(msg);
       setToast({ message: msg });
       debugSubmit("blocked_recent_duplicate");
-      finishSubmitPerf?.({ status: "blocked_recent_duplicate" });
+      finishSubmitPerf?.();
       return;
     }
 
@@ -1209,11 +1206,7 @@ export default function OrderPage() {
         dedupeReason: body.dedupeReason || "none",
         latencyMs
       });
-      finishSubmitPerf?.({
-        status: body.deduped ? "deduped" : "success",
-        attemptNo,
-        latencyMs
-      });
+      finishSubmitPerf?.();
       resetSubmitStateLater();
     } catch (err: any) {
       const message = String(err?.message || "").trim();
@@ -1235,11 +1228,7 @@ export default function OrderPage() {
         latencyMs: Math.round(performance.now() - startedAt),
         error: normalized
       });
-      finishSubmitPerf?.({
-        status: "error",
-        attemptNo,
-        latencyMs: Math.round(performance.now() - startedAt)
-      });
+      finishSubmitPerf?.();
     } finally {
       setLoading(false);
       submitInFlightRef.current = false;
@@ -1247,9 +1236,9 @@ export default function OrderPage() {
   }
 
   async function checkout() {
-    const finishCheckoutPerf = beginPerfInteraction("order:checkout", { tableNo });
+    const finishCheckoutPerf = beginPerfInteraction("order:checkout");
     if (!canRunAction()) {
-      finishCheckoutPerf?.({ status: "blocked_guard" });
+      finishCheckoutPerf?.();
       return;
     }
     const confirmed = window.confirm(
@@ -1258,7 +1247,7 @@ export default function OrderPage() {
         : `确认结账并关台吗？\n桌号：${tableNo}`
     );
     if (!confirmed) {
-      finishCheckoutPerf?.({ status: "cancelled" });
+      finishCheckoutPerf?.();
       return;
     }
 
@@ -1284,18 +1273,11 @@ export default function OrderPage() {
       localStorage.removeItem(`rdv_order_draft:${tableNo}`);
       draftSerializedRef.current = "";
       billCacheRef.current = null;
-      finishCheckoutPerf?.({
-        status: "success",
-        latencyMs: Math.round(performance.now() - checkoutStartedAt),
-        orderCount: body.orderCount
-      });
+      finishCheckoutPerf?.();
       router.replace("/tables");
     } catch (err: any) {
       setError(err.message || t("order.checkoutFailed", "Checkout failed"));
-      finishCheckoutPerf?.({
-        status: "error",
-        latencyMs: Math.round(performance.now() - checkoutStartedAt)
-      });
+      finishCheckoutPerf?.();
     } finally {
       setLoading(false);
     }
