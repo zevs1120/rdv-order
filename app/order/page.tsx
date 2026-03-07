@@ -763,7 +763,7 @@ export default function OrderPage() {
         timeoutMs: 10000,
         retries: 0
       });
-      window.alert(t("order.printReceiptSuccess", "Receipt sent to printer"));
+      window.alert(t("order.printReceiptSuccess", "Guest copy sent to printer"));
     } catch (err: any) {
       setError(err.message || t("order.printReceiptFailed", "Failed to print receipt"));
     } finally {
@@ -1007,7 +1007,7 @@ export default function OrderPage() {
         }
       } else {
         setToast({
-          message: `${t("order.submitSuccess", "Order submitted. Print has been triggered.")} #${body.orderId.slice(0, 8)}`,
+          message: `${t("order.submitSuccess", "Order submitted. Kitchen copy only.")} #${body.orderId.slice(0, 8)}`,
           actionLabel: t("order.ordered", "Items"),
           onAction: () => {
             setShowBill(true);

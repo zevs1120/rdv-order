@@ -220,6 +220,23 @@ async function buildOrderPayload(orderId: string): Promise<OrderPrintPayload> {
   };
 }
 
+function toKitchenOnlyOrderPayload(payload: OrderPrintPayload): OrderPrintPayload {
+  const kitchenItems = payload.items.map((item) => ({
+    ...item,
+    unitPrice: undefined,
+    target: "kitchen" as const
+  }));
+
+  return {
+    ...payload,
+    items: kitchenItems,
+    tickets: [{
+      target: "kitchen",
+      items: kitchenItems
+    }]
+  };
+}
+
 function chargeTypeLabel(type: string) {
   if (type === "discount") return "DISCOUNT";
   if (type === "service_fee") return "SERVICE FEE";
@@ -446,6 +463,9 @@ function appendGuestFillFields(lines: string[]) {
   lines.push(xpyunLine(writeLinePlaceholder(), { forceTag: "N" }));
   lines.push("<BR>");
   lines.push(xpyunLine("PRINT FULL NAME:", { forceTag: "N" }));
+  lines.push(xpyunLine(writeLinePlaceholder(), { forceTag: "N" }));
+  lines.push("<BR>");
+  lines.push(xpyunLine("PAYMENT METHOD:", { forceTag: "N" }));
   lines.push(xpyunLine(writeLinePlaceholder(), { forceTag: "N" }));
 }
 
@@ -901,7 +921,7 @@ async function dispatchWithFallback(payload: PrintPayload) {
 }
 
 export async function dispatchPrintJob(orderId: string): Promise<DispatchResult> {
-  const payload = await buildOrderPayload(orderId);
+  const payload = toKitchenOnlyOrderPayload(await buildOrderPayload(orderId));
   return dispatchWithFallback(payload);
 }
 
@@ -920,6 +940,7 @@ export const __printTestUtils = {
   getReceiptLineWidth,
   wrapReceiptText,
   formatAmountRow,
+  toKitchenOnlyOrderPayload,
   toXpyunKitchenContent,
   toXpyunCustomerContent,
   toXpyunTableBillContent

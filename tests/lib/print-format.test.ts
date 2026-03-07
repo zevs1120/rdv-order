@@ -64,6 +64,69 @@ describe("print content formatting", () => {
     expect(content).toContain("<B>CHICKEN CURRY</B>");
   });
 
+  it("order payload should be normalized to kitchen copy only", () => {
+    const payload = {
+      type: "order",
+      printVersion: 2,
+      tableNo: "06",
+      createdAt: "2026-03-04T12:00:00.000Z",
+      waiter: "Mercy",
+      items: [
+        {
+          name: "Chicken Curry",
+          unitPrice: 450,
+          qty: 1,
+          category: "Filipino Food",
+          note: null,
+          target: "kitchen"
+        },
+        {
+          name: "Sidecar",
+          unitPrice: 300,
+          qty: 1,
+          category: "Cocktail",
+          note: null,
+          target: "bar"
+        }
+      ],
+      tickets: [
+        {
+          target: "kitchen",
+          items: [
+            {
+              name: "Chicken Curry",
+              unitPrice: 450,
+              qty: 1,
+              category: "Filipino Food",
+              note: null,
+              target: "kitchen"
+            }
+          ]
+        },
+        {
+          target: "bar",
+          items: [
+            {
+              name: "Sidecar",
+              unitPrice: 300,
+              qty: 1,
+              category: "Cocktail",
+              note: null,
+              target: "bar"
+            }
+          ]
+        }
+      ]
+    } as const;
+
+    const normalized = __printTestUtils.toKitchenOnlyOrderPayload(payload as any);
+    expect(normalized.tickets).toHaveLength(1);
+    expect(normalized.tickets[0].target).toBe("kitchen");
+    expect(normalized.items).toHaveLength(2);
+    expect(normalized.items.every((item) => item.target === "kitchen")).toBe(true);
+    expect(normalized.items.every((item) => item.unitPrice === undefined)).toBe(true);
+  });
+
   it("customer content should include room and guest name lines", () => {
     const payload = {
       type: "order",
@@ -101,6 +164,7 @@ describe("print content formatting", () => {
     const content = __printTestUtils.toXpyunCustomerContent(payload as any);
     expect(content).toContain("ROOM NO");
     expect(content).toContain("PRINT FULL NAME");
+    expect(content).toContain("PAYMENT METHOD");
     expect(content).toContain("<N>CHICKEN CURRY</N>");
   });
 
