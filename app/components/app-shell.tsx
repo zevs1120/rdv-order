@@ -4,6 +4,7 @@ import { useEffect, type ReactNode } from "react";
 import { usePathname } from "next/navigation";
 import TopBar from "./top-bar";
 import BottomNav from "./bottom-nav";
+import { setupPerfDebugObserver } from "../../lib/perf-debug";
 
 type Props = {
   children: ReactNode;
@@ -28,6 +29,10 @@ export default function AppShell({ children }: Props) {
       ? "android"
       : (/iphone|ipad|ipod/.test(ua) ? "ios" : "other");
     document.documentElement.dataset.platform = platform;
+  }, []);
+
+  useEffect(() => {
+    return setupPerfDebugObserver();
   }, []);
 
   return (

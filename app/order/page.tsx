@@ -8,6 +8,7 @@ import { useI18n } from "../components/i18n-provider";
 import { localizeMenuText, shortCategoryLabel } from "../../lib/menu-text";
 import { useActionGuard } from "../../lib/use-action-guard";
 import { captureReactProfile } from "../../lib/react-profiler";
+import { beginPerfInteraction } from "../../lib/perf-debug";
 import { createDebounced, scheduleIdleTask } from "../../lib/scheduler";
 import { AppBar, Badge, BottomSheet, Button, Card, Chip, EmptyState, SearchField, Toast } from "../../components/ui";
 import styles from "./page.module.css";
@@ -817,10 +818,14 @@ export default function OrderPage() {
   }
 
   const addFromMenu = useCallback((itemId: string) => {
+    const finishMeasure = beginPerfInteraction("order:add-item-feedback", { itemId });
     const previousQty = cartSelectionsRef.current[itemId]?.qty || 0;
     setQty(itemId, previousQty + 1);
     setNoteSheetOpen(false);
     setCartSheetOpen(true);
+    window.requestAnimationFrame(() => {
+      finishMeasure({ nextQty: previousQty + 1 });
+    });
   }, [setQty]);
 
   function closeNoteSheet(shouldSaveInput = true) {
@@ -842,11 +847,35 @@ export default function OrderPage() {
   }, []);
 
   const onSelectShift = useCallback((nextShift: ShiftKey) => {
+    const finishMeasure = beginPerfInteraction("order:switch-shift", { nextShift });
     setShift((prev) => (prev === nextShift ? prev : nextShift));
+    window.requestAnimationFrame(() => {
+      finishMeasure();
+    });
   }, []);
 
   const onSelectCategory = useCallback((value: string) => {
+    const finishMeasure = beginPerfInteraction("order:switch-category", { category: value });
     setSelectedCategory((prev) => (prev === value ? prev : value));
+    window.requestAnimationFrame(() => {
+      finishMeasure();
+    });
+  }, []);
+
+  const openActionMenu = useCallback(() => {
+    const finishMeasure = beginPerfInteraction("order:open-action-sheet");
+    setActionMenuOpen(true);
+    window.requestAnimationFrame(() => {
+      finishMeasure();
+    });
+  }, []);
+
+  const closeActionMenu = useCallback(() => {
+    const finishMeasure = beginPerfInteraction("order:close-action-sheet");
+    setActionMenuOpen(false);
+    window.requestAnimationFrame(() => {
+      finishMeasure();
+    });
   }, []);
 
   async function loadBill() {
@@ -1032,12 +1061,17 @@ export default function OrderPage() {
   async function submitOrder() {
     submitClickCountRef.current += 1;
     debugSubmit("click", { clickCount: submitClickCountRef.current, submitState });
+    const finishSubmitPerf = beginPerfInteraction("order:submit-order", {
+      tableNo,
+      cartSize: cart.length
+    });
 
     if (submitInFlightRef.current || submitState === "loading") {
       const waitMsg = t("order.submitInProgressToast", "Submitting... please wait");
       setToast({ message: waitMsg });
       setSubmitNotice(waitMsg);
       debugSubmit("blocked_inflight", { clickCount: submitClickCountRef.current });
+      finishSubmitPerf({ status: "blocked_inflight" });
       return;
     }
 
@@ -1059,6 +1093,7 @@ export default function OrderPage() {
         onAction: () => { void submitOrder(); }
       });
       debugSubmit("blocked_offline");
+      finishSubmitPerf({ status: "blocked_offline" });
       return;
     }
 
@@ -1068,6 +1103,7 @@ export default function OrderPage() {
       setSubmitNotice(msg);
       setError(msg);
       debugSubmit("blocked_no_table");
+      finishSubmitPerf({ status: "blocked_no_table" });
       return;
     }
     if (cart.length === 0) {
@@ -1076,6 +1112,7 @@ export default function OrderPage() {
       setSubmitNotice(msg);
       setError(msg);
       debugSubmit("blocked_empty_cart");
+      finishSubmitPerf({ status: "blocked_empty_cart" });
       return;
     }
     if (
@@ -1089,6 +1126,7 @@ export default function OrderPage() {
       setError(msg);
       setToast({ message: msg });
       debugSubmit("blocked_recent_duplicate");
+      finishSubmitPerf({ status: "blocked_recent_duplicate" });
       return;
     }
 
@@ -1161,6 +1199,11 @@ export default function OrderPage() {
         dedupeReason: body.dedupeReason || "none",
         latencyMs
       });
+      finishSubmitPerf({
+        status: body.deduped ? "deduped" : "success",
+        attemptNo,
+        latencyMs
+      });
       resetSubmitStateLater();
     } catch (err: any) {
       const message = String(err?.message || "").trim();
@@ -1182,6 +1225,11 @@ export default function OrderPage() {
         latencyMs: Math.round(performance.now() - startedAt),
         error: normalized
       });
+      finishSubmitPerf({
+        status: "error",
+        attemptNo,
+        latencyMs: Math.round(performance.now() - startedAt)
+      });
     } finally {
       setLoading(false);
       submitInFlightRef.current = false;
@@ -1189,14 +1237,22 @@ export default function OrderPage() {
   }
 
   async function checkout() {
-    if (!canRunAction()) return;
+    const finishCheckoutPerf = beginPerfInteraction("order:checkout", { tableNo });
+    if (!canRunAction()) {
+      finishCheckoutPerf({ status: "blocked_guard" });
+      return;
+    }
     const confirmed = window.confirm(
       lang === "en"
         ? `Confirm checkout and close table?\nTable: ${tableNo}`
         : `确认结账并关台吗？\n桌号：${tableNo}`
     );
-    if (!confirmed) return;
+    if (!confirmed) {
+      finishCheckoutPerf({ status: "cancelled" });
+      return;
+    }
 
+    const checkoutStartedAt = performance.now();
     setLoading(true);
     setError("");
     try {
@@ -1218,9 +1274,18 @@ export default function OrderPage() {
       localStorage.removeItem(`rdv_order_draft:${tableNo}`);
       draftSerializedRef.current = "";
       billCacheRef.current = null;
+      finishCheckoutPerf({
+        status: "success",
+        latencyMs: Math.round(performance.now() - checkoutStartedAt),
+        orderCount: body.orderCount
+      });
       router.replace("/tables");
     } catch (err: any) {
       setError(err.message || t("order.checkoutFailed", "Checkout failed"));
+      finishCheckoutPerf({
+        status: "error",
+        latencyMs: Math.round(performance.now() - checkoutStartedAt)
+      });
     } finally {
       setLoading(false);
     }
@@ -1329,13 +1394,13 @@ export default function OrderPage() {
             </div>
           }
           left={
-            <Button variant="secondary" onClick={() => router.push("/tables")}>
-              {lang === "en" ? "Back" : "返回"}
-            </Button>
+              <Button variant="secondary" onClick={() => router.push("/tables")}>
+                {lang === "en" ? "Back" : "返回"}
+              </Button>
           }
           right={
             <div className={styles.topActions}>
-              <Button variant="secondary" onClick={() => setActionMenuOpen(true)}>
+              <Button variant="secondary" onClick={openActionMenu}>
                 {lang === "en" ? "Actions" : "操作"}
               </Button>
             </div>
@@ -1453,7 +1518,7 @@ export default function OrderPage() {
 
       <BottomSheet
         open={actionMenuOpen}
-        onClose={() => setActionMenuOpen(false)}
+        onClose={closeActionMenu}
         title={lang === "en" ? "Actions" : "操作"}
       >
         <div className={styles.actionsSheet}>
