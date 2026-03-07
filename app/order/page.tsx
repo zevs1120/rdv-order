@@ -99,6 +99,12 @@ type MajorCategoryOption = {
   label_zh: string;
 };
 
+type MenuDisplayMeta = {
+  title: string;
+  subtitle: string;
+  price: number;
+};
+
 const MENU_CACHE_TTL_MS = 6 * 60 * 60 * 1000;
 const MENU_CACHE_VERSION = 3;
 const MENU_VIRTUALIZE_MIN = 48;
@@ -606,6 +612,13 @@ export default function OrderPage() {
     const matched = new Set(filteredMenu.map((item) => item.category || uncategorizedLabel));
     return baseCategories.filter((category) => matched.has(category));
   }, [baseCategories, filteredMenu, normalizedKeyword, uncategorizedLabel]);
+  const categoryLabelByValue = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const category of categories) {
+      map.set(category, shortCategoryLabel(category, lang));
+    }
+    return map;
+  }, [categories, lang]);
 
   const visibleItems = useMemo(() => {
     if (!selectedCategory) return filteredMenu;
@@ -701,6 +714,17 @@ export default function OrderPage() {
     }
     return next;
   }, [cartSelections]);
+  const menuDisplayById = useMemo(() => {
+    const map = new Map<string, MenuDisplayMeta>();
+    for (const item of visibleItems) {
+      map.set(item.id, {
+        title: `${localizeMenuText(item.name, lang)}${item.item_type === "set" ? (lang === "en" ? " (Set)" : "（套餐）") : ""}`,
+        subtitle: localizeMenuText(item.category || "", lang) || item.description || " ",
+        price: item.price
+      });
+    }
+    return map;
+  }, [lang, visibleItems]);
 
   const cart = useMemo(() => {
     const meta = new Map(menuMetaRef.current);
@@ -1347,7 +1371,7 @@ export default function OrderPage() {
           <PerfSection id="Order/CategorySidebar">
             <CategorySidebarList
               categories={categories}
-              lang={lang}
+              labelByValue={categoryLabelByValue}
               selectedCategory={selectedCategory}
               onSelect={onSelectCategory}
             />
@@ -1375,7 +1399,7 @@ export default function OrderPage() {
             <PerfSection id="Order/MenuList">
               <MenuVirtualList
                 items={renderedMenuItems}
-                lang={lang}
+                displayById={menuDisplayById}
                 qtyById={menuQtyById}
                 onAdd={addFromMenu}
                 topSpacer={menuVirtualWindow.topSpacer}
@@ -1742,21 +1766,21 @@ export default function OrderPage() {
 
 type CategoryOptionButtonProps = {
   category: string;
-  lang: "en" | "zh";
+  label: string;
   active: boolean;
   onSelect: (value: string) => void;
 };
 
 type CategorySidebarListProps = {
   categories: string[];
-  lang: "en" | "zh";
+  labelByValue: Map<string, string>;
   selectedCategory: string;
   onSelect: (value: string) => void;
 };
 
 const CategorySidebarList = memo(function CategorySidebarList({
   categories,
-  lang,
+  labelByValue,
   selectedCategory,
   onSelect
 }: CategorySidebarListProps) {
@@ -1766,7 +1790,7 @@ const CategorySidebarList = memo(function CategorySidebarList({
         <CategoryOptionButton
           key={category}
           category={category}
-          lang={lang}
+          label={labelByValue.get(category) || category}
           active={selectedCategory === category}
           onSelect={onSelect}
         />
@@ -1777,7 +1801,7 @@ const CategorySidebarList = memo(function CategorySidebarList({
 
 const CategoryOptionButton = memo(function CategoryOptionButton({
   category,
-  lang,
+  label,
   active,
   onSelect
 }: CategoryOptionButtonProps) {
@@ -1787,21 +1811,23 @@ const CategoryOptionButton = memo(function CategoryOptionButton({
       className={`${styles.categoryBtn} ${active ? styles.categoryBtnActive : ""}`}
       onClick={() => onSelect(category)}
     >
-      {shortCategoryLabel(category, lang)}
+      {label}
     </button>
   );
 });
 
 type MenuListItemProps = {
-  item: MenuItem;
-  lang: "en" | "zh";
+  id: string;
+  title: string;
+  subtitle: string;
+  price: number;
   qty: number;
   onAdd: (itemId: string) => void;
 };
 
 type MenuVirtualListProps = {
   items: MenuItem[];
-  lang: "en" | "zh";
+  displayById: Map<string, MenuDisplayMeta>;
   qtyById: Record<string, number>;
   onAdd: (itemId: string) => void;
   topSpacer: number;
@@ -1810,7 +1836,7 @@ type MenuVirtualListProps = {
 
 const MenuVirtualList = memo(function MenuVirtualList({
   items,
-  lang,
+  displayById,
   qtyById,
   onAdd,
   topSpacer,
@@ -1822,8 +1848,10 @@ const MenuVirtualList = memo(function MenuVirtualList({
       {items.map((item) => (
         <MenuListItem
           key={item.id}
-          item={item}
-          lang={lang}
+          id={item.id}
+          title={displayById.get(item.id)?.title || item.name}
+          subtitle={displayById.get(item.id)?.subtitle || item.description || " "}
+          price={displayById.get(item.id)?.price ?? item.price}
           qty={qtyById[item.id] || 0}
           onAdd={onAdd}
         />
@@ -1833,26 +1861,28 @@ const MenuVirtualList = memo(function MenuVirtualList({
   );
 });
 
-const MenuListItem = memo(function MenuListItem({ item, lang, qty, onAdd }: MenuListItemProps) {
+const MenuListItem = memo(function MenuListItem({
+  id,
+  title,
+  subtitle,
+  price,
+  qty,
+  onAdd
+}: MenuListItemProps) {
   return (
     <div className={styles.menuRow}>
       <div className={styles.menuMain}>
-        <div className={styles.menuTitle}>
-          {localizeMenuText(item.name, lang)}
-          {item.item_type === "set" ? (lang === "en" ? " (Set)" : "（套餐）") : ""}
-        </div>
-        <div className={styles.menuSubtitle}>
-          {localizeMenuText(item.category || "", lang) || item.description || " "}
-        </div>
+        <div className={styles.menuTitle}>{title}</div>
+        <div className={styles.menuSubtitle}>{subtitle}</div>
       </div>
-      <strong className={styles.menuPrice}>₱{item.price}</strong>
+      <strong className={styles.menuPrice}>₱{price}</strong>
       <Button
         variant="secondary"
         type="button"
         className={styles.addBtn}
-        onClick={() => onAdd(item.id)}
+        onClick={() => onAdd(id)}
       >
-        {lang === "en" ? "Add +" : "加入 +"}
+        Add +
       </Button>
       {qty > 0 ? <Badge className={styles.qtyBadge} tone="brand">x{qty}</Badge> : null}
     </div>
