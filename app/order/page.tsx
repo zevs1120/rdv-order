@@ -100,7 +100,7 @@ type MajorCategoryOption = {
 
 const MENU_CACHE_TTL_MS = 6 * 60 * 60 * 1000;
 const MENU_CACHE_VERSION = 3;
-const MENU_VIRTUALIZE_MIN = 16;
+const MENU_VIRTUALIZE_MIN = 48;
 const MENU_ROW_ESTIMATE = 106;
 const MENU_OVERSCAN_ROWS = 6;
 
@@ -162,6 +162,7 @@ export default function OrderPage() {
   const [cartSheetOpen, setCartSheetOpen] = useState(false);
   const [actionMenuOpen, setActionMenuOpen] = useState(false);
   const [toast, setToast] = useState<ToastState | null>(null);
+  const shouldTrackMenuScroll = menu.length >= MENU_VIRTUALIZE_MIN;
 
   const menuCacheRef = useRef<Record<string, MenuItem[]>>({});
   const subcategoryCacheRef = useRef<Record<string, string[]>>({});
@@ -526,6 +527,10 @@ export default function OrderPage() {
   }, [paramsReady, tableNo, shift, keyword, selectedCategory, cartSelections]);
 
   useEffect(() => {
+    if (!shouldTrackMenuScroll) {
+      setMenuScrollRow(0);
+      return;
+    }
     const pane = menuPaneRef.current;
     if (!pane) return;
 
@@ -572,7 +577,7 @@ export default function OrderPage() {
       }
       document.documentElement.classList.remove("rdv-scroll-active");
     };
-  }, []);
+  }, [shouldTrackMenuScroll]);
 
   const normalizedKeyword = deferredKeyword.trim().toLowerCase();
   const menuSearchIndex = useMemo(() => {
