@@ -1,6 +1,6 @@
 "use client";
 
-import { memo, Profiler, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState, useTransition, type ReactNode } from "react";
+import { memo, Profiler, startTransition, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import BottomNav from "../components/bottom-nav";
 import { apiFetchJson, getStoredAuth } from "../../lib/client-api";
@@ -170,7 +170,6 @@ export default function OrderPage() {
   const [cartSheetOpen, setCartSheetOpen] = useState(false);
   const [actionMenuOpen, setActionMenuOpen] = useState(false);
   const [toast, setToast] = useState<ToastState | null>(null);
-  const [, startUiTransition] = useTransition();
 
   const menuCacheRef = useRef<Record<string, MenuItem[]>>({});
   const subcategoryCacheRef = useRef<Record<string, string[]>>({});
@@ -397,7 +396,7 @@ export default function OrderPage() {
 
   useEffect(() => {
     const debounced = createDebounced((nextValue: string) => {
-      startUiTransition(() => {
+      startTransition(() => {
         setKeyword(nextValue);
       });
     }, 120);
@@ -409,7 +408,7 @@ export default function OrderPage() {
         keywordDebouncedSyncRef.current = null;
       }
     };
-  }, [startUiTransition]);
+  }, []);
 
   useEffect(() => {
     setError("");
@@ -843,16 +842,12 @@ export default function OrderPage() {
   }, []);
 
   const onSelectShift = useCallback((nextShift: ShiftKey) => {
-    startUiTransition(() => {
-      setShift(nextShift);
-    });
-  }, [startUiTransition]);
+    setShift((prev) => (prev === nextShift ? prev : nextShift));
+  }, []);
 
   const onSelectCategory = useCallback((value: string) => {
-    startUiTransition(() => {
-      setSelectedCategory(value);
-    });
-  }, [startUiTransition]);
+    setSelectedCategory((prev) => (prev === value ? prev : value));
+  }, []);
 
   async function loadBill() {
     if (!tableNo) return;
