@@ -1,11 +1,12 @@
 "use client";
 
-import { memo, useCallback, useEffect, useMemo, useState } from "react";
+import { memo, Profiler, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import BottomNav from "../components/bottom-nav";
 import { apiFetchJson, getStoredAuth } from "../../lib/client-api";
 import { useI18n } from "../components/i18n-provider";
 import { useActionGuard } from "../../lib/use-action-guard";
+import { captureReactProfile } from "../../lib/react-profiler";
 import { AppBar, BottomSheet, Button, Card, EmptyState, IconButton, Skeleton } from "../../components/ui";
 
 type TableItem = {
@@ -37,6 +38,7 @@ export default function TablesPage() {
   const [mergeSelection, setMergeSelection] = useState<string[]>([]);
   const [mergeGuestCount, setMergeGuestCount] = useState(4);
   const [, setMinuteTick] = useState(0);
+  const loadMoreAnchorRef = useRef<HTMLDivElement | null>(null);
   const canRunAction = useActionGuard();
 
   useEffect(() => {
@@ -193,6 +195,27 @@ export default function TablesPage() {
     return new Set(tables.slice(0, tableRenderLimit).map((table) => table.tableNo));
   }, [shouldProgressiveTables, tableRenderLimit, tables]);
 
+  useEffect(() => {
+    if (!shouldProgressiveTables) return;
+    if (tableRenderLimit >= tables.length) return;
+    const anchor = loadMoreAnchorRef.current;
+    if (!anchor) return;
+    const rootNode = document.querySelector(".app-shell-main");
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (!entries.some((entry) => entry.isIntersecting)) return;
+        setTableRenderLimit((prev) => Math.min(tables.length, prev + TABLE_PROGRESSIVE_STEP));
+      },
+      {
+        root: rootNode instanceof Element ? rootNode : null,
+        rootMargin: "320px 0px",
+        threshold: 0.01
+      }
+    );
+    observer.observe(anchor);
+    return () => observer.disconnect();
+  }, [shouldProgressiveTables, tableRenderLimit, tables.length]);
+
   return (
     <div className="stack tables-screen">
       <AppBar
@@ -218,52 +241,51 @@ export default function TablesPage() {
       />
 
       {loadingTables ? (
-        <div className="table-grid-shell">
-          <Skeleton h={108} />
-          <Skeleton h={108} />
-          <Skeleton h={108} />
-          <Skeleton h={108} />
-          <Skeleton h={108} />
-          <Skeleton h={108} />
-        </div>
+        <PerfSection id="Tables/GridLoading">
+          <div className="table-grid-shell">
+            <Skeleton h={108} />
+            <Skeleton h={108} />
+            <Skeleton h={108} />
+            <Skeleton h={108} />
+            <Skeleton h={108} />
+            <Skeleton h={108} />
+          </div>
+        </PerfSection>
       ) : (
-        <div className="table-grid-shell">
-          {columns.map((items, idx) => (
-            <div key={idx} className="table-column">
-              {(shouldProgressiveTables
-                ? items.filter((table) => visibleTableSet?.has(table.tableNo))
-                : items
-              ).map((table) => {
-                const selected = mergeSelection.includes(table.baseTables[0]);
-                return (
-                  <TableGridCard
-                    key={table.tableNo}
-                    table={table}
-                    selected={selected}
-                    lang={lang}
-                    statusLabel={tableStatusLabel(table)}
-                    durationLabel={openDuration(table.openedAt)}
-                    billLabel={formatPhp(table.currentAmount)}
-                    onClick={onTableClick}
-                  />
-                );
-              })}
-            </div>
-          ))}
-        </div>
+        <PerfSection id="Tables/Grid">
+          <div className="table-grid-shell">
+            {columns.map((items, idx) => (
+              <div key={idx} className="table-column">
+                {(shouldProgressiveTables
+                  ? items.filter((table) => visibleTableSet?.has(table.tableNo))
+                  : items
+                ).map((table) => {
+                  const selected = mergeSelection.includes(table.baseTables[0]);
+                  return (
+                    <TableGridCard
+                      key={table.tableNo}
+                      table={table}
+                      selected={selected}
+                      lang={lang}
+                      statusLabel={tableStatusLabel(table)}
+                      durationLabel={openDuration(table.openedAt)}
+                      billLabel={formatPhp(table.currentAmount)}
+                      onClick={onTableClick}
+                    />
+                  );
+                })}
+              </div>
+            ))}
+          </div>
+        </PerfSection>
       )}
 
       {shouldProgressiveTables && tableRenderLimit < tables.length ? (
-        <div className="row" style={{ justifyContent: "center" }}>
-          <Button
-            variant="secondary"
-            onClick={() => setTableRenderLimit((prev) => Math.min(tables.length, prev + TABLE_PROGRESSIVE_STEP))}
-          >
-            {lang === "en"
-              ? `Load More (${Math.min(tableRenderLimit, tables.length)}/${tables.length})`
-              : `加载更多（${Math.min(tableRenderLimit, tables.length)}/${tables.length}）`}
-          </Button>
-        </div>
+        <div
+          ref={loadMoreAnchorRef}
+          className="tables-load-anchor"
+          aria-hidden="true"
+        />
       ) : null}
 
       {!loadingTables && tables.length === 0 ? (
@@ -371,3 +393,14 @@ const TableGridCard = memo(function TableGridCard({
     </Card>
   );
 });
+
+function PerfSection({ id, children }: { id: string; children: ReactNode }) {
+  if (process.env.NODE_ENV === "production") {
+    return <>{children}</>;
+  }
+  return (
+    <Profiler id={id} onRender={captureReactProfile}>
+      {children}
+    </Profiler>
+  );
+}

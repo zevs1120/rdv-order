@@ -1,12 +1,13 @@
 "use client";
 
-import { memo, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
+import { memo, Profiler, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import BottomNav from "../components/bottom-nav";
 import { apiFetchJson, getStoredAuth } from "../../lib/client-api";
 import { useI18n } from "../components/i18n-provider";
 import { localizeMenuText, shortCategoryLabel } from "../../lib/menu-text";
 import { useActionGuard } from "../../lib/use-action-guard";
+import { captureReactProfile } from "../../lib/react-profiler";
 import { AppBar, Badge, BottomSheet, Button, Card, Chip, EmptyState, SearchField, Toast } from "../../components/ui";
 import styles from "./page.module.css";
 
@@ -99,8 +100,9 @@ type MajorCategoryOption = {
 
 const MENU_CACHE_TTL_MS = 6 * 60 * 60 * 1000;
 const MENU_CACHE_VERSION = 3;
-const MENU_PROGRESSIVE_THRESHOLD = 18;
-const MENU_PROGRESSIVE_STEP = 14;
+const MENU_VIRTUALIZE_MIN = 16;
+const MENU_ROW_ESTIMATE = 106;
+const MENU_OVERSCAN_ROWS = 6;
 
 const DEFAULT_SHIFT_OPTIONS: MajorCategoryOption[] = [
   { key: "breakfast", label_zh: "早餐", label_en: "Breakfast" },
@@ -126,7 +128,8 @@ export default function OrderPage() {
   const [submitNotice, setSubmitNotice] = useState("");
   const [submitPressed, setSubmitPressed] = useState(false);
   const [menuLoading, setMenuLoading] = useState(false);
-  const [menuRenderLimit, setMenuRenderLimit] = useState(MENU_PROGRESSIVE_THRESHOLD);
+  const [menuViewportHeight, setMenuViewportHeight] = useState(0);
+  const [menuScrollTop, setMenuScrollTop] = useState(0);
   const [shift, setShift] = useState<ShiftKey>("lunch");
   const [shiftOptions, setShiftOptions] = useState<MajorCategoryOption[]>(DEFAULT_SHIFT_OPTIONS);
   const [keyword, setKeyword] = useState("");
@@ -173,7 +176,8 @@ export default function OrderPage() {
   const submitAttemptRef = useRef(0);
   const submitResetTimerRef = useRef<number | null>(null);
   const submitPressedTimerRef = useRef<number | null>(null);
-  const menuPaneRef = useRef<HTMLElement | null>(null);
+  const menuPaneRef = useRef<HTMLDivElement | null>(null);
+  const menuScrollRafRef = useRef<number | null>(null);
   const lastSubmittedSignatureRef = useRef("");
   const lastSubmittedAtRef = useRef(0);
   const isMergedTable = tableNo.includes("+");
@@ -519,6 +523,40 @@ export default function OrderPage() {
     return () => window.clearTimeout(timer);
   }, [paramsReady, tableNo, shift, keyword, selectedCategory, cartSelections]);
 
+  useEffect(() => {
+    const pane = menuPaneRef.current;
+    if (!pane) return;
+
+    const syncMetrics = () => {
+      setMenuViewportHeight(pane.clientHeight);
+      setMenuScrollTop(pane.scrollTop);
+    };
+    syncMetrics();
+
+    const onScroll = () => {
+      if (menuScrollRafRef.current !== null) return;
+      menuScrollRafRef.current = window.requestAnimationFrame(() => {
+        menuScrollRafRef.current = null;
+        setMenuScrollTop(pane.scrollTop);
+      });
+    };
+
+    pane.addEventListener("scroll", onScroll, { passive: true });
+    const observer = new ResizeObserver(() => {
+      setMenuViewportHeight(pane.clientHeight);
+    });
+    observer.observe(pane);
+
+    return () => {
+      pane.removeEventListener("scroll", onScroll);
+      observer.disconnect();
+      if (menuScrollRafRef.current !== null) {
+        window.cancelAnimationFrame(menuScrollRafRef.current);
+        menuScrollRafRef.current = null;
+      }
+    };
+  }, []);
+
   const normalizedKeyword = deferredKeyword.trim().toLowerCase();
   const menuSearchIndex = useMemo(() => {
     const index = new Map<string, string>();
@@ -568,23 +606,30 @@ export default function OrderPage() {
     if (!selectedCategory) return filteredMenu;
     return filteredMenu.filter((item) => (item.category || uncategorizedLabel) === selectedCategory);
   }, [filteredMenu, selectedCategory, uncategorizedLabel]);
-  const shouldProgressiveMenu = visibleItems.length > MENU_PROGRESSIVE_THRESHOLD;
+  const shouldVirtualizeMenu = visibleItems.length >= MENU_VIRTUALIZE_MIN;
+  const menuVirtualWindow = useMemo(() => {
+    if (!shouldVirtualizeMenu || menuViewportHeight <= 0) {
+      return {
+        start: 0,
+        end: visibleItems.length,
+        topSpacer: 0,
+        bottomSpacer: 0
+      };
+    }
+
+    const visibleRows = Math.ceil(menuViewportHeight / MENU_ROW_ESTIMATE);
+    const start = Math.max(0, Math.floor(menuScrollTop / MENU_ROW_ESTIMATE) - MENU_OVERSCAN_ROWS);
+    const end = Math.min(
+      visibleItems.length,
+      start + visibleRows + MENU_OVERSCAN_ROWS * 2
+    );
+    const topSpacer = start * MENU_ROW_ESTIMATE;
+    const bottomSpacer = Math.max(0, (visibleItems.length - end) * MENU_ROW_ESTIMATE);
+    return { start, end, topSpacer, bottomSpacer };
+  }, [menuScrollTop, menuViewportHeight, shouldVirtualizeMenu, visibleItems.length]);
   const renderedMenuItems = useMemo(() => {
-    if (!shouldProgressiveMenu) return visibleItems;
-    return visibleItems.slice(0, menuRenderLimit);
-  }, [menuRenderLimit, shouldProgressiveMenu, visibleItems]);
-
-  useEffect(() => {
-    setMenuRenderLimit(MENU_PROGRESSIVE_THRESHOLD);
-  }, [normalizedKeyword, selectedCategory, shift]);
-
-  const onMenuPaneScroll = useCallback((event: any) => {
-    if (!shouldProgressiveMenu) return;
-    const el = event.currentTarget;
-    const nearBottom = el.scrollTop + el.clientHeight >= el.scrollHeight - 240;
-    if (!nearBottom) return;
-    setMenuRenderLimit((prev) => Math.min(visibleItems.length, prev + MENU_PROGRESSIVE_STEP));
-  }, [shouldProgressiveMenu, visibleItems.length]);
+    return visibleItems.slice(menuVirtualWindow.start, menuVirtualWindow.end);
+  }, [menuVirtualWindow.end, menuVirtualWindow.start, visibleItems]);
 
   const cart = useMemo(() => {
     const meta = new Map(menuMetaRef.current);
@@ -1215,21 +1260,24 @@ export default function OrderPage() {
 
       <div className={styles.middle}>
         <aside className={styles.sidebar}>
-          {categories.map((category) => (
-            <CategoryOptionButton
-              key={category}
-              category={category}
-              lang={lang}
-              active={selectedCategory === category}
-              onSelect={onSelectCategory}
-            />
-          ))}
+          <PerfSection id="Order/CategorySidebar">
+            <>
+              {categories.map((category) => (
+                <CategoryOptionButton
+                  key={category}
+                  category={category}
+                  lang={lang}
+                  active={selectedCategory === category}
+                  onSelect={onSelectCategory}
+                />
+              ))}
+            </>
+          </PerfSection>
         </aside>
 
         <section
           ref={menuPaneRef}
           className={styles.menuPane}
-          onScroll={onMenuPaneScroll}
         >
           {menuLoading ? (
             <div className="stack">
@@ -1245,24 +1293,25 @@ export default function OrderPage() {
             <EmptyState title={t("order.categoryEmpty", "No dishes in this category")} />
           ) : null}
           {!menuLoading ? (
-            <div className={styles.menuList}>
-              {renderedMenuItems.map((item) => (
-                <MenuListItem
-                  key={item.id}
-                  item={item}
-                  lang={lang}
-                  qty={cartSelections[item.id]?.qty || 0}
-                  onAdd={addFromMenu}
-                />
-              ))}
-              {shouldProgressiveMenu && renderedMenuItems.length < visibleItems.length ? (
-                <div className="muted">
-                  {lang === "en"
-                    ? `Loading more dishes (${renderedMenuItems.length}/${visibleItems.length})`
-                    : `正在加载更多菜品（${renderedMenuItems.length}/${visibleItems.length}）`}
-                </div>
-              ) : null}
-            </div>
+            <PerfSection id="Order/MenuList">
+              <div className={styles.menuList}>
+                {menuVirtualWindow.topSpacer > 0 ? (
+                  <div aria-hidden="true" style={{ height: menuVirtualWindow.topSpacer }} />
+                ) : null}
+                {renderedMenuItems.map((item) => (
+                  <MenuListItem
+                    key={item.id}
+                    item={item}
+                    lang={lang}
+                    qty={cartSelections[item.id]?.qty || 0}
+                    onAdd={addFromMenu}
+                  />
+                ))}
+                {menuVirtualWindow.bottomSpacer > 0 ? (
+                  <div aria-hidden="true" style={{ height: menuVirtualWindow.bottomSpacer }} />
+                ) : null}
+              </div>
+            </PerfSection>
           ) : null}
         </section>
       </div>
@@ -1453,17 +1502,19 @@ export default function OrderPage() {
         {billLoading ? <div className="muted">{t("common.loading", "Loading...")}</div> : null}
         {!billLoading && billItems.length === 0 ? <EmptyState title={t("order.billEmpty", "No items yet")} /> : null}
         {!billLoading ? (
-          <div className="order-list">
-            {billItems.map((item) => (
-              <div key={`${item.menu_item_id}-${item.note || ""}`} className="row" style={{ justifyContent: "space-between", alignItems: "flex-start" }}>
-                <div className="stack" style={{ gap: 2 }}>
-                  <span>{localizeMenuText(item.name, lang)} x{item.qty}</span>
-                  {item.note ? <span className="muted">{t("order.noteLabel", "Note")}: {item.note}</span> : null}
+          <PerfSection id="Order/BillItemsList">
+            <div className="order-list">
+              {billItems.map((item) => (
+                <div key={`${item.menu_item_id}-${item.note || ""}`} className="row" style={{ justifyContent: "space-between", alignItems: "flex-start" }}>
+                  <div className="stack" style={{ gap: 2 }}>
+                    <span>{localizeMenuText(item.name, lang)} x{item.qty}</span>
+                    {item.note ? <span className="muted">{t("order.noteLabel", "Note")}: {item.note}</span> : null}
+                  </div>
+                  <strong>₱{item.amount}</strong>
                 </div>
-                <strong>₱{item.amount}</strong>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          </PerfSection>
         ) : null}
         <div className="row" style={{ justifyContent: "space-between" }}>
           <strong>{t("order.billQty", "Total Qty")}: {billQty}</strong>
@@ -1531,29 +1582,31 @@ export default function OrderPage() {
           </>
         )}
       >
-        <div className="order-list">
-          {cart.map((item) => (
-            <div key={`cart-${item.id}-${item.note || ""}`} className="row cart-row">
-              <div className="stack" style={{ gap: 2, flex: "1 1 auto" }}>
-                <span>{localizeMenuText(item.name, lang)}</span>
-                <span className="muted">₱{item.price} x {item.qty}</span>
-                {item.note ? <span className="muted">{t("order.noteLabel", "Note")}: {item.note}</span> : null}
+        <PerfSection id="Order/CartSheetList">
+          <div className="order-list">
+            {cart.map((item) => (
+              <div key={`cart-${item.id}-${item.note || ""}`} className="row cart-row">
+                <div className="stack" style={{ gap: 2, flex: "1 1 auto" }}>
+                  <span>{localizeMenuText(item.name, lang)}</span>
+                  <span className="muted">₱{item.price} x {item.qty}</span>
+                  {item.note ? <span className="muted">{t("order.noteLabel", "Note")}: {item.note}</span> : null}
+                </div>
+                <div className="cart-row-actions">
+                  <Button variant="secondary" onClick={() => setQty(item.id, Math.max(0, item.qty - 1))}>-</Button>
+                  <span>{item.qty}</span>
+                  <Button variant="secondary" onClick={() => setQty(item.id, item.qty + 1)}>+</Button>
+                  <Button variant="secondary" onClick={() => openNoteSheetFor(item.id)}>
+                    {t("order.noteAction", "Note")}
+                  </Button>
+                  <Button variant="danger" onClick={() => setQty(item.id, 0)}>
+                    {lang === "en" ? "Remove" : "移除"}
+                  </Button>
+                </div>
               </div>
-              <div className="cart-row-actions">
-                <Button variant="secondary" onClick={() => setQty(item.id, Math.max(0, item.qty - 1))}>-</Button>
-                <span>{item.qty}</span>
-                <Button variant="secondary" onClick={() => setQty(item.id, item.qty + 1)}>+</Button>
-                <Button variant="secondary" onClick={() => openNoteSheetFor(item.id)}>
-                  {t("order.noteAction", "Note")}
-                </Button>
-                <Button variant="danger" onClick={() => setQty(item.id, 0)}>
-                  {lang === "en" ? "Remove" : "移除"}
-                </Button>
-              </div>
-            </div>
-          ))}
-          {cart.length === 0 ? <EmptyState title={t("order.currentOrderEmpty", "Cart is empty")} /> : null}
-        </div>
+            ))}
+            {cart.length === 0 ? <EmptyState title={t("order.currentOrderEmpty", "Cart is empty")} /> : null}
+          </div>
+        </PerfSection>
       </BottomSheet>
 
       <BottomSheet
@@ -1671,3 +1724,14 @@ const MenuListItem = memo(function MenuListItem({ item, lang, qty, onAdd }: Menu
     </div>
   );
 });
+
+function PerfSection({ id, children }: { id: string; children: ReactNode }) {
+  if (process.env.NODE_ENV === "production") {
+    return <>{children}</>;
+  }
+  return (
+    <Profiler id={id} onRender={captureReactProfile}>
+      {children}
+    </Profiler>
+  );
+}

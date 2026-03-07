@@ -485,6 +485,11 @@ button:disabled {
   min-height: 0;
 }
 
+.tables-load-anchor {
+  width: 100%;
+  height: 1px;
+}
+
 .table-card {
   cursor: pointer;
   min-height: 0;
