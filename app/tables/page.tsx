@@ -18,11 +18,15 @@ type TableItem = {
   currentAmount?: number;
 };
 
+const TABLE_PROGRESSIVE_THRESHOLD = 24;
+const TABLE_PROGRESSIVE_STEP = 18;
+
 export default function TablesPage() {
   const router = useRouter();
   const { t, lang } = useI18n();
   const [tables, setTables] = useState<TableItem[]>([]);
   const [loadingTables, setLoadingTables] = useState(false);
+  const [tableRenderLimit, setTableRenderLimit] = useState(TABLE_PROGRESSIVE_THRESHOLD);
   const [error, setError] = useState("");
 
   const [openingTable, setOpeningTable] = useState<TableItem | null>(null);
@@ -50,6 +54,10 @@ export default function TablesPage() {
     }, 60000);
     return () => window.clearInterval(timer);
   }, []);
+
+  useEffect(() => {
+    setTableRenderLimit(TABLE_PROGRESSIVE_THRESHOLD);
+  }, [tables.length]);
 
   async function loadTables() {
     setLoadingTables(true);
@@ -179,6 +187,11 @@ export default function TablesPage() {
     }
     return grouped;
   }, [tables]);
+  const shouldProgressiveTables = tables.length > TABLE_PROGRESSIVE_THRESHOLD;
+  const visibleTableSet = useMemo(() => {
+    if (!shouldProgressiveTables) return null;
+    return new Set(tables.slice(0, tableRenderLimit).map((table) => table.tableNo));
+  }, [shouldProgressiveTables, tableRenderLimit, tables]);
 
   return (
     <div className="stack tables-screen">
@@ -217,7 +230,10 @@ export default function TablesPage() {
         <div className="table-grid-shell">
           {columns.map((items, idx) => (
             <div key={idx} className="table-column">
-              {items.map((table) => {
+              {(shouldProgressiveTables
+                ? items.filter((table) => visibleTableSet?.has(table.tableNo))
+                : items
+              ).map((table) => {
                 const selected = mergeSelection.includes(table.baseTables[0]);
                 return (
                   <TableGridCard
@@ -236,6 +252,19 @@ export default function TablesPage() {
           ))}
         </div>
       )}
+
+      {shouldProgressiveTables && tableRenderLimit < tables.length ? (
+        <div className="row" style={{ justifyContent: "center" }}>
+          <Button
+            variant="secondary"
+            onClick={() => setTableRenderLimit((prev) => Math.min(tables.length, prev + TABLE_PROGRESSIVE_STEP))}
+          >
+            {lang === "en"
+              ? `Load More (${Math.min(tableRenderLimit, tables.length)}/${tables.length})`
+              : `加载更多（${Math.min(tableRenderLimit, tables.length)}/${tables.length}）`}
+          </Button>
+        </div>
+      ) : null}
 
       {!loadingTables && tables.length === 0 ? (
         <EmptyState

@@ -99,6 +99,8 @@ type MajorCategoryOption = {
 
 const MENU_CACHE_TTL_MS = 6 * 60 * 60 * 1000;
 const MENU_CACHE_VERSION = 3;
+const MENU_PROGRESSIVE_THRESHOLD = 18;
+const MENU_PROGRESSIVE_STEP = 14;
 
 const DEFAULT_SHIFT_OPTIONS: MajorCategoryOption[] = [
   { key: "breakfast", label_zh: "早餐", label_en: "Breakfast" },
@@ -124,6 +126,7 @@ export default function OrderPage() {
   const [submitNotice, setSubmitNotice] = useState("");
   const [submitPressed, setSubmitPressed] = useState(false);
   const [menuLoading, setMenuLoading] = useState(false);
+  const [menuRenderLimit, setMenuRenderLimit] = useState(MENU_PROGRESSIVE_THRESHOLD);
   const [shift, setShift] = useState<ShiftKey>("lunch");
   const [shiftOptions, setShiftOptions] = useState<MajorCategoryOption[]>(DEFAULT_SHIFT_OPTIONS);
   const [keyword, setKeyword] = useState("");
@@ -170,6 +173,7 @@ export default function OrderPage() {
   const submitAttemptRef = useRef(0);
   const submitResetTimerRef = useRef<number | null>(null);
   const submitPressedTimerRef = useRef<number | null>(null);
+  const menuPaneRef = useRef<HTMLElement | null>(null);
   const lastSubmittedSignatureRef = useRef("");
   const lastSubmittedAtRef = useRef(0);
   const isMergedTable = tableNo.includes("+");
@@ -564,6 +568,23 @@ export default function OrderPage() {
     if (!selectedCategory) return filteredMenu;
     return filteredMenu.filter((item) => (item.category || uncategorizedLabel) === selectedCategory);
   }, [filteredMenu, selectedCategory, uncategorizedLabel]);
+  const shouldProgressiveMenu = visibleItems.length > MENU_PROGRESSIVE_THRESHOLD;
+  const renderedMenuItems = useMemo(() => {
+    if (!shouldProgressiveMenu) return visibleItems;
+    return visibleItems.slice(0, menuRenderLimit);
+  }, [menuRenderLimit, shouldProgressiveMenu, visibleItems]);
+
+  useEffect(() => {
+    setMenuRenderLimit(MENU_PROGRESSIVE_THRESHOLD);
+  }, [normalizedKeyword, selectedCategory, shift]);
+
+  const onMenuPaneScroll = useCallback((event: any) => {
+    if (!shouldProgressiveMenu) return;
+    const el = event.currentTarget;
+    const nearBottom = el.scrollTop + el.clientHeight >= el.scrollHeight - 240;
+    if (!nearBottom) return;
+    setMenuRenderLimit((prev) => Math.min(visibleItems.length, prev + MENU_PROGRESSIVE_STEP));
+  }, [shouldProgressiveMenu, visibleItems.length]);
 
   const cart = useMemo(() => {
     const meta = new Map(menuMetaRef.current);
@@ -1205,7 +1226,11 @@ export default function OrderPage() {
           ))}
         </aside>
 
-        <section className={styles.menuPane}>
+        <section
+          ref={menuPaneRef}
+          className={styles.menuPane}
+          onScroll={onMenuPaneScroll}
+        >
           {menuLoading ? (
             <div className="stack">
               <div className="ui-skeleton" style={{ height: 64 }} />
@@ -1221,7 +1246,7 @@ export default function OrderPage() {
           ) : null}
           {!menuLoading ? (
             <div className={styles.menuList}>
-              {visibleItems.map((item) => (
+              {renderedMenuItems.map((item) => (
                 <MenuListItem
                   key={item.id}
                   item={item}
@@ -1230,6 +1255,13 @@ export default function OrderPage() {
                   onAdd={addFromMenu}
                 />
               ))}
+              {shouldProgressiveMenu && renderedMenuItems.length < visibleItems.length ? (
+                <div className="muted">
+                  {lang === "en"
+                    ? `Loading more dishes (${renderedMenuItems.length}/${visibleItems.length})`
+                    : `正在加载更多菜品（${renderedMenuItems.length}/${visibleItems.length}）`}
+                </div>
+              ) : null}
             </div>
           ) : null}
         </section>
