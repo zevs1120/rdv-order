@@ -404,7 +404,8 @@ export default function OrderPage() {
       useAuth: false,
       signal: controller.signal,
       timeoutMs: 5000,
-      retries: 1
+      retries: 1,
+      cacheTtlMs: 2200
     })
       .then((data) => {
         if (requestId !== menuRequestRef.current) return;
@@ -790,7 +791,7 @@ export default function OrderPage() {
     try {
       const body = await apiFetchJson<{ items: BillItem[]; orders?: BillOrder[]; totalAmount: number; totalQty: number }>(
         `/api/tables/bill?tableNo=${encodeURIComponent(tableNo)}`,
-        { timeoutMs: 6000, retries: 1 }
+        { timeoutMs: 6000, retries: 1, cacheTtlMs: 1800 }
       );
       const nextItems = body.items || [];
       const nextOrders = body.orders || [];

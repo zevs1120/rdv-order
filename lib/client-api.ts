@@ -6,6 +6,7 @@ type ApiFetchOptions = Omit<RequestInit, "body"> & {
   retries?: number;
   useAuth?: boolean;
   dedupeGet?: boolean;
+  cacheTtlMs?: number;
 };
 
 export const NETWORK_POLICY = {
@@ -16,6 +17,7 @@ export const NETWORK_POLICY = {
 } as const;
 
 const inflightGet = new Map<string, Promise<unknown>>();
+const responseCache = new Map<string, { expiresAt: number; data: unknown }>();
 type UiLang = "zh" | "en";
 
 const serverErrorEn: Record<string, string> = {
@@ -233,6 +235,13 @@ function makeGetDedupeKey(url: string, headers: HeadersInit | undefined, useAuth
   return `${url}::${sorted}`;
 }
 
+function cloneCachePayload<T>(value: T): T {
+  if (typeof structuredClone === "function") {
+    return structuredClone(value);
+  }
+  return JSON.parse(JSON.stringify(value)) as T;
+}
+
 export function getStoredAuth() {
   if (typeof window === "undefined") {
     return { token: "", role: "" };
@@ -249,6 +258,7 @@ export async function apiFetchJson<T>(url: string, options: ApiFetchOptions = {}
     retries,
     useAuth = true,
     dedupeGet = true,
+    cacheTtlMs = 0,
     headers,
     body,
     signal: externalSignal,
@@ -296,6 +306,9 @@ export async function apiFetchJson<T>(url: string, options: ApiFetchOptions = {}
 
         const data = await response.json().catch(() => ({}));
         if (response.ok) {
+          if (method !== "GET") {
+            responseCache.clear();
+          }
           return data as T;
         }
 
@@ -337,14 +350,35 @@ export async function apiFetchJson<T>(url: string, options: ApiFetchOptions = {}
   }
 
   const dedupeKey = makeGetDedupeKey(url, headers, useAuth);
+  const canCacheGet = cacheTtlMs > 0;
+  if (canCacheGet) {
+    const cached = responseCache.get(dedupeKey);
+    if (cached && cached.expiresAt > Date.now()) {
+      return cloneCachePayload(cached.data as T);
+    }
+    if (cached) {
+      responseCache.delete(dedupeKey);
+    }
+  }
+
   const existing = inflightGet.get(dedupeKey);
   if (existing) {
     return existing as Promise<T>;
   }
 
-  const pending = execute().finally(() => {
-    inflightGet.delete(dedupeKey);
-  });
+  const pending = execute()
+    .then((result) => {
+      if (canCacheGet) {
+        responseCache.set(dedupeKey, {
+          expiresAt: Date.now() + cacheTtlMs,
+          data: cloneCachePayload(result)
+        });
+      }
+      return result;
+    })
+    .finally(() => {
+      inflightGet.delete(dedupeKey);
+    });
   inflightGet.set(dedupeKey, pending);
   return pending;
 }

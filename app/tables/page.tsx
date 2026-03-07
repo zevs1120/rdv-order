@@ -19,8 +19,36 @@ type TableItem = {
   currentAmount?: number;
 };
 
+type MenuCacheSnapshotItem = {
+  id: string;
+  name: string;
+  price: number;
+  category: string | null;
+  description: string | null;
+  allergens?: string[];
+  menu_group: "breakfast" | "lunch_dinner" | "cocktail" | "set_menu";
+  item_type: "single" | "set";
+};
+
 const TABLE_PROGRESSIVE_THRESHOLD = 24;
 const TABLE_PROGRESSIVE_STEP = 18;
+const TABLES_SNAPSHOT_KEY = "rdv_tables_snapshot:v1";
+const TABLES_SNAPSHOT_TTL_MS = 10_000;
+const MENU_CACHE_VERSION = 3;
+const MENU_CACHE_TTL_MS = 6 * 60 * 60 * 1000;
+
+function toMenuCacheItem(item: MenuCacheSnapshotItem): MenuCacheSnapshotItem {
+  return {
+    id: item.id,
+    name: item.name,
+    price: item.price,
+    category: item.category,
+    description: item.description,
+    allergens: item.allergens,
+    menu_group: item.menu_group,
+    item_type: item.item_type
+  };
+}
 
 export default function TablesPage() {
   const router = useRouter();
@@ -39,6 +67,7 @@ export default function TablesPage() {
   const [mergeGuestCount, setMergeGuestCount] = useState(4);
   const [minuteTick, setMinuteTick] = useState(0);
   const loadMoreAnchorRef = useRef<HTMLDivElement | null>(null);
+  const warmedOrderTablesRef = useRef<Set<string>>(new Set());
   const canRunAction = useActionGuard();
 
   useEffect(() => {
@@ -62,11 +91,36 @@ export default function TablesPage() {
   }, [tables.length]);
 
   async function loadTables() {
+    if (typeof window !== "undefined") {
+      const cachedRaw = sessionStorage.getItem(TABLES_SNAPSHOT_KEY);
+      if (cachedRaw) {
+        try {
+          const parsed = JSON.parse(cachedRaw) as { fetchedAt?: number; tables?: TableItem[] };
+          const age = Date.now() - Number(parsed.fetchedAt || 0);
+          if (Array.isArray(parsed.tables) && age >= 0 && age <= TABLES_SNAPSHOT_TTL_MS) {
+            setTables(parsed.tables);
+          }
+        } catch {
+          // Ignore invalid cache snapshot.
+        }
+      }
+    }
     setLoadingTables(true);
     setError("");
     try {
-      const body = await apiFetchJson<{ tables: TableItem[] }>("/api/tables", { timeoutMs: 5000, retries: 1 });
-      setTables(body.tables || []);
+      const body = await apiFetchJson<{ tables: TableItem[] }>("/api/tables", {
+        timeoutMs: 5000,
+        retries: 1,
+        cacheTtlMs: 1800
+      });
+      const nextTables = body.tables || [];
+      setTables(nextTables);
+      if (typeof window !== "undefined") {
+        sessionStorage.setItem(
+          TABLES_SNAPSHOT_KEY,
+          JSON.stringify({ fetchedAt: Date.now(), tables: nextTables })
+        );
+      }
     } catch (err: any) {
       const message = String(err?.message || "");
       if (message === "未登录" || message === "Not signed in") {
@@ -81,11 +135,40 @@ export default function TablesPage() {
     }
   }
 
+  const warmOrderData = useCallback((tableNo: string, guests = 2) => {
+    if (typeof window === "undefined") return;
+    if (warmedOrderTablesRef.current.has(tableNo)) return;
+    warmedOrderTablesRef.current.add(tableNo);
+
+    router.prefetch(`/order?tableNo=${encodeURIComponent(tableNo)}&guests=${guests}`);
+    void apiFetchJson<{ items: MenuCacheSnapshotItem[]; subcategories?: string[] }>(
+      "/api/menu?shift=lunch",
+      { useAuth: false, timeoutMs: 5000, retries: 1, cacheTtlMs: 3200 }
+    )
+      .then((body) => {
+        const items = (body.items || []).map((item) => toMenuCacheItem(item));
+        const subcategories = Array.isArray(body.subcategories)
+          ? body.subcategories.map((value) => String(value || "").trim()).filter(Boolean)
+          : [];
+        sessionStorage.setItem(
+          `rdv_menu_cache:v${MENU_CACHE_VERSION}:lunch`,
+          JSON.stringify({
+            updatedAt: Date.now(),
+            expiresAt: Date.now() + MENU_CACHE_TTL_MS,
+            items,
+            subcategories
+          })
+        );
+      })
+      .catch(() => undefined);
+  }, [router]);
+
   const enterMenu = useCallback((tableNo: string, guests: number) => {
+    warmOrderData(tableNo, guests);
     localStorage.setItem("rdv_recent_table", tableNo);
     localStorage.setItem("rdv_recent_guests", String(guests));
     router.push(`/order?tableNo=${encodeURIComponent(tableNo)}&guests=${guests}`);
-  }, [router]);
+  }, [router, warmOrderData]);
 
   async function openTable() {
     if (!canRunAction()) return;
@@ -158,9 +241,10 @@ export default function TablesPage() {
       return;
     }
 
+    warmOrderData(table.tableNo, 2);
     setGuestCount(2);
     setOpeningTable(table);
-  }, [enterMenu, selectMode, submitting]);
+  }, [enterMenu, selectMode, submitting, warmOrderData]);
 
   function tableStatusLabel(table: TableItem) {
     if (table.status === "open") return lang === "en" ? "In Service" : "服务中";
