@@ -309,6 +309,29 @@
   padding-top: 6px;
 }
 
+.seafoodHint {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.seafoodQtyRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.seafoodQtyValue {
+  min-width: 118px;
+  text-align: center;
+  font-size: 16px;
+}
+
+.seafoodMethodRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
 @media (min-width: 407px) and (max-width: 430px) {
   .page {
     --sidebar-width: 102px;

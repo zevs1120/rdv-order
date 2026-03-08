@@ -103,7 +103,21 @@ type MajorCategoryOption = {
 type MenuDisplayMeta = {
   title: string;
   subtitle: string;
-  price: number;
+  priceLabel: string;
+};
+
+type SeafoodUnit = "100g" | "pcs";
+
+type SeafoodMethod = {
+  key: string;
+  label_zh: string;
+  label_en: string;
+  aliases: string[];
+};
+
+type SeafoodConfig = {
+  unit: SeafoodUnit;
+  methods: SeafoodMethod[];
 };
 
 const MENU_CACHE_TTL_MS = 6 * 60 * 60 * 1000;
@@ -111,6 +125,158 @@ const MENU_CACHE_VERSION = 3;
 const MENU_VIRTUALIZE_MIN = 48;
 const MENU_ROW_ESTIMATE = 106;
 const MENU_OVERSCAN_ROWS = 6;
+
+const SEAFOOD_STEAMED: SeafoodMethod = {
+  key: "steamed",
+  label_zh: "清蒸",
+  label_en: "Steamed",
+  aliases: ["清蒸", "steamed"]
+};
+
+const SEAFOOD_BRAISED: SeafoodMethod = {
+  key: "braised",
+  label_zh: "红烧",
+  label_en: "Braised",
+  aliases: ["红烧", "braised"]
+};
+
+const SEAFOOD_PICKLED: SeafoodMethod = {
+  key: "pickled",
+  label_zh: "酸菜煮",
+  label_en: "Pickled",
+  aliases: ["酸菜煮", "pickled"]
+};
+
+const SEAFOOD_SEARED: SeafoodMethod = {
+  key: "seared",
+  label_zh: "香煎",
+  label_en: "Seared",
+  aliases: ["香煎", "seared"]
+};
+
+const SEAFOOD_GINGER_GARLIC: SeafoodMethod = {
+  key: "ginger_garlic",
+  label_zh: "姜葱",
+  label_en: "Ginger & Garlic",
+  aliases: ["姜葱", "ginger&garlic", "ginger & garlic"]
+};
+
+const SEAFOOD_SALT_PEPPER: SeafoodMethod = {
+  key: "salt_pepper",
+  label_zh: "椒盐",
+  label_en: "Salt & Pepper",
+  aliases: ["椒盐", "salt&pepper", "salt & pepper"]
+};
+
+const SEAFOOD_POACHED: SeafoodMethod = {
+  key: "poached",
+  label_zh: "白灼",
+  label_en: "Poached",
+  aliases: ["白灼", "poached"]
+};
+
+const SEAFOOD_BBQ: SeafoodMethod = {
+  key: "bbq",
+  label_zh: "炭烤",
+  label_en: "BBQ",
+  aliases: ["炭烤", "bbq"]
+};
+
+const SEAFOOD_CONFIG_BY_NAME = new Map<string, SeafoodConfig>([
+  ["grouper", { unit: "100g", methods: [SEAFOOD_STEAMED, SEAFOOD_BRAISED, SEAFOOD_PICKLED] }],
+  ["石斑鱼", { unit: "100g", methods: [SEAFOOD_STEAMED, SEAFOOD_BRAISED, SEAFOOD_PICKLED] }],
+  ["hairtail", { unit: "100g", methods: [SEAFOOD_STEAMED, SEAFOOD_BRAISED, SEAFOOD_SEARED] }],
+  ["带鱼", { unit: "100g", methods: [SEAFOOD_STEAMED, SEAFOOD_BRAISED, SEAFOOD_SEARED] }],
+  ["parrot fish", { unit: "100g", methods: [SEAFOOD_STEAMED, SEAFOOD_BRAISED, SEAFOOD_PICKLED] }],
+  ["青衣鱼", { unit: "100g", methods: [SEAFOOD_STEAMED, SEAFOOD_BRAISED, SEAFOOD_PICKLED] }],
+  ["crab", { unit: "100g", methods: [SEAFOOD_STEAMED, SEAFOOD_GINGER_GARLIC] }],
+  ["金玉蟹", { unit: "100g", methods: [SEAFOOD_STEAMED, SEAFOOD_GINGER_GARLIC] }],
+  ["mantis", { unit: "100g", methods: [SEAFOOD_STEAMED, SEAFOOD_SALT_PEPPER] }],
+  ["富贵虾", { unit: "100g", methods: [SEAFOOD_STEAMED, SEAFOOD_SALT_PEPPER] }],
+  ["tiger prawn", { unit: "pcs", methods: [SEAFOOD_POACHED, SEAFOOD_BRAISED, SEAFOOD_BBQ] }],
+  ["老虎虾", { unit: "pcs", methods: [SEAFOOD_POACHED, SEAFOOD_BRAISED, SEAFOOD_BBQ] }]
+]);
+
+function normalizeMenuName(input: string | undefined | null) {
+  return String(input || "")
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, " ");
+}
+
+function getSeafoodConfig(item: Pick<MenuItem, "name"> | null | undefined) {
+  if (!item) return null;
+  return SEAFOOD_CONFIG_BY_NAME.get(normalizeMenuName(item.name)) || null;
+}
+
+function getSeafoodUnitLabel(unit: SeafoodUnit, lang: "zh" | "en") {
+  if (unit === "100g") {
+    return lang === "en" ? "100g" : "100克";
+  }
+  return lang === "en" ? "pcs" : "只";
+}
+
+function parseSeafoodNote(note: string | undefined, config: SeafoodConfig) {
+  const fallbackMethod = config.methods[0]?.key || "";
+  const raw = String(note || "").trim();
+  if (!raw) {
+    return { methodKey: fallbackMethod, extraNote: "" };
+  }
+
+  const chunks = raw
+    .split(/[;；|｜]/)
+    .map((value) => value.trim())
+    .filter(Boolean);
+
+  if (chunks.length === 0) {
+    return { methodKey: fallbackMethod, extraNote: "" };
+  }
+
+  const first = chunks[0]
+    .replace(/^method[:：]\s*/i, "")
+    .replace(/^做法[:：]\s*/i, "")
+    .trim();
+  const normalizedFirst = normalizeMenuName(first);
+  const matched = config.methods.find((method) =>
+    method.aliases.some((alias) => normalizeMenuName(alias) === normalizedFirst)
+  );
+
+  if (!matched) {
+    return {
+      methodKey: fallbackMethod,
+      extraNote: raw
+    };
+  }
+
+  const extraNote = chunks
+    .slice(1)
+    .join("; ")
+    .replace(/^note[:：]\s*/i, "")
+    .replace(/^备注[:：]\s*/i, "")
+    .trim();
+
+  return {
+    methodKey: matched.key,
+    extraNote
+  };
+}
+
+function buildSeafoodNote(config: SeafoodConfig, methodKey: string, extraNote: string, lang: "zh" | "en") {
+  const method = config.methods.find((item) => item.key === methodKey) || config.methods[0];
+  if (!method) return undefined;
+  const methodLabel = lang === "en" ? method.label_en : method.label_zh;
+  const cleanNote = extraNote.trim();
+  if (!cleanNote) {
+    return methodLabel;
+  }
+  const combined = `${methodLabel}; ${cleanNote}`;
+  if (combined.length <= 120) {
+    return combined;
+  }
+  const allowed = Math.max(0, 120 - methodLabel.length - 2);
+  const trimmed = cleanNote.slice(0, allowed).trim();
+  return trimmed ? `${methodLabel}; ${trimmed}` : methodLabel;
+}
 
 const DEFAULT_SHIFT_OPTIONS: MajorCategoryOption[] = [
   { key: "breakfast", label_zh: "早餐", label_en: "Breakfast" },
@@ -168,6 +334,9 @@ export default function OrderPage() {
   const [noteSheetItemId, setNoteSheetItemId] = useState("");
   const [noteMode, setNoteMode] = useState<NoteMode>("no");
   const [noteInput, setNoteInput] = useState("");
+  const [seafoodDraftQty, setSeafoodDraftQty] = useState(1);
+  const [seafoodDraftMethod, setSeafoodDraftMethod] = useState("");
+  const [seafoodDraftNote, setSeafoodDraftNote] = useState("");
   const [cartSheetOpen, setCartSheetOpen] = useState(false);
   const [actionMenuOpen, setActionMenuOpen] = useState(false);
   const [toast, setToast] = useState<ToastState | null>(null);
@@ -717,10 +886,12 @@ export default function OrderPage() {
   const menuDisplayById = useMemo(() => {
     const map = new Map<string, MenuDisplayMeta>();
     for (const item of visibleItems) {
+      const seafoodConfig = getSeafoodConfig(item);
+      const unitLabel = seafoodConfig ? getSeafoodUnitLabel(seafoodConfig.unit, lang) : "";
       map.set(item.id, {
         title: `${localizeMenuText(item.name, lang)}${item.item_type === "set" ? (lang === "en" ? " (Set)" : "（套餐）") : ""}`,
         subtitle: localizeMenuText(item.category || "", lang) || item.description || " ",
-        price: item.price
+        priceLabel: seafoodConfig ? `₱${item.price}/${unitLabel}` : `₱${item.price}`
       });
     }
     return map;
@@ -758,11 +929,24 @@ export default function OrderPage() {
     }
     return map;
   }, [menu]);
+  const seafoodConfigById = useMemo(() => {
+    const map = new Map<string, SeafoodConfig>();
+    for (const item of menu) {
+      const config = getSeafoodConfig(item);
+      if (!config) continue;
+      map.set(item.id, config);
+    }
+    return map;
+  }, [menu]);
   const noteSheetItem = useMemo(
     () => menuById.get(noteSheetItemId) || null,
     [menuById, noteSheetItemId]
   );
   const noteSheetSelection = noteSheetItemId ? cartSelections[noteSheetItemId] : undefined;
+  const noteSheetSeafoodConfig = useMemo(
+    () => getSeafoodConfig(noteSheetItem),
+    [noteSheetItem]
+  );
 
   const setQty = useCallback((id: string, qty: number) => {
     const nextQty = Number.isFinite(qty) ? Math.max(0, Math.trunc(qty)) : 0;
@@ -770,12 +954,25 @@ export default function OrderPage() {
     updateCartSelection(id, nextQty, nextQty > 0 ? current?.note : undefined);
   }, [updateCartSelection]);
 
-  function openNoteSheetFor(itemId: string) {
+  const openNoteSheetFor = useCallback((itemId: string, options?: { presetQty?: number }) => {
+    const item = menuById.get(itemId) || menuMetaRef.current.get(itemId) || null;
+    const seafoodConfig = getSeafoodConfig(item);
+    if (seafoodConfig) {
+      const current = cartSelectionsRef.current[itemId];
+      const baseQty = Number.isInteger(options?.presetQty)
+        ? Math.max(1, Number(options?.presetQty))
+        : Math.max(1, current?.qty || 1);
+      const parsed = parseSeafoodNote(current?.note, seafoodConfig);
+      setSeafoodDraftQty(baseQty);
+      setSeafoodDraftMethod(parsed.methodKey || seafoodConfig.methods[0]?.key || "");
+      setSeafoodDraftNote(parsed.extraNote || "");
+    } else {
+      setNoteMode("no");
+      setNoteInput("");
+    }
     setNoteSheetItemId(itemId);
-    setNoteMode("no");
-    setNoteInput("");
     setNoteSheetOpen(true);
-  }
+  }, [menuById]);
 
   function parseNoteTokens(note: string | undefined) {
     return String(note || "")
@@ -817,20 +1014,54 @@ export default function OrderPage() {
     setNoteInput("");
   }
 
+  function applySeafoodDraft(itemId: string, shouldClose = true) {
+    const item = menuById.get(itemId) || menuMetaRef.current.get(itemId) || null;
+    const config = getSeafoodConfig(item);
+    if (!config) return;
+    const nextQty = Number.isFinite(seafoodDraftQty) ? Math.max(0, Math.trunc(seafoodDraftQty)) : 0;
+    if (nextQty <= 0) {
+      updateCartSelection(itemId, 0, undefined);
+      if (shouldClose) {
+        setNoteSheetOpen(false);
+      }
+      return;
+    }
+    const nextNote = buildSeafoodNote(config, seafoodDraftMethod, seafoodDraftNote, lang);
+    updateCartSelection(itemId, nextQty, nextNote);
+    if (shouldClose) {
+      setNoteSheetOpen(false);
+    }
+  }
+
   const addFromMenu = useCallback((itemId: string) => {
     const finishMeasure = beginPerfInteraction("order:add-item-feedback");
-    const previousQty = cartSelectionsRef.current[itemId]?.qty || 0;
-    setQty(itemId, previousQty + 1);
-    setNoteSheetOpen(false);
-    setCartSheetOpen(true);
+    const current = cartSelectionsRef.current[itemId];
+    const previousQty = current?.qty || 0;
+    const nextQty = previousQty + 1;
+    const item = menuById.get(itemId) || menuMetaRef.current.get(itemId) || null;
+    const seafoodConfig = getSeafoodConfig(item);
+    if (seafoodConfig) {
+      updateCartSelection(itemId, nextQty, current?.note);
+      openNoteSheetFor(itemId, { presetQty: nextQty });
+      setCartSheetOpen(false);
+    } else {
+      setQty(itemId, nextQty);
+      setNoteSheetOpen(false);
+      setCartSheetOpen(true);
+    }
     if (finishMeasure) {
       window.requestAnimationFrame(() => {
         finishMeasure();
       });
     }
-  }, [setQty]);
+  }, [menuById, openNoteSheetFor, setQty, updateCartSelection]);
 
   function closeNoteSheet(shouldSaveInput = true) {
+    if (noteSheetItemId && noteSheetSeafoodConfig) {
+      applySeafoodDraft(noteSheetItemId, false);
+      setNoteSheetOpen(false);
+      return;
+    }
     if (shouldSaveInput && noteSheetItemId && noteInput.trim()) {
       applyManualNote(noteSheetItemId, noteInput);
     }
@@ -841,6 +1072,15 @@ export default function OrderPage() {
     const option = shiftOptions.find((item) => item.key === value);
     if (!option) return value;
     return lang === "en" ? option.label_en : option.label_zh;
+  }
+
+  function formatQtyWithUnit(qty: number, config: SeafoodConfig | null) {
+    if (!config) return String(qty);
+    const unitLabel = getSeafoodUnitLabel(config.unit, lang);
+    if (config.unit === "100g") {
+      return `${qty} (${unitLabel})`;
+    }
+    return `${qty} ${unitLabel}`;
   }
 
   const onKeywordInputChange = useCallback((nextValue: string) => {
@@ -1652,15 +1892,18 @@ export default function OrderPage() {
         {!billLoading ? (
           <PerfSection id="Order/BillItemsList">
             <div className="order-list">
-              {billItems.map((item) => (
-                <div key={`${item.menu_item_id}-${item.note || ""}`} className="row" style={{ justifyContent: "space-between", alignItems: "flex-start" }}>
-                  <div className="stack" style={{ gap: 2 }}>
-                    <span>{localizeMenuText(item.name, lang)} x{item.qty}</span>
-                    {item.note ? <span className="muted">{t("order.noteLabel", "Note")}: {item.note}</span> : null}
+              {billItems.map((item) => {
+                const seafoodConfig = seafoodConfigById.get(item.menu_item_id) || getSeafoodConfig({ name: item.name });
+                return (
+                  <div key={`${item.menu_item_id}-${item.note || ""}`} className="row" style={{ justifyContent: "space-between", alignItems: "flex-start" }}>
+                    <div className="stack" style={{ gap: 2 }}>
+                      <span>{localizeMenuText(item.name, lang)} x{formatQtyWithUnit(item.qty, seafoodConfig)}</span>
+                      {item.note ? <span className="muted">{t("order.noteLabel", "Note")}: {item.note}</span> : null}
+                    </div>
+                    <strong>₱{item.amount}</strong>
                   </div>
-                  <strong>₱{item.amount}</strong>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </PerfSection>
         ) : null}
@@ -1682,6 +1925,7 @@ export default function OrderPage() {
                   </div>
                   {(order.items || []).map((item) => {
                     const opKey = `${order.id}:${item.menu_item_id}`;
+                    const seafoodConfig = seafoodConfigById.get(item.menu_item_id) || getSeafoodConfig({ name: item.name });
                     return (
                       <div
                         key={`bill-order-item-${order.id}-${item.menu_item_id}-${item.note || ""}`}
@@ -1689,7 +1933,7 @@ export default function OrderPage() {
                         style={{ justifyContent: "space-between", alignItems: "center", gap: 8 }}
                       >
                         <div className="stack" style={{ gap: 2 }}>
-                          <span>{localizeMenuText(item.name, lang)} x{item.qty}</span>
+                          <span>{localizeMenuText(item.name, lang)} x{formatQtyWithUnit(item.qty, seafoodConfig)}</span>
                           {item.note ? <span className="muted">{t("order.noteLabel", "Note")}: {item.note}</span> : null}
                         </div>
                         <div className="row" style={{ gap: 8, alignItems: "center" }}>
@@ -1732,26 +1976,32 @@ export default function OrderPage() {
       >
         <PerfSection id="Order/CartSheetList">
           <div className="order-list">
-            {cart.map((item) => (
-              <div key={`cart-${item.id}-${item.note || ""}`} className="row cart-row">
-                <div className="stack" style={{ gap: 2, flex: "1 1 auto" }}>
-                  <span>{localizeMenuText(item.name, lang)}</span>
-                  <span className="muted">₱{item.price} x {item.qty}</span>
-                  {item.note ? <span className="muted">{t("order.noteLabel", "Note")}: {item.note}</span> : null}
+            {cart.map((item) => {
+              const seafoodConfig = seafoodConfigById.get(item.id) || null;
+              const unitLabel = seafoodConfig ? getSeafoodUnitLabel(seafoodConfig.unit, lang) : "";
+              return (
+                <div key={`cart-${item.id}-${item.note || ""}`} className="row cart-row">
+                  <div className="stack" style={{ gap: 2, flex: "1 1 auto" }}>
+                    <span>{localizeMenuText(item.name, lang)}</span>
+                    <span className="muted">
+                      ₱{item.price}{unitLabel ? `/${unitLabel}` : ""} · {lang === "en" ? "Qty" : "数量"} {formatQtyWithUnit(item.qty, seafoodConfig)}
+                    </span>
+                    {item.note ? <span className="muted">{t("order.noteLabel", "Note")}: {item.note}</span> : null}
+                  </div>
+                  <div className="cart-row-actions">
+                    <Button variant="secondary" onClick={() => setQty(item.id, Math.max(0, item.qty - 1))}>-</Button>
+                    <span>{item.qty}</span>
+                    <Button variant="secondary" onClick={() => setQty(item.id, item.qty + 1)}>+</Button>
+                    <Button variant="secondary" onClick={() => openNoteSheetFor(item.id)}>
+                      {t("order.noteAction", "Note")}
+                    </Button>
+                    <Button variant="danger" onClick={() => setQty(item.id, 0)}>
+                      {lang === "en" ? "Remove" : "移除"}
+                    </Button>
+                  </div>
                 </div>
-                <div className="cart-row-actions">
-                  <Button variant="secondary" onClick={() => setQty(item.id, Math.max(0, item.qty - 1))}>-</Button>
-                  <span>{item.qty}</span>
-                  <Button variant="secondary" onClick={() => setQty(item.id, item.qty + 1)}>+</Button>
-                  <Button variant="secondary" onClick={() => openNoteSheetFor(item.id)}>
-                    {t("order.noteAction", "Note")}
-                  </Button>
-                  <Button variant="danger" onClick={() => setQty(item.id, 0)}>
-                    {lang === "en" ? "Remove" : "移除"}
-                  </Button>
-                </div>
-              </div>
-            ))}
+              );
+            })}
             {cart.length === 0 ? <EmptyState title={t("order.currentOrderEmpty", "Cart is empty")} /> : null}
           </div>
         </PerfSection>
@@ -1762,42 +2012,109 @@ export default function OrderPage() {
         onClose={() => closeNoteSheet(true)}
         title={noteSheetItem ? localizeMenuText(noteSheetItem.name, lang) : undefined}
         footer={(
-          <>
-            <Button variant="secondary" onClick={() => noteSheetItem && clearManualNote(noteSheetItem.id)}>
-              {t("order.noteClear", "Clear")}
-            </Button>
-            <Button onClick={() => noteSheetItem && applyManualNote(noteSheetItem.id)}>
-              {t("order.noteAdd", "Add")}
-            </Button>
-          </>
+          noteSheetItem && noteSheetSeafoodConfig ? (
+            <>
+              <Button variant="secondary" onClick={() => {
+                setQty(noteSheetItem.id, 0);
+                setNoteSheetOpen(false);
+              }}>
+                {lang === "en" ? "Remove" : "移除"}
+              </Button>
+              <Button onClick={() => applySeafoodDraft(noteSheetItem.id)}>
+                {lang === "en" ? "Apply" : "应用"}
+              </Button>
+            </>
+          ) : (
+            <>
+              <Button variant="secondary" onClick={() => noteSheetItem && clearManualNote(noteSheetItem.id)}>
+                {t("order.noteClear", "Clear")}
+              </Button>
+              <Button onClick={() => noteSheetItem && applyManualNote(noteSheetItem.id)}>
+                {t("order.noteAdd", "Add")}
+              </Button>
+            </>
+          )
         )}
       >
         {noteSheetItem ? (
-          <div className="stack">
-            <div className="row note-mode-row">
-              <Button variant={noteMode === "more" ? "primary" : "secondary"} onClick={() => setNoteMode("more")}>
-                {t("order.noteModeMore", "more")}
-              </Button>
-              <Button variant={noteMode === "no" ? "primary" : "secondary"} onClick={() => setNoteMode("no")}>
-                {t("order.noteModeNo", "no")}
-              </Button>
+          noteSheetSeafoodConfig ? (
+            <div className="stack">
+              <div className={styles.seafoodHint}>
+                {lang === "en"
+                  ? `Price is per ${getSeafoodUnitLabel(noteSheetSeafoodConfig.unit, lang)}`
+                  : `单价按 ${getSeafoodUnitLabel(noteSheetSeafoodConfig.unit, lang)} 计`}
+              </div>
+              <div className={styles.seafoodQtyRow}>
+                <Button
+                  variant="secondary"
+                  onClick={() => setSeafoodDraftQty((prev) => Math.max(1, prev - 1))}
+                >
+                  -
+                </Button>
+                <strong className={styles.seafoodQtyValue}>
+                  {formatQtyWithUnit(seafoodDraftQty, noteSheetSeafoodConfig)}
+                </strong>
+                <Button
+                  variant="secondary"
+                  onClick={() => setSeafoodDraftQty((prev) => Math.min(200, prev + 1))}
+                >
+                  +
+                </Button>
+              </div>
+              <div className={styles.seafoodMethodRow}>
+                {noteSheetSeafoodConfig.methods.map((method) => (
+                  <Chip
+                    key={method.key}
+                    active={seafoodDraftMethod === method.key}
+                    onClick={() => setSeafoodDraftMethod(method.key)}
+                  >
+                    {lang === "en" ? method.label_en : method.label_zh}
+                  </Chip>
+                ))}
+              </div>
+              <input
+                value={seafoodDraftNote}
+                onChange={(e) => setSeafoodDraftNote(e.target.value)}
+                placeholder={t("order.noteInputPlaceholder", "Type your note")}
+                maxLength={90}
+                autoFocus
+                onKeyDown={(e) => {
+                  if (e.key !== "Enter") return;
+                  e.preventDefault();
+                  applySeafoodDraft(noteSheetItem.id);
+                }}
+              />
+              <div className="muted">
+                {t("order.noteLabel", "Note")}: {buildSeafoodNote(noteSheetSeafoodConfig, seafoodDraftMethod, seafoodDraftNote, lang) || "-"}
+              </div>
             </div>
-            <input
-              value={noteInput}
-              onChange={(e) => setNoteInput(e.target.value)}
-              placeholder={t("order.noteInputPlaceholder", "Type your note")}
-              maxLength={60}
-              autoFocus
-              onKeyDown={(e) => {
-                if (e.key !== "Enter") return;
-                e.preventDefault();
-                applyManualNote(noteSheetItem.id);
-              }}
-            />
-            <div className="muted">
-              {t("order.noteLabel", "Note")}: {noteSheetSelection?.note || "-"}
+          ) : (
+            <div className="stack">
+              <div className="row note-mode-row">
+                <Button variant={noteMode === "more" ? "primary" : "secondary"} onClick={() => setNoteMode("more")}>
+                  {t("order.noteModeMore", "more")}
+                </Button>
+                <Button variant={noteMode === "no" ? "primary" : "secondary"} onClick={() => setNoteMode("no")}>
+                  {t("order.noteModeNo", "no")}
+                </Button>
+              </div>
+              <input
+                value={noteInput}
+                onChange={(e) => setNoteInput(e.target.value)}
+                placeholder={t("order.noteInputPlaceholder", "Type your note")}
+                maxLength={60}
+                autoFocus
+                onKeyDown={(e) => {
+                  if (e.key !== "Enter") return;
+                  e.preventDefault();
+                  applyManualNote(noteSheetItem.id);
+                }}
+              />
+              <div className="muted">
+                {t("order.noteLabel", "Note")}: {noteSheetSelection?.note || "-"}
+              </div>
             </div>
-          </div>
+          )
         ) : null}
       </BottomSheet>
 
@@ -1872,7 +2189,7 @@ type MenuListItemProps = {
   id: string;
   title: string;
   subtitle: string;
-  price: number;
+  priceLabel: string;
   qty: number;
   onAdd: (itemId: string) => void;
 };
@@ -1903,7 +2220,7 @@ const MenuVirtualList = memo(function MenuVirtualList({
           id={item.id}
           title={displayById.get(item.id)?.title || item.name}
           subtitle={displayById.get(item.id)?.subtitle || item.description || " "}
-          price={displayById.get(item.id)?.price ?? item.price}
+          priceLabel={displayById.get(item.id)?.priceLabel || `₱${item.price}`}
           qty={qtyById[item.id] || 0}
           onAdd={onAdd}
         />
@@ -1917,7 +2234,7 @@ const MenuListItem = memo(function MenuListItem({
   id,
   title,
   subtitle,
-  price,
+  priceLabel,
   qty,
   onAdd
 }: MenuListItemProps) {
@@ -1927,7 +2244,7 @@ const MenuListItem = memo(function MenuListItem({
         <div className={styles.menuTitle}>{title}</div>
         <div className={styles.menuSubtitle}>{subtitle}</div>
       </div>
-      <strong className={styles.menuPrice}>₱{price}</strong>
+      <strong className={styles.menuPrice}>{priceLabel}</strong>
       <Button
         variant="secondary"
         type="button"

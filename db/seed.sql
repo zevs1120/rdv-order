@@ -66,4 +66,10 @@ VALUES
   ('套餐 A', 299, '套餐', NULL, 'set_menu', 'set', 5, ARRAY['package']),
   ('套餐 B', 399, '套餐', NULL, 'set_menu', 'set', 6, ARRAY['package']),
   ('经典莫吉托', 580, '鸡尾酒', NULL, 'cocktail', 'single', 30, ARRAY['cocktail']),
-  ('阿佩罗橙光', 620, '鸡尾酒', NULL, 'cocktail', 'single', 31, ARRAY['cocktail']);
+  ('阿佩罗橙光', 620, '鸡尾酒', NULL, 'cocktail', 'single', 31, ARRAY['cocktail']),
+  ('Grouper', 120, 'Local Catch', 'Seasonal Seafood · Steamed / Braised / Pickled', 'lunch_dinner', 'single', 320, ARRAY['lunch', 'dinner']),
+  ('Hairtail', 80, 'Local Catch', 'Seasonal Seafood · Steamed / Braised / Seared', 'lunch_dinner', 'single', 321, ARRAY['lunch', 'dinner']),
+  ('Parrot Fish', 90, 'Local Catch', 'Seasonal Seafood · Steamed / Braised / Pickled', 'lunch_dinner', 'single', 322, ARRAY['lunch', 'dinner']),
+  ('Crab', 150, 'Treasures from the Sea', 'Seasonal Seafood · Steamed / Ginger & Garlic', 'lunch_dinner', 'single', 323, ARRAY['lunch', 'dinner']),
+  ('Mantis', 360, 'Treasures from the Sea', 'Seasonal Seafood · Steamed / Salt & Pepper', 'lunch_dinner', 'single', 324, ARRAY['lunch', 'dinner']),
+  ('Tiger Prawn', 200, 'Treasures from the Sea', 'Seasonal Seafood · Poached / Braised / BBQ', 'lunch_dinner', 'single', 325, ARRAY['lunch', 'dinner']);

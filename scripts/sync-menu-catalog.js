@@ -87,6 +87,13 @@ const lunchDinnerItems = [
   { name: "Braised Eggplant", price: 360, category: "Chinese Food", type: "single" },
   { name: "Peking Zha Jiang Noodle", price: 400, category: "Chinese Food", type: "single" },
 
+  { name: "Grouper", price: 120, category: "Local Catch", type: "single" },
+  { name: "Hairtail", price: 80, category: "Local Catch", type: "single" },
+  { name: "Parrot Fish", price: 90, category: "Local Catch", type: "single" },
+  { name: "Crab", price: 150, category: "Treasures from the Sea", type: "single" },
+  { name: "Mantis", price: 360, category: "Treasures from the Sea", type: "single" },
+  { name: "Tiger Prawn", price: 200, category: "Treasures from the Sea", type: "single" },
+
   { name: "San Mig Pilsen", price: 120, category: "Beer", type: "single" },
   { name: "San Mig Light", price: 120, category: "Beer", type: "single" },
   { name: "Stallion", price: 120, category: "Beer", type: "single" },
