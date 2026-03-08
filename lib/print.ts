@@ -444,6 +444,43 @@ function formatSignedCompactAmount(amount: number) {
   return rounded.toLocaleString("en-US");
 }
 
+const WEIGHT_BASED_SEAFOOD_NAMES = new Set([
+  "grouper",
+  "石斑鱼",
+  "hairtail",
+  "带鱼",
+  "parrot fish",
+  "青衣鱼",
+  "crab",
+  "金玉蟹",
+  "mantis",
+  "富贵虾"
+]);
+
+const PIECE_BASED_SEAFOOD_NAMES = new Set([
+  "tiger prawn",
+  "老虎虾"
+]);
+
+function normalizeDishKey(name: string) {
+  return String(name || "")
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, " ");
+}
+
+function formatPrintQtyLabel(name: string, qtyRaw: number) {
+  const qty = Math.max(0, Number(qtyRaw) || 0);
+  const dishKey = normalizeDishKey(name);
+  if (WEIGHT_BASED_SEAFOOD_NAMES.has(dishKey)) {
+    return `${qty * 100}g`;
+  }
+  if (PIECE_BASED_SEAFOOD_NAMES.has(dishKey)) {
+    return `${qty} pcs`;
+  }
+  return String(qty);
+}
+
 function getReceiptLineWidth() {
   const raw = Number(process.env.XPYUN_LINE_WIDTH || 32);
   if (!Number.isFinite(raw)) return 32;
@@ -506,8 +543,9 @@ function wrapReceiptText(text: string, width = getReceiptLineWidth()) {
   return lines;
 }
 
-function formatAmountRow(qty: number, unitPrice: number, amount: number, width = getReceiptLineWidth()) {
-  const left = `${qty} x ${formatCompactAmount(unitPrice)}`;
+function formatAmountRow(qty: number | string, unitPrice: number, amount: number, width = getReceiptLineWidth()) {
+  const qtyLabel = typeof qty === "string" ? sanitizeXpyunLine(qty) : String(Math.max(0, Number(qty) || 0));
+  const left = `${qtyLabel} x ${formatCompactAmount(unitPrice)}`;
   const right = formatCompactAmount(amount);
   if (left.length + right.length + 1 > width) {
     return `${left} = ${right}`;
@@ -546,10 +584,11 @@ function toXpyunKitchenContent(payload: OrderPrintPayload | SelfTestPrintPayload
   lines.push(xpyunLine(majorSeparator, { forceTag: "" }));
   for (const item of items) {
     const itemName = localizeMenuText(item.name, "en").toUpperCase();
+    const qtyLabel = formatPrintQtyLabel(item.name, item.qty);
     for (const row of wrapReceiptText(itemName)) {
       lines.push(xpyunLine(row, { forceTag: "B" }));
     }
-    lines.push(xpyunLine(`QTY: ${item.qty}`));
+    lines.push(xpyunLine(`QTY: ${qtyLabel}`));
     if (item.note) {
       for (const noteRow of wrapReceiptText(`NOTE: ${item.note}`)) {
         lines.push(xpyunLine(noteRow, { forceTag: "N" }));
@@ -594,13 +633,14 @@ function toXpyunCustomerContent(payload: OrderPrintPayload) {
   for (const item of items) {
     const name = localizeMenuText(item.name, "en").toUpperCase();
     const qty = Math.max(0, Number(item.qty) || 0);
+    const qtyLabel = formatPrintQtyLabel(item.name, qty);
     const price = Math.max(0, Number(item.unitPrice) || 0);
     const lineAmount = qty * price;
 
     for (const row of wrapReceiptText(name)) {
       lines.push(xpyunLine(row, { forceTag: "N" }));
     }
-    lines.push(xpyunLine(formatAmountRow(qty, price, lineAmount), { forceTag: "N" }));
+    lines.push(xpyunLine(formatAmountRow(qtyLabel, price, lineAmount), { forceTag: "N" }));
     if (item.note) {
       for (const noteRow of wrapReceiptText(`NOTE: ${item.note}`)) {
         lines.push(xpyunLine(noteRow, { forceTag: "N" }));
@@ -635,10 +675,11 @@ function toXpyunTableBillContent(payload: TableBillPrintPayload) {
   lines.push(xpyunLine(majorSeparator, { forceTag: "" }));
   for (const item of payload.items) {
     const name = localizeMenuText(item.name, "en").toUpperCase();
+    const qtyLabel = formatPrintQtyLabel(item.name, item.qty);
     for (const row of wrapReceiptText(name)) {
       lines.push(xpyunLine(row, { forceTag: "N" }));
     }
-    lines.push(xpyunLine(formatAmountRow(item.qty, item.unitPrice, item.amount), { forceTag: "N" }));
+    lines.push(xpyunLine(formatAmountRow(qtyLabel, item.unitPrice, item.amount), { forceTag: "N" }));
     if (item.note) {
       for (const noteRow of wrapReceiptText(`NOTE: ${item.note}`)) {
         lines.push(xpyunLine(noteRow, { forceTag: "N" }));
@@ -939,6 +980,7 @@ export const __printTestUtils = {
   getXpyunFontTag,
   getReceiptLineWidth,
   wrapReceiptText,
+  formatPrintQtyLabel,
   formatAmountRow,
   toKitchenOnlyOrderPayload,
   toXpyunKitchenContent,

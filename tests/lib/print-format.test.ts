@@ -174,4 +174,44 @@ describe("print content formatting", () => {
     expect(line).toContain("900");
     expect(line.length).toBeLessThanOrEqual(24);
   });
+
+  it("seafood qty should print as grams on kitchen and guest copies", () => {
+    const payload = {
+      type: "order",
+      printVersion: 2,
+      tableNo: "09",
+      createdAt: "2026-03-04T12:00:00.000Z",
+      waiter: "Maria",
+      items: [
+        {
+          name: "Grouper",
+          unitPrice: 120,
+          qty: 4,
+          category: "Local Catch",
+          note: "Steamed",
+          target: "kitchen"
+        }
+      ],
+      tickets: [
+        {
+          target: "kitchen",
+          items: [
+            {
+              name: "Grouper",
+              unitPrice: 120,
+              qty: 4,
+              category: "Local Catch",
+              note: "Steamed",
+              target: "kitchen"
+            }
+          ]
+        }
+      ]
+    } as const;
+
+    const kitchenContent = __printTestUtils.toXpyunKitchenContent(payload as any);
+    const guestContent = __printTestUtils.toXpyunCustomerContent(payload as any);
+    expect(kitchenContent).toContain("QTY: 400g");
+    expect(guestContent).toContain("400g x 120");
+  });
 });
