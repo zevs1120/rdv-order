@@ -6,6 +6,7 @@ import BottomNav from "../../components/bottom-nav";
 import { apiFetchJson, getStoredAuth } from "../../../lib/client-api";
 import { useI18n } from "../../components/i18n-provider";
 import { localizeMenuText } from "../../../lib/menu-text";
+import { formatItemQtyDisplay } from "../../../lib/qty-display";
 import { useActionGuard } from "../../../lib/use-action-guard";
 import { type PresetKey, rangeByPreset, toDateInput } from "../../../lib/date-range";
 import { AppBar, Button } from "../../../components/ui";
@@ -494,7 +495,7 @@ export default function ManageOrdersPage() {
                           {(order.items || []).map((item) => (
                             <div key={`${order.id}-${item.menu_item_id}-${item.note || ""}`} className="row" style={{ justifyContent: "space-between", flexWrap: "wrap" }}>
                               <div className="stack" style={{ gap: 2 }}>
-                                <span>{localizeMenuText(item.name, lang)} x{item.qty}</span>
+                                <span>{localizeMenuText(item.name, lang)} · {formatItemQtyDisplay(item.name, item.qty, lang)}</span>
                                 {item.note ? <span className="muted">{t("order.noteLabel", "备注")}: {item.note}</span> : null}
                               </div>
                               <div className="row">

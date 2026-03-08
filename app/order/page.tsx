@@ -211,7 +211,7 @@ function getSeafoodConfig(item: Pick<MenuItem, "name"> | null | undefined) {
 
 function getSeafoodUnitLabel(unit: SeafoodUnit, lang: "zh" | "en") {
   if (unit === "100g") {
-    return lang === "en" ? "100g" : "100克";
+    return "100g";
   }
   return lang === "en" ? "pcs" : "只";
 }
@@ -883,6 +883,16 @@ export default function OrderPage() {
     }
     return next;
   }, [cartSelections]);
+  const menuQtyLabelById = useMemo(() => {
+    const next: Record<string, string> = {};
+    for (const item of visibleItems) {
+      const qty = menuQtyById[item.id] || 0;
+      if (qty <= 0) continue;
+      const config = getSeafoodConfig(item);
+      next[item.id] = config ? formatQtyWithUnit(qty, config) : `x${qty}`;
+    }
+    return next;
+  }, [menuQtyById, visibleItems]);
   const menuDisplayById = useMemo(() => {
     const map = new Map<string, MenuDisplayMeta>();
     for (const item of visibleItems) {
@@ -1076,11 +1086,10 @@ export default function OrderPage() {
 
   function formatQtyWithUnit(qty: number, config: SeafoodConfig | null) {
     if (!config) return String(qty);
-    const unitLabel = getSeafoodUnitLabel(config.unit, lang);
     if (config.unit === "100g") {
-      return `${qty} (${unitLabel})`;
+      return `${Math.max(0, qty) * 100}g`;
     }
-    return `${qty} ${unitLabel}`;
+    return lang === "en" ? `${qty} pcs` : `${qty}只`;
   }
 
   const onKeywordInputChange = useCallback((nextValue: string) => {
@@ -1693,6 +1702,7 @@ export default function OrderPage() {
                 items={renderedMenuItems}
                 displayById={menuDisplayById}
                 qtyById={menuQtyById}
+                qtyLabelById={menuQtyLabelById}
                 onAdd={addFromMenu}
                 topSpacer={menuVirtualWindow.topSpacer}
                 bottomSpacer={menuVirtualWindow.bottomSpacer}
@@ -1897,7 +1907,7 @@ export default function OrderPage() {
                 return (
                   <div key={`${item.menu_item_id}-${item.note || ""}`} className="row" style={{ justifyContent: "space-between", alignItems: "flex-start" }}>
                     <div className="stack" style={{ gap: 2 }}>
-                      <span>{localizeMenuText(item.name, lang)} x{formatQtyWithUnit(item.qty, seafoodConfig)}</span>
+                      <span>{localizeMenuText(item.name, lang)} · {formatQtyWithUnit(item.qty, seafoodConfig)}</span>
                       {item.note ? <span className="muted">{t("order.noteLabel", "Note")}: {item.note}</span> : null}
                     </div>
                     <strong>₱{item.amount}</strong>
@@ -1933,7 +1943,7 @@ export default function OrderPage() {
                         style={{ justifyContent: "space-between", alignItems: "center", gap: 8 }}
                       >
                         <div className="stack" style={{ gap: 2 }}>
-                          <span>{localizeMenuText(item.name, lang)} x{formatQtyWithUnit(item.qty, seafoodConfig)}</span>
+                          <span>{localizeMenuText(item.name, lang)} · {formatQtyWithUnit(item.qty, seafoodConfig)}</span>
                           {item.note ? <span className="muted">{t("order.noteLabel", "Note")}: {item.note}</span> : null}
                         </div>
                         <div className="row" style={{ gap: 8, alignItems: "center" }}>
@@ -1990,7 +2000,7 @@ export default function OrderPage() {
                   </div>
                   <div className="cart-row-actions">
                     <Button variant="secondary" onClick={() => setQty(item.id, Math.max(0, item.qty - 1))}>-</Button>
-                    <span>{item.qty}</span>
+                    <span>{formatQtyWithUnit(item.qty, seafoodConfig)}</span>
                     <Button variant="secondary" onClick={() => setQty(item.id, item.qty + 1)}>+</Button>
                     <Button variant="secondary" onClick={() => openNoteSheetFor(item.id)}>
                       {t("order.noteAction", "Note")}
@@ -2191,6 +2201,7 @@ type MenuListItemProps = {
   subtitle: string;
   priceLabel: string;
   qty: number;
+  qtyLabel?: string;
   onAdd: (itemId: string) => void;
 };
 
@@ -2198,6 +2209,7 @@ type MenuVirtualListProps = {
   items: MenuItem[];
   displayById: Map<string, MenuDisplayMeta>;
   qtyById: Record<string, number>;
+  qtyLabelById: Record<string, string>;
   onAdd: (itemId: string) => void;
   topSpacer: number;
   bottomSpacer: number;
@@ -2207,6 +2219,7 @@ const MenuVirtualList = memo(function MenuVirtualList({
   items,
   displayById,
   qtyById,
+  qtyLabelById,
   onAdd,
   topSpacer,
   bottomSpacer
@@ -2222,6 +2235,7 @@ const MenuVirtualList = memo(function MenuVirtualList({
           subtitle={displayById.get(item.id)?.subtitle || item.description || " "}
           priceLabel={displayById.get(item.id)?.priceLabel || `₱${item.price}`}
           qty={qtyById[item.id] || 0}
+          qtyLabel={qtyLabelById[item.id]}
           onAdd={onAdd}
         />
       ))}
@@ -2236,6 +2250,7 @@ const MenuListItem = memo(function MenuListItem({
   subtitle,
   priceLabel,
   qty,
+  qtyLabel,
   onAdd
 }: MenuListItemProps) {
   return (
@@ -2253,7 +2268,7 @@ const MenuListItem = memo(function MenuListItem({
       >
         Add +
       </Button>
-      {qty > 0 ? <Badge className={styles.qtyBadge} tone="brand">x{qty}</Badge> : null}
+      {qty > 0 ? <Badge className={styles.qtyBadge} tone="brand">{qtyLabel || `x${qty}`}</Badge> : null}
     </div>
   );
 });

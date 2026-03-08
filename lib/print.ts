@@ -1,6 +1,7 @@
 import { createHash } from "crypto";
 import { pool } from "./db";
 import { localizeMenuText } from "./menu-text";
+import { formatItemQtyDisplay } from "./qty-display";
 
 export type PrintProvider = "cloud" | "agent" | "xpyun";
 type PrintTarget = "kitchen" | "bar";
@@ -444,41 +445,8 @@ function formatSignedCompactAmount(amount: number) {
   return rounded.toLocaleString("en-US");
 }
 
-const WEIGHT_BASED_SEAFOOD_NAMES = new Set([
-  "grouper",
-  "石斑鱼",
-  "hairtail",
-  "带鱼",
-  "parrot fish",
-  "青衣鱼",
-  "crab",
-  "金玉蟹",
-  "mantis",
-  "富贵虾"
-]);
-
-const PIECE_BASED_SEAFOOD_NAMES = new Set([
-  "tiger prawn",
-  "老虎虾"
-]);
-
-function normalizeDishKey(name: string) {
-  return String(name || "")
-    .trim()
-    .toLowerCase()
-    .replace(/\s+/g, " ");
-}
-
 function formatPrintQtyLabel(name: string, qtyRaw: number) {
-  const qty = Math.max(0, Number(qtyRaw) || 0);
-  const dishKey = normalizeDishKey(name);
-  if (WEIGHT_BASED_SEAFOOD_NAMES.has(dishKey)) {
-    return `${qty * 100}g`;
-  }
-  if (PIECE_BASED_SEAFOOD_NAMES.has(dishKey)) {
-    return `${qty} pcs`;
-  }
-  return String(qty);
+  return formatItemQtyDisplay(name, qtyRaw, "en");
 }
 
 function getReceiptLineWidth() {

@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { apiFetchJson } from "../../lib/client-api";
 import { useI18n } from "../components/i18n-provider";
+import { formatItemQtyDisplay } from "../../lib/qty-display";
 
 export default function SummaryPage() {
   const router = useRouter();
@@ -60,7 +61,7 @@ export default function SummaryPage() {
             {data.items.map((item: any) => (
               <div key={item.menu_item_id || item.menuItemId} className="row" style={{ justifyContent: "space-between" }}>
                 <div>{item.name}</div>
-                <div>{item.qty}</div>
+                <div>{formatItemQtyDisplay(item.name, item.qty, lang)}</div>
               </div>
             ))}
           </div>

@@ -7,6 +7,7 @@ import { apiFetchJson, getStoredAuth } from "../../../lib/client-api";
 import { useI18n } from "../../components/i18n-provider";
 import { type PresetKey, rangeByPreset, toDateInput } from "../../../lib/date-range";
 import { localizeMenuText } from "../../../lib/menu-text";
+import { formatItemQtyDisplay } from "../../../lib/qty-display";
 import { AppBar, Button } from "../../../components/ui";
 
 type HotItem = {
@@ -148,7 +149,7 @@ export default function ManageHotPage() {
             {items.map((item) => (
               <div key={`hot-${item.id}`} className="row" style={{ justifyContent: "space-between", flexWrap: "wrap", rowGap: 4 }}>
                 <div style={{ flex: "1 1 180px" }}>{localizeMenuText(item.name, lang)}</div>
-                <strong>{lang === "en" ? `${item.qty} sold` : `${item.qty} 份`}</strong>
+                <strong>{lang === "en" ? `${formatItemQtyDisplay(item.name, item.qty, lang)} sold` : `${formatItemQtyDisplay(item.name, item.qty, lang)} 已售`}</strong>
               </div>
             ))}
             {!loading && items.length === 0 ? <div className="manage-empty-note">{t("hot.empty", "暂无热销数据")}</div> : null}
