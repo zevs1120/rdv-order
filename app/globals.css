@@ -2,7 +2,7 @@
 @import "../styles/ui.css";
 
 :root {
-  --viewport-h: 100dvh;
+  --viewport-h: 100vh;
   --app-max: 640px;
   --shell-top-offset: calc(var(--topbar-h) + env(safe-area-inset-top));
   --shell-bottom-offset: calc(var(--bottombar-h) + env(safe-area-inset-bottom));
@@ -23,9 +23,9 @@
   --netbar: var(--topbar-h);
 }
 
-@supports not (height: 100dvh) {
+@supports (height: 100svh) {
   :root {
-    --viewport-h: 100vh;
+    --viewport-h: 100svh;
   }
 }
 
@@ -42,13 +42,6 @@ html[data-platform="android"] .ui-sheet {
   -webkit-backdrop-filter: none !important;
   backdrop-filter: none !important;
   border-color: color-mix(in srgb, var(--line-default) 92%, #fff);
-}
-
-html.rdv-scroll-active .topbar-shell,
-html.rdv-scroll-active .bottom-nav-shell,
-html.rdv-scroll-active .ui-appbar__row {
-  -webkit-backdrop-filter: none;
-  backdrop-filter: none;
 }
 
 * {
@@ -1156,7 +1149,7 @@ button:disabled {
 .order-main-panel {
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
-  height: clamp(340px, calc(100dvh - 300px), 760px);
+  height: clamp(340px, calc(var(--viewport-h) - 300px), 760px);
   min-height: 340px;
   overflow: hidden;
 }
@@ -1685,7 +1678,7 @@ a {
   }
 
   .order-main-panel {
-    height: clamp(320px, calc(100dvh - 286px), 700px);
+    height: clamp(320px, calc(var(--viewport-h) - 286px), 700px);
     min-height: 320px;
   }
 
@@ -1794,7 +1787,7 @@ a {
   }
 
   .order-main-panel {
-    height: clamp(300px, calc(100dvh - 276px), 640px);
+    height: clamp(300px, calc(var(--viewport-h) - 276px), 640px);
     min-height: 300px;
   }
 

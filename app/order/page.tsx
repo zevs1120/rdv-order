@@ -799,7 +799,6 @@ export default function OrderPage() {
     if (!shouldVirtualizeMenu) {
       setMenuScrollRow(0);
       setMenuViewportHeight(0);
-      document.documentElement.classList.remove("rdv-scroll-active");
       return;
     }
     const pane = menuPaneRef.current;
@@ -812,15 +811,6 @@ export default function OrderPage() {
     syncMetrics();
 
     const onScroll = () => {
-      document.documentElement.classList.add("rdv-scroll-active");
-      if (menuScrollClassTimerRef.current !== null) {
-        window.clearTimeout(menuScrollClassTimerRef.current);
-      }
-      menuScrollClassTimerRef.current = window.setTimeout(() => {
-        document.documentElement.classList.remove("rdv-scroll-active");
-        menuScrollClassTimerRef.current = null;
-      }, 160);
-
       if (menuScrollRafRef.current !== null) return;
       menuScrollRafRef.current = window.requestAnimationFrame(() => {
         menuScrollRafRef.current = null;
@@ -846,7 +836,6 @@ export default function OrderPage() {
         window.clearTimeout(menuScrollClassTimerRef.current);
         menuScrollClassTimerRef.current = null;
       }
-      document.documentElement.classList.remove("rdv-scroll-active");
     };
   }, [shouldVirtualizeMenu]);
 

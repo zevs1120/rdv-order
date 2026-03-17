@@ -1,11 +1,4 @@
-"use client";
-
-import dynamic from "next/dynamic";
-
-const ManageHotClientPage = dynamic(() => import("./page-client"), {
-  ssr: false,
-  loading: () => <div className="muted">Loading...</div>
-});
+import ManageHotClientPage from "./page-client";
 
 export default function ManageHotPage() {
   return <ManageHotClientPage />;

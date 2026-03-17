@@ -1,11 +1,4 @@
-"use client";
-
-import dynamic from "next/dynamic";
-
-const ManageFeesClientPage = dynamic(() => import("./page-client"), {
-  ssr: false,
-  loading: () => <div className="muted">Loading...</div>
-});
+import ManageFeesClientPage from "./page-client";
 
 export default function ManageFeesPage() {
   return <ManageFeesClientPage />;
