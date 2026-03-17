@@ -317,11 +317,34 @@ export default function TablesPage() {
       <AppBar
         className="tables-appbar"
         title={t("tables.title", "Select Table")}
+        left={<span className="tables-appbar__spacer" aria-hidden="true" />}
         right={
           <div className="row tables-toolbar">
-            <Button variant="secondary" onClick={loadTables} disabled={loadingTables || submitting}>
-              {t("common.refresh", "Refresh")}
-            </Button>
+            <IconButton
+              label={t("common.refresh", "Refresh")}
+              icon={(
+                <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+                  <path
+                    d="M20 12a8 8 0 1 1-2.34-5.66"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.8"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                  <path
+                    d="M20 4v6h-6"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.8"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+              )}
+              onClick={loadTables}
+              disabled={loadingTables || submitting}
+            />
             <Button
               variant="secondary"
               onClick={() => {

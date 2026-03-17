@@ -459,6 +459,20 @@ button:disabled {
   background: linear-gradient(180deg, rgba(248, 250, 252, 0.98) 0%, rgba(248, 250, 252, 0.92) 100%);
 }
 
+.tables-appbar .ui-appbar__row {
+  grid-template-columns: 44px minmax(0, 1fr) auto;
+}
+
+.tables-appbar .ui-appbar__title {
+  text-align: center;
+}
+
+.tables-appbar__spacer {
+  display: block;
+  width: 44px;
+  height: 44px;
+}
+
 .tables-toolbar {
   gap: 6px;
   flex-wrap: nowrap;
@@ -467,6 +481,7 @@ button:disabled {
   border-radius: 18px;
   background: color-mix(in srgb, #ffffff 84%, #f8fafc);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.72);
+  margin-left: auto;
 }
 
 .tables-toolbar .ui-btn {
@@ -474,6 +489,15 @@ button:disabled {
   padding-left: 10px;
   padding-right: 10px;
   font-size: 13px;
+}
+
+.tables-toolbar .ui-icon-btn {
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
+  border: 1px solid color-mix(in srgb, var(--glass-border) 92%, #fff);
+  background: color-mix(in srgb, #ffffff 90%, #f8fafc);
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.04);
 }
 
 .tables-filter-row {
