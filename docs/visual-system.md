@@ -66,3 +66,8 @@ Used from `/Users/qiao/Downloads/rdv-order/components/ui`.
   - left: `Back` only when the route is a subpage
   - center: route title
   - right: globe language toggle + network status dot
+- Tables / Order / Manage home all reuse the same visual hierarchy:
+  - glass app bar row
+  - soft-surface cards and sheets
+  - consistent secondary buttons for utility actions
+  - brand red reserved for the primary action

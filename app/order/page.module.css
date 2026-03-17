@@ -12,7 +12,7 @@
 .topFixed {
   min-width: 0;
   display: grid;
-  gap: 8px;
+  gap: 10px;
 }
 
 .appBar {
@@ -25,13 +25,14 @@
 }
 
 .appBar :global(.ui-appbar__row) {
-  border: 1px solid var(--glass-border);
-  border-radius: var(--radius-md);
-  background: var(--glass-surface);
+  border: 1px solid color-mix(in srgb, var(--glass-border) 88%, #fff);
+  border-radius: 18px;
+  background: color-mix(in srgb, var(--glass-surface) 84%, #ffffff);
   -webkit-backdrop-filter: saturate(var(--glass-sat)) blur(var(--glass-blur));
   backdrop-filter: saturate(var(--glass-sat)) blur(var(--glass-blur));
-  padding: 8px;
-  gap: 8px;
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.05);
+  padding: 10px 12px;
+  gap: 10px;
 }
 
 .appBar :global(.ui-appbar__title) {
@@ -39,7 +40,7 @@
 }
 
 .appBar :global(.ui-appbar__subline) {
-  margin-top: 8px;
+  margin-top: 10px;
 }
 
 .searchCompact {
@@ -98,9 +99,12 @@
 }
 
 .shiftPanel {
-  padding: 8px;
-  border-color: var(--line-default);
-  background: #fff;
+  padding: 10px;
+  border-color: color-mix(in srgb, var(--line-default) 92%, #fff);
+  background: color-mix(in srgb, #ffffff 84%, #f8fafc);
+  -webkit-backdrop-filter: saturate(var(--glass-sat)) blur(calc(var(--glass-blur) - 4px));
+  backdrop-filter: saturate(var(--glass-sat)) blur(calc(var(--glass-blur) - 4px));
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.04);
 }
 
 .shiftRow {
@@ -132,9 +136,10 @@
   width: var(--sidebar-width);
   max-width: var(--sidebar-width);
   padding: 4px;
-  border: 1px solid var(--line-default);
-  border-radius: var(--radius-md);
-  background: #fff;
+  border: 1px solid color-mix(in srgb, var(--line-default) 92%, #fff);
+  border-radius: 18px;
+  background: color-mix(in srgb, #ffffff 88%, #f8fafc);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.65);
   display: grid;
   gap: 4px;
   align-content: start;
@@ -145,11 +150,11 @@
   width: 100%;
   min-height: 38px;
   border: 1px solid transparent;
-  border-radius: 10px;
+  border-radius: 14px;
   background: transparent;
   color: var(--text-primary);
   text-align: left;
-  padding: 6px 7px;
+  padding: 7px 8px;
   font-size: 12px;
   line-height: 1.1;
   white-space: nowrap;
@@ -158,20 +163,22 @@
 }
 
 .categoryBtnActive {
-  border-color: var(--line-default);
-  border-left: 2px solid var(--brand-500);
+  border-color: color-mix(in srgb, var(--brand-500) 24%, #fff);
+  border-left: 3px solid var(--brand-500);
   color: var(--brand-500);
   font-weight: 650;
-  background: #fff;
+  background: color-mix(in srgb, var(--brand-500) 7%, #fff);
+  box-shadow: 0 6px 14px rgba(127, 15, 22, 0.06);
 }
 
 .menuPane {
   min-width: 0;
   min-height: 0;
-  border: 1px solid var(--line-default);
-  border-radius: var(--radius-md);
-  background: color-mix(in srgb, #ffffff 96%, #f8fafc);
+  border: 1px solid color-mix(in srgb, var(--line-default) 92%, #fff);
+  border-radius: 18px;
+  background: color-mix(in srgb, #ffffff 90%, #f8fafc);
   padding: 8px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.62);
   overflow-y: auto;
   overflow-x: hidden;
   -webkit-overflow-scrolling: touch;
@@ -197,10 +204,11 @@
     "price add";
   align-items: end;
   gap: 8px;
-  border: 1px solid var(--line-default);
-  border-radius: var(--radius-md);
-  background: #fff;
-  padding: 10px 12px;
+  border: 1px solid color-mix(in srgb, var(--line-default) 92%, #fff);
+  border-radius: 18px;
+  background: color-mix(in srgb, #ffffff 94%, #f8fafc);
+  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.04);
+  padding: 12px 13px;
   contain: layout paint;
 }
 
@@ -247,8 +255,9 @@
   white-space: nowrap;
   border-color: color-mix(in srgb, var(--brand-500) 30%, #fff) !important;
   color: var(--brand-500) !important;
-  background: color-mix(in srgb, var(--brand-500) 7%, #fff) !important;
+  background: color-mix(in srgb, var(--brand-500) 6%, #fff) !important;
   font-weight: 640;
+  box-shadow: none !important;
 }
 
 .qtyBadge {
@@ -262,7 +271,7 @@
   position: sticky;
   bottom: 0;
   z-index: var(--z-actionbar);
-  background: var(--bg-page);
+  background: linear-gradient(180deg, rgba(248, 250, 252, 0) 0%, rgba(248, 250, 252, 0.96) 18%, rgba(248, 250, 252, 1) 100%);
 }
 
 .cartDock {
@@ -270,10 +279,13 @@
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 8px;
   align-items: center;
-  padding: 8px;
-  border-color: var(--line-default);
-  background: #fff;
-  box-shadow: 0 -2px 8px rgba(15, 23, 42, 0.04);
+  padding: 10px;
+  border-color: color-mix(in srgb, var(--glass-border) 88%, #fff);
+  border-radius: 20px;
+  background: color-mix(in srgb, var(--glass-surface) 84%, #ffffff);
+  -webkit-backdrop-filter: saturate(var(--glass-sat)) blur(calc(var(--glass-blur) - 2px));
+  backdrop-filter: saturate(var(--glass-sat)) blur(calc(var(--glass-blur) - 2px));
+  box-shadow: 0 -4px 20px rgba(15, 23, 42, 0.06);
 }
 
 .cartSummaryBtn {
@@ -306,7 +318,7 @@
 
 .submitFeedbackSlot {
   min-height: 16px;
-  padding-top: 6px;
+  padding: 6px 2px 0;
 }
 
 .seafoodHint {

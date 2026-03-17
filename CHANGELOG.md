@@ -15,6 +15,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Global top bar now owns subpage back navigation and centered titles for manage/admin detail pages.
 - Language switching moved to a globe icon toggle in the global top bar.
 - Network status indicator simplified to a green/red status dot in the global top bar.
+- Tables / Order / Manage surfaces aligned to the same glassmorphism visual system with unified app bars, cards, search fields, action bars, and bottom navigation styling.
 
 ### Fixed
 - Removed duplicate in-page back modules from manage/admin subpages to keep navigation hierarchy consistent.

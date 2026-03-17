@@ -1,15 +1,15 @@
 .ui-btn {
   min-height: var(--tap-min);
-  border-radius: 14px;
+  border-radius: 16px;
   border: var(--border-1) solid transparent;
   padding: 0 var(--space-4);
   font-size: var(--font-body);
-  font-weight: 600;
+  font-weight: 650;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: var(--space-2);
-  transition: background-color 120ms ease, border-color 120ms ease, color 120ms ease, transform 80ms ease, opacity 100ms ease;
+  transition: background-color 120ms ease, border-color 120ms ease, color 120ms ease, transform 80ms ease, opacity 100ms ease, box-shadow 120ms ease;
 }
 
 .ui-btn--loading:not(:disabled) {
@@ -19,6 +19,7 @@
 .ui-btn:active:not(:disabled) {
   transform: scale(0.98);
   opacity: 0.92;
+  box-shadow: 0 1px 4px rgba(15, 23, 42, 0.08);
 }
 
 .ui-btn:disabled {
@@ -48,7 +49,7 @@
   background: var(--brand-500);
   border-color: color-mix(in srgb, var(--brand-500) 50%, #fff);
   color: #fff;
-  box-shadow: 0 3px 9px rgba(127, 15, 22, 0.14);
+  box-shadow: 0 6px 18px rgba(127, 15, 22, 0.16);
 }
 
 .ui-btn--primary:hover {
@@ -56,10 +57,10 @@
 }
 
 .ui-btn--secondary {
-  border-color: var(--glass-border);
-  background: color-mix(in srgb, #ffffff 90%, #f8fafc);
+  border-color: color-mix(in srgb, var(--glass-border) 92%, #fff);
+  background: color-mix(in srgb, #ffffff 84%, #f8fafc);
   color: var(--text-primary);
-  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.03);
+  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.04);
 }
 
 .ui-btn--ghost {
@@ -101,13 +102,14 @@
   grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
   gap: var(--space-2);
-  min-height: 52px;
-  border: var(--border-1) solid var(--glass-border);
-  border-radius: var(--radius-md);
-  background: var(--glass-surface);
+  min-height: 56px;
+  border: var(--border-1) solid color-mix(in srgb, var(--glass-border) 90%, #fff);
+  border-radius: 18px;
+  background: color-mix(in srgb, var(--glass-surface) 86%, #ffffff);
   -webkit-backdrop-filter: saturate(var(--glass-sat)) blur(var(--glass-blur));
   backdrop-filter: saturate(var(--glass-sat)) blur(var(--glass-blur));
-  padding: var(--space-2);
+  box-shadow: 0 8px 22px rgba(15, 23, 42, 0.05);
+  padding: 10px 12px;
 }
 
 .ui-appbar__left,
@@ -118,7 +120,7 @@
 .ui-appbar__title {
   min-width: 0;
   font-size: var(--font-section);
-  font-weight: 650;
+  font-weight: 700;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -126,7 +128,7 @@
 }
 
 .ui-appbar__subline {
-  margin-top: var(--space-2);
+  margin-top: 10px;
 }
 
 .ui-tabbar {
@@ -195,10 +197,10 @@
 .ui-badge--brand { color: var(--brand-500); background: #fff4f6; border-color: #f0ccd1; }
 
 .ui-card {
-  border: var(--border-1) solid var(--line-default);
-  border-radius: var(--radius-lg);
-  background: var(--bg-surface);
-  box-shadow: var(--shadow-1);
+  border: var(--border-1) solid color-mix(in srgb, var(--line-default) 92%, #fff);
+  border-radius: 18px;
+  background: color-mix(in srgb, var(--bg-surface) 92%, #f8fafc);
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.05);
 }
 
 .ui-card--padded {
@@ -257,11 +259,11 @@
   bottom: calc(var(--bottombar-h) + env(safe-area-inset-bottom) + var(--space-2));
   z-index: calc(var(--z-sheet) + 1);
   border: var(--border-1) solid var(--glass-border);
-  border-radius: var(--radius-lg);
+  border-radius: 22px;
   background: color-mix(in srgb, var(--glass-surface) 96%, #ffffff);
   -webkit-backdrop-filter: saturate(var(--glass-sat)) blur(calc(var(--glass-blur) + 2px));
   backdrop-filter: saturate(var(--glass-sat)) blur(calc(var(--glass-blur) + 2px));
-  box-shadow: var(--shadow-2);
+  box-shadow: 0 16px 40px rgba(15, 23, 42, 0.18);
   max-height: min(70dvh, 620px);
   display: flex;
   flex-direction: column;
@@ -274,7 +276,7 @@
   width: 40px;
   height: 4px;
   border-radius: 999px;
-  background: var(--gray-300);
+  background: color-mix(in srgb, var(--gray-300) 78%, #fff);
   margin: var(--space-2) auto;
 }
 
@@ -419,9 +421,10 @@
 
 .ui-search {
   min-height: var(--tap-min);
-  border: var(--border-1) solid var(--line-default);
-  border-radius: var(--radius-md);
-  background: #fff;
+  border: var(--border-1) solid color-mix(in srgb, var(--line-default) 92%, #fff);
+  border-radius: 16px;
+  background: color-mix(in srgb, #ffffff 88%, #f8fafc);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7);
   display: grid;
   grid-template-columns: 28px minmax(0, 1fr);
   align-items: center;
