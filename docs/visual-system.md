@@ -61,3 +61,8 @@ Used from `/Users/qiao/Downloads/rdv-order/components/ui`.
 - Tab bar rendered only once globally via AppShell.
 - Page-level bottom nav instances are disabled (no duplicate bars).
 - Content pages run inside shared shell with unified paddings/borders.
+- Manage/admin subpages use the shared top bar instead of rendering a second local app bar.
+- Top bar conventions:
+  - left: `Back` only when the route is a subpage
+  - center: route title
+  - right: globe language toggle + network status dot

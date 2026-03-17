@@ -12,6 +12,13 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 - Documentation system refactor and governance baseline (README/docs/contributing).
+- Global top bar now owns subpage back navigation and centered titles for manage/admin detail pages.
+- Language switching moved to a globe icon toggle in the global top bar.
+- Network status indicator simplified to a green/red status dot in the global top bar.
+
+### Fixed
+- Removed duplicate in-page back modules from manage/admin subpages to keep navigation hierarchy consistent.
+- Removed extra top-bar `More` button from the global shell.
 
 ## [2026-03-06]
 ### Added

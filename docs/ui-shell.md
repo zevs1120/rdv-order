@@ -23,6 +23,12 @@
 - Top bar:
   - fixed at viewport top
   - `height: var(--topbar-h) + env(safe-area-inset-top)`
+  - subpages use the global top bar for:
+    - back action on the left
+    - centered page title
+    - globe language toggle on the right
+    - online/offline status dot on the right
+  - the global top bar no longer shows a secondary `More` action
 - Tab bar:
   - fixed at viewport bottom
   - always rendered by AppShell only (page-level duplicates disabled)

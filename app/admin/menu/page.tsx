@@ -6,7 +6,7 @@ import { apiFetchJson, getStoredAuth } from "../../../lib/client-api";
 import { useI18n } from "../../components/i18n-provider";
 import BottomNav from "../../components/bottom-nav";
 import { localizeMenuText } from "../../../lib/menu-text";
-import { AppBar, BottomSheet, Button, EmptyState, Toast } from "../../../components/ui";
+import { BottomSheet, Button, EmptyState, Toast } from "../../../components/ui";
 import styles from "./page.module.css";
 
 type MenuGroup = "breakfast" | "lunch_dinner" | "cocktail" | "set_menu";
@@ -488,21 +488,13 @@ export default function MenuAdminPage() {
 
   return (
     <div className="stack manage-subpage-screen">
-      <AppBar
-        title={t("admin.title", "菜单管理")}
-        left={(
-          <Button variant="secondary" onClick={() => router.push("/manage")}>
-            Back
-          </Button>
-        )}
-        right={(
+      <div className="manage-subpage-scroll stack">
+        <div className="row" style={{ justifyContent: "flex-end" }}>
           <Button variant="secondary" onClick={() => { void loadMajorCategories(); void loadSubcategories(); void loadItems(); }}>
             {t("common.refresh", "刷新")}
           </Button>
-        )}
-      />
+        </div>
 
-      <div className="manage-subpage-scroll stack">
         <div className="panel stack">
         <div className="row" style={{ justifyContent: "space-between" }}>
           <h3 style={{ margin: 0 }}>{t("admin.newItem", "新增菜品")}</h3>

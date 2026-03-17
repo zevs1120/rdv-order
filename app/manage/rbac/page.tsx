@@ -6,7 +6,7 @@ import BottomNav from "../../components/bottom-nav";
 import { apiFetchJson, getStoredAuth } from "../../../lib/client-api";
 import { useI18n } from "../../components/i18n-provider";
 import { useActionGuard } from "../../../lib/use-action-guard";
-import { AppBar, Button } from "../../../components/ui";
+import { Button } from "../../../components/ui";
 
 type PermissionRow = {
   role: "waiter" | "manager";
@@ -165,21 +165,13 @@ export default function ManageRbacPage() {
 
   return (
     <div className="stack manage-subpage-screen">
-      <AppBar
-        title={t("rbac.title", "权限设置")}
-        left={(
-          <Button variant="secondary" onClick={() => router.push("/manage")}>
-            Back
-          </Button>
-        )}
-        right={(
+      <div className="manage-subpage-scroll stack">
+        <div className="row" style={{ justifyContent: "flex-end" }}>
           <Button variant="secondary" onClick={() => { void loadRows(); }}>
             {t("common.refresh", "刷新")}
           </Button>
-        )}
-      />
+        </div>
 
-      <div className="manage-subpage-scroll stack">
         <div className="panel stack">
           <div className="row" style={{ justifyContent: "space-between" }}>
             <h3 style={{ margin: 0 }}>{t("rbac.section", "权限说明")}</h3>

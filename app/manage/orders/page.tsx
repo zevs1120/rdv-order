@@ -9,7 +9,7 @@ import { localizeMenuText } from "../../../lib/menu-text";
 import { formatItemQtyDisplay } from "../../../lib/qty-display";
 import { useActionGuard } from "../../../lib/use-action-guard";
 import { type PresetKey, rangeByPreset, toDateInput } from "../../../lib/date-range";
-import { AppBar, Button } from "../../../components/ui";
+import { Button } from "../../../components/ui";
 
 type OrderItemDetail = {
   menu_item_id: string;
@@ -315,21 +315,13 @@ export default function ManageOrdersPage() {
 
   return (
     <div className="stack manage-subpage-screen">
-      <AppBar
-        title={t("orders.title", "订单")}
-        left={(
-          <Button variant="secondary" onClick={() => router.push("/manage")}>
-            Back
-          </Button>
-        )}
-        right={(
+      <div className="manage-subpage-scroll stack">
+        <div className="row" style={{ justifyContent: "flex-end" }}>
           <Button variant="secondary" onClick={() => { void reloadWithCurrentRange(); }}>
             {t("common.refresh", "刷新")}
           </Button>
-        )}
-      />
+        </div>
 
-      <div className="manage-subpage-scroll stack">
         <div className="panel stack manage-panel">
           <div className="row" style={{ justifyContent: "space-between" }}>
             <h3 style={{ margin: 0 }}>{t("orders.section", "订单")}</h3>

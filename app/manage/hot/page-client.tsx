@@ -8,7 +8,7 @@ import { useI18n } from "../../components/i18n-provider";
 import { type PresetKey, rangeByPreset, toDateInput } from "../../../lib/date-range";
 import { localizeMenuText } from "../../../lib/menu-text";
 import { formatItemQtyDisplay } from "../../../lib/qty-display";
-import { AppBar, Button } from "../../../components/ui";
+import { Button } from "../../../components/ui";
 
 type HotItem = {
   id: string;
@@ -100,15 +100,6 @@ export default function ManageHotPage() {
 
   return (
     <div className="stack manage-subpage-screen">
-      <AppBar
-        title={t("hot.title", "热销菜")}
-        left={(
-          <Button variant="secondary" onClick={() => router.push("/manage")}>
-            Back
-          </Button>
-        )}
-      />
-
       <div className="manage-subpage-scroll stack">
         <div className="card stack manage-panel">
           <div className="row" style={{ flexWrap: "wrap" }}>

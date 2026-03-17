@@ -6,7 +6,7 @@ import BottomNav from "../../components/bottom-nav";
 import { apiFetchJson, getStoredAuth } from "../../../lib/client-api";
 import { useI18n } from "../../components/i18n-provider";
 import { type PresetKey, rangeByPreset, toDateInput } from "../../../lib/date-range";
-import { AppBar, BottomSheet, Button, Toast } from "../../../components/ui";
+import { BottomSheet, Button, Toast } from "../../../components/ui";
 
 type IncomeDay = {
   day: string;
@@ -239,15 +239,6 @@ export default function ManageIncomePage() {
 
   return (
     <div className="stack manage-subpage-screen">
-      <AppBar
-        title={t("income.section", "收入")}
-        left={(
-          <Button variant="secondary" onClick={() => router.push("/manage")}>
-            Back
-          </Button>
-        )}
-      />
-
       <div className="manage-subpage-scroll stack">
         <div className="card stack manage-panel">
           <div className="row income-export-header">

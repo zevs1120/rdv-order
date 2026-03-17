@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import BottomNav from "../../components/bottom-nav";
 import { apiFetchJson, getStoredAuth } from "../../../lib/client-api";
 import { useI18n } from "../../components/i18n-provider";
-import { AppBar, Button } from "../../../components/ui";
+import { Button } from "../../../components/ui";
 
 type Device = {
   id: string;
@@ -157,26 +157,15 @@ export default function ManageDevicesPage() {
 
   return (
     <div className="stack manage-subpage-screen">
-      <AppBar
-        title={t("devices.title", "设备状态")}
-        left={(
-          <Button variant="secondary" onClick={() => router.push("/manage")}>
-            Back
-          </Button>
-        )}
-        right={(
-          <div className="row devices-actions">
-            <Button variant="secondary" onClick={() => { void loadData(); }}>
-              {t("common.refresh", "刷新")}
-            </Button>
-            <Button onClick={() => { void retryPrintJobs(); }}>
-              {t("devices.retryPrint", "重试打印")}
-            </Button>
-          </div>
-        )}
-      />
-
       <div className="manage-subpage-scroll stack">
+        <div className="row devices-actions" style={{ justifyContent: "flex-end" }}>
+          <Button variant="secondary" onClick={() => { void loadData(); }}>
+            {t("common.refresh", "刷新")}
+          </Button>
+          <Button onClick={() => { void retryPrintJobs(); }}>
+            {t("devices.retryPrint", "重试打印")}
+          </Button>
+        </div>
         <div className="panel stack">
           <div className="row" style={{ justifyContent: "space-between" }}>
             <strong>{t("devices.deployReadiness", "打印部署就绪")}</strong>

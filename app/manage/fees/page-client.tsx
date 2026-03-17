@@ -6,7 +6,7 @@ import BottomNav from "../../components/bottom-nav";
 import { apiFetchJson, getStoredAuth } from "../../../lib/client-api";
 import { useI18n } from "../../components/i18n-provider";
 import { useActionGuard } from "../../../lib/use-action-guard";
-import { AppBar, Button } from "../../../components/ui";
+import { Button } from "../../../components/ui";
 
 type ChargeType = "discount" | "service_fee" | "tax";
 type ChargeMode = "amount" | "percent";
@@ -176,21 +176,12 @@ export default function ManageFeesPage() {
 
   return (
     <div className="stack manage-subpage-screen">
-      <AppBar
-        title={t("fees.title", "费用规则")}
-        left={(
-          <Button variant="secondary" onClick={() => router.push("/manage")}>
-            Back
-          </Button>
-        )}
-        right={(
+      <div className="manage-subpage-scroll stack">
+        <div className="row" style={{ justifyContent: "flex-end" }}>
           <Button variant="secondary" onClick={() => { void loadRules(); }}>
             {t("common.refresh", "刷新")}
           </Button>
-        )}
-      />
-
-      <div className="manage-subpage-scroll stack">
+        </div>
         <div className="panel stack manage-panel">
           <div className="row" style={{ justifyContent: "space-between" }}>
             <h3 style={{ margin: 0 }}>{t("fees.section", "费用设置")}</h3>
