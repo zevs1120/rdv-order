@@ -7,6 +7,7 @@ import { apiFetchJson, getStoredAuth } from "../../../lib/client-api";
 import { useI18n } from "../../components/i18n-provider";
 import { useActionGuard } from "../../../lib/use-action-guard";
 import { Button } from "../../../components/ui";
+import { RDV_TOPBAR_ACTION_EVENT, type TopbarActionDetail } from "../../../lib/topbar-events";
 
 type ChargeType = "discount" | "service_fee" | "tax";
 type ChargeMode = "amount" | "percent";
@@ -72,6 +73,17 @@ export default function ManageFeesPage() {
 
   useEffect(() => {
     void loadRules();
+  }, []);
+
+  useEffect(() => {
+    function onTopbarAction(event: Event) {
+      const custom = event as CustomEvent<TopbarActionDetail>;
+      if (custom.detail?.action === "fees-refresh") {
+        void loadRules();
+      }
+    }
+    window.addEventListener(RDV_TOPBAR_ACTION_EVENT, onTopbarAction as EventListener);
+    return () => window.removeEventListener(RDV_TOPBAR_ACTION_EVENT, onTopbarAction as EventListener);
   }, []);
 
   function updateRule(index: number, patch: Partial<FeeRule>) {
@@ -177,11 +189,6 @@ export default function ManageFeesPage() {
   return (
     <div className="stack manage-subpage-screen">
       <div className="manage-subpage-scroll stack">
-        <div className="row" style={{ justifyContent: "flex-end" }}>
-          <Button variant="secondary" onClick={() => { void loadRules(); }}>
-            {t("common.refresh", "刷新")}
-          </Button>
-        </div>
         <div className="panel stack manage-panel">
           <div className="row" style={{ justifyContent: "space-between" }}>
             <h3 style={{ margin: 0 }}>{t("fees.section", "费用设置")}</h3>

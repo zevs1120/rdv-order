@@ -7,6 +7,7 @@ import { useI18n } from "../../components/i18n-provider";
 import BottomNav from "../../components/bottom-nav";
 import { localizeMenuText } from "../../../lib/menu-text";
 import { BottomSheet, Button, EmptyState, Toast } from "../../../components/ui";
+import { RDV_TOPBAR_ACTION_EVENT, type TopbarActionDetail } from "../../../lib/topbar-events";
 import styles from "./page.module.css";
 
 type MenuGroup = "breakfast" | "lunch_dinner" | "cocktail" | "set_menu";
@@ -468,6 +469,19 @@ export default function MenuAdminPage() {
     void loadSubcategories();
   }, [router]);
 
+  useEffect(() => {
+    function onTopbarAction(event: Event) {
+      const custom = event as CustomEvent<TopbarActionDetail>;
+      if (custom.detail?.action === "menu-refresh") {
+        void loadMajorCategories();
+        void loadSubcategories();
+        void loadItems();
+      }
+    }
+    window.addEventListener(RDV_TOPBAR_ACTION_EVENT, onTopbarAction as EventListener);
+    return () => window.removeEventListener(RDV_TOPBAR_ACTION_EVENT, onTopbarAction as EventListener);
+  }, []);
+
   const filteredItems = useMemo(() => {
     const key = query.trim().toLowerCase();
     if (!key) return items;
@@ -489,12 +503,6 @@ export default function MenuAdminPage() {
   return (
     <div className="stack manage-subpage-screen">
       <div className="manage-subpage-scroll stack">
-        <div className="row" style={{ justifyContent: "flex-end" }}>
-          <Button variant="secondary" onClick={() => { void loadMajorCategories(); void loadSubcategories(); void loadItems(); }}>
-            {t("common.refresh", "刷新")}
-          </Button>
-        </div>
-
         <div className="panel stack">
         <div className="row" style={{ justifyContent: "space-between" }}>
           <h3 style={{ margin: 0 }}>{t("admin.newItem", "新增菜品")}</h3>

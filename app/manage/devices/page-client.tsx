@@ -6,6 +6,7 @@ import BottomNav from "../../components/bottom-nav";
 import { apiFetchJson, getStoredAuth } from "../../../lib/client-api";
 import { useI18n } from "../../components/i18n-provider";
 import { Button } from "../../../components/ui";
+import { RDV_TOPBAR_ACTION_EVENT, type TopbarActionDetail } from "../../../lib/topbar-events";
 
 type Device = {
   id: string;
@@ -155,13 +156,21 @@ export default function ManageDevicesPage() {
     void loadData();
   }, []);
 
+  useEffect(() => {
+    function onTopbarAction(event: Event) {
+      const custom = event as CustomEvent<TopbarActionDetail>;
+      if (custom.detail?.action === "devices-refresh") {
+        void loadData();
+      }
+    }
+    window.addEventListener(RDV_TOPBAR_ACTION_EVENT, onTopbarAction as EventListener);
+    return () => window.removeEventListener(RDV_TOPBAR_ACTION_EVENT, onTopbarAction as EventListener);
+  }, []);
+
   return (
     <div className="stack manage-subpage-screen">
       <div className="manage-subpage-scroll stack">
         <div className="row devices-actions" style={{ justifyContent: "flex-end" }}>
-          <Button variant="secondary" onClick={() => { void loadData(); }}>
-            {t("common.refresh", "刷新")}
-          </Button>
           <Button onClick={() => { void retryPrintJobs(); }}>
             {t("devices.retryPrint", "重试打印")}
           </Button>

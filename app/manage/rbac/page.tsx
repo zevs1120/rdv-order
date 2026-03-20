@@ -6,7 +6,7 @@ import BottomNav from "../../components/bottom-nav";
 import { apiFetchJson, getStoredAuth } from "../../../lib/client-api";
 import { useI18n } from "../../components/i18n-provider";
 import { useActionGuard } from "../../../lib/use-action-guard";
-import { Button } from "../../../components/ui";
+import { RDV_TOPBAR_ACTION_EVENT, type TopbarActionDetail } from "../../../lib/topbar-events";
 
 type PermissionRow = {
   role: "waiter" | "manager";
@@ -119,6 +119,17 @@ export default function ManageRbacPage() {
     void loadRows();
   }, []);
 
+  useEffect(() => {
+    function onTopbarAction(event: Event) {
+      const custom = event as CustomEvent<TopbarActionDetail>;
+      if (custom.detail?.action === "rbac-refresh") {
+        void loadRows();
+      }
+    }
+    window.addEventListener(RDV_TOPBAR_ACTION_EVENT, onTopbarAction as EventListener);
+    return () => window.removeEventListener(RDV_TOPBAR_ACTION_EVENT, onTopbarAction as EventListener);
+  }, []);
+
   function roleLabel(role: "waiter" | "manager") {
     if (role === "waiter") {
       return lang === "en" ? "Waiter" : "服务员";
@@ -166,12 +177,6 @@ export default function ManageRbacPage() {
   return (
     <div className="stack manage-subpage-screen">
       <div className="manage-subpage-scroll stack">
-        <div className="row" style={{ justifyContent: "flex-end" }}>
-          <Button variant="secondary" onClick={() => { void loadRows(); }}>
-            {t("common.refresh", "刷新")}
-          </Button>
-        </div>
-
         <div className="panel stack">
           <div className="row" style={{ justifyContent: "space-between" }}>
             <h3 style={{ margin: 0 }}>{t("rbac.section", "权限说明")}</h3>

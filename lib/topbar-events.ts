@@ -8,7 +8,15 @@ export type TopbarStateDetail = {
 };
 
 export type TopbarActionDetail = {
-  action: "tables-refresh" | "tables-toggle-select" | "order-open-actions";
+  action:
+    | "tables-refresh"
+    | "tables-toggle-select"
+    | "order-open-actions"
+    | "orders-refresh"
+    | "fees-refresh"
+    | "devices-refresh"
+    | "rbac-refresh"
+    | "menu-refresh";
 };
 
 export function dispatchTopbarState(detail: TopbarStateDetail) {

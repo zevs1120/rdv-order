@@ -10,6 +10,7 @@ import { formatItemQtyDisplay } from "../../../lib/qty-display";
 import { useActionGuard } from "../../../lib/use-action-guard";
 import { type PresetKey, rangeByPreset, toDateInput } from "../../../lib/date-range";
 import { Button } from "../../../components/ui";
+import { RDV_TOPBAR_ACTION_EVENT, type TopbarActionDetail } from "../../../lib/topbar-events";
 
 type OrderItemDetail = {
   menu_item_id: string;
@@ -287,6 +288,17 @@ export default function ManageOrdersPage() {
   }, []);
 
   useEffect(() => {
+    function onTopbarAction(event: Event) {
+      const custom = event as CustomEvent<TopbarActionDetail>;
+      if (custom.detail?.action === "orders-refresh") {
+        void reloadWithCurrentRange();
+      }
+    }
+    window.addEventListener(RDV_TOPBAR_ACTION_EVENT, onTopbarAction as EventListener);
+    return () => window.removeEventListener(RDV_TOPBAR_ACTION_EVENT, onTopbarAction as EventListener);
+  }, [fromDate, toDate, tableFilter]);
+
+  useEffect(() => {
     if (orders.length <= ORDER_PROGRESSIVE_THRESHOLD) {
       setRenderLimit(orders.length);
       return;
@@ -316,12 +328,6 @@ export default function ManageOrdersPage() {
   return (
     <div className="stack manage-subpage-screen">
       <div className="manage-subpage-scroll stack">
-        <div className="row" style={{ justifyContent: "flex-end" }}>
-          <Button variant="secondary" onClick={() => { void reloadWithCurrentRange(); }}>
-            {t("common.refresh", "刷新")}
-          </Button>
-        </div>
-
         <div className="panel stack manage-panel">
           <div className="row" style={{ justifyContent: "space-between" }}>
             <h3 style={{ margin: 0 }}>{t("orders.section", "订单")}</h3>
