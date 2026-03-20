@@ -19,6 +19,16 @@ export type TopbarActionDetail = {
     | "menu-refresh";
 };
 
+export function resolveRefreshAction(pathname: string): TopbarActionDetail["action"] | null {
+  if (pathname === "/tables") return "tables-refresh";
+  if (pathname === "/manage/orders") return "orders-refresh";
+  if (pathname === "/manage/fees") return "fees-refresh";
+  if (pathname === "/manage/devices") return "devices-refresh";
+  if (pathname === "/manage/rbac") return "rbac-refresh";
+  if (pathname.startsWith("/admin/menu")) return "menu-refresh";
+  return null;
+}
+
 export function dispatchTopbarState(detail: TopbarStateDetail) {
   if (typeof window === "undefined") return;
   window.dispatchEvent(new CustomEvent<TopbarStateDetail>(RDV_TOPBAR_STATE_EVENT, { detail }));

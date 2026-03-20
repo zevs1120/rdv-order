@@ -177,14 +177,6 @@ export default function TopBar() {
     : t("network.offline", "Offline");
   const isTables = pathname === "/tables";
   const isOrder = pathname === "/order";
-  const refreshActionByPath: Record<string, TopbarActionDetail["action"]> = {
-    "/manage/orders": "orders-refresh",
-    "/manage/fees": "fees-refresh",
-    "/manage/devices": "devices-refresh",
-    "/manage/rbac": "rbac-refresh",
-    "/admin/menu": "menu-refresh"
-  };
-  const refreshAction = refreshActionByPath[pathname] || null;
   const tablesSelectMode = isTables && routeState?.route === "tables" ? Boolean(routeState.selectMode) : false;
   const tablesSelectDisabled = isTables && routeState?.route === "tables" ? Boolean(routeState.disableMultiSelect) : false;
 
@@ -216,32 +208,6 @@ export default function TopBar() {
             <>
               <button
                 type="button"
-                className="topbar-btn topbar-btn--icon"
-                onClick={() => dispatchTopbarAction({ action: "tables-refresh" })}
-                aria-label={t("common.refresh", "Refresh")}
-                title={t("common.refresh", "Refresh")}
-              >
-                <svg viewBox="0 0 24 24" className="topbar-icon" aria-hidden="true">
-                  <path
-                    d="M20 12a8 8 0 1 1-2.34-5.66"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="1.8"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                  <path
-                    d="M20 4v6h-6"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="1.8"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                </svg>
-              </button>
-              <button
-                type="button"
                 className={`topbar-btn topbar-btn--icon ${tablesSelectMode ? "topbar-btn--active" : ""}`}
                 onClick={() => dispatchTopbarAction({ action: "tables-toggle-select" })}
                 disabled={tablesSelectDisabled}
@@ -269,35 +235,6 @@ export default function TopBar() {
                 )}
               </button>
             </>
-          ) : null}
-
-          {refreshAction ? (
-            <button
-              type="button"
-              className="topbar-btn topbar-btn--icon"
-              onClick={() => dispatchTopbarAction({ action: refreshAction })}
-              aria-label={t("common.refresh", "Refresh")}
-              title={t("common.refresh", "Refresh")}
-            >
-              <svg viewBox="0 0 24 24" className="topbar-icon" aria-hidden="true">
-                <path
-                  d="M20 12a8 8 0 1 1-2.34-5.66"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.8"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-                <path
-                  d="M20 4v6h-6"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.8"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </svg>
-            </button>
           ) : null}
 
           {isOrder ? (
