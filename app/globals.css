@@ -1456,9 +1456,10 @@ button:disabled {
   margin: 0 auto;
   height: var(--topbar-h);
   margin-top: env(safe-area-inset-top);
-  display: grid;
-  grid-template-columns: 88px minmax(0, 1fr) 88px;
+  position: relative;
+  display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: var(--space-2);
   padding: 0 max(var(--space-3), env(safe-area-inset-right)) 0 max(var(--space-3), env(safe-area-inset-left));
 }
@@ -1467,6 +1468,9 @@ button:disabled {
   display: flex;
   align-items: center;
   min-width: 0;
+  gap: 8px;
+  position: relative;
+  z-index: 1;
 }
 
 .topbar-side--left {
@@ -1485,7 +1489,10 @@ button:disabled {
 }
 
 .topbar-title {
-  min-width: 0;
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(260px, calc(100% - 200px));
   text-align: center;
   font-size: 16px;
   font-weight: 700;
@@ -1493,6 +1500,7 @@ button:disabled {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  pointer-events: none;
 }
 
 .topbar-btn {
@@ -1521,6 +1529,10 @@ button:disabled {
   min-width: 44px;
   width: 44px;
   padding: 0;
+}
+
+.topbar-btn--compact {
+  padding: 0 10px;
 }
 
 .topbar-icon {

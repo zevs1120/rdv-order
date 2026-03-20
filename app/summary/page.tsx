@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { apiFetchJson } from "../../lib/client-api";
 import { useI18n } from "../components/i18n-provider";
 import { formatItemQtyDisplay } from "../../lib/qty-display";
+import { Button, Card } from "../../components/ui";
 
 export default function SummaryPage() {
   const router = useRouter();
@@ -31,15 +32,18 @@ export default function SummaryPage() {
   }
 
   return (
-    <div className="stack">
-      <header>
-        <h1>{t("manage.income", "Revenue")}</h1>
-        <div className="row">
-          <button type="button" className="secondary" onClick={() => { router.push("/admin/menu"); }}>{t("manage.menu", "菜单后台")}</button>
-          <button type="button" className="secondary" onClick={() => { localStorage.clear(); router.replace("/"); }}>{t("common.logout", "退出")}</button>
+    <div className="stack manage-subpage-screen">
+      <div className="manage-subpage-scroll stack">
+        <div className="row" style={{ justifyContent: "flex-end" }}>
+          <Button variant="secondary" onClick={() => { router.push("/admin/menu"); }}>
+            {t("manage.menu", "菜单后台")}
+          </Button>
+          <Button variant="secondary" onClick={() => { localStorage.clear(); router.replace("/"); }}>
+            {t("common.logout", "退出")}
+          </Button>
         </div>
-      </header>
-      <div className="card stack">
+
+      <Card className="stack">
         <label className="stack">
           Start (ISO)
           <input value={from} onChange={(e) => setFrom(e.target.value)} placeholder="2026-02-15T00:00:00+08:00" />
@@ -48,11 +52,11 @@ export default function SummaryPage() {
           End (ISO)
           <input value={to} onChange={(e) => setTo(e.target.value)} placeholder="2026-02-15T23:59:59+08:00" />
         </label>
-        <button type="button" onClick={loadSummary}>{t("common.search", "Search")}</button>
-      </div>
+        <Button type="button" onClick={loadSummary}>{t("common.search", "Search")}</Button>
+      </Card>
       {error && <div className="muted">{error}</div>}
       {data && (
-        <div className="card stack">
+        <Card className="stack">
           <div className="row">
             <div className="tag">{lang === "en" ? `Orders: ${data.orderCount}` : `订单数: ${data.orderCount}`}</div>
             <div className="tag">{lang === "en" ? `Total: ₱${data.totalAmount}` : `总金额: ₱${data.totalAmount}`}</div>
@@ -65,8 +69,9 @@ export default function SummaryPage() {
               </div>
             ))}
           </div>
-        </div>
+        </Card>
       )}
+      </div>
     </div>
   );
 }

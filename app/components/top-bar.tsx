@@ -1,9 +1,14 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useI18n } from "./i18n-provider";
 import { createDebounced } from "../../lib/scheduler";
+import {
+  dispatchTopbarAction,
+  RDV_TOPBAR_STATE_EVENT,
+  type TopbarStateDetail
+} from "../../lib/topbar-events";
 
 type NetState = "online" | "weak" | "offline";
 
@@ -33,7 +38,43 @@ type BarMeta = {
   backHref: string | null;
 };
 
-function resolveBarMeta(pathname: string, lang: "zh" | "en"): BarMeta {
+function resolveBarMeta(pathname: string, lang: "zh" | "en", searchParams: URLSearchParams | null): BarMeta {
+  if (pathname === "/tables") {
+    return {
+      title: lang === "en" ? "Select Table" : "请选择桌号",
+      backHref: null
+    };
+  }
+
+  if (pathname === "/order") {
+    const tableNo = searchParams?.get("tableNo") || "";
+    const guests = searchParams?.get("guests") || "";
+    const tableLabel = tableNo
+      ? (lang === "en" ? `Table ${tableNo}` : `桌号 ${tableNo}`)
+      : (lang === "en" ? "New Order" : "新订单");
+    const guestLabel = guests
+      ? (lang === "en" ? `${guests} Guests` : `${guests} 人`)
+      : "";
+    return {
+      title: guestLabel ? `${tableLabel} · ${guestLabel}` : tableLabel,
+      backHref: "/tables"
+    };
+  }
+
+  if (pathname === "/manage") {
+    return {
+      title: lang === "en" ? "Manage" : "管理",
+      backHref: null
+    };
+  }
+
+  if (pathname === "/summary") {
+    return {
+      title: lang === "en" ? "Summary" : "汇总",
+      backHref: "/manage"
+    };
+  }
+
   const map: Array<{ match: (value: string) => boolean; title: string; titleEn: string; backHref: string | null }> = [
     { match: (value) => value === "/manage/orders", title: "订单", titleEn: "Orders", backHref: "/manage" },
     { match: (value) => value === "/manage/income", title: "收入", titleEn: "Revenue", backHref: "/manage" },
@@ -61,9 +102,11 @@ function resolveBarMeta(pathname: string, lang: "zh" | "en"): BarMeta {
 export default function TopBar() {
   const router = useRouter();
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const { lang, setLang, t } = useI18n();
   const [online, setOnline] = useState(true);
   const [weak, setWeak] = useState(false);
+  const [routeState, setRouteState] = useState<TopbarStateDetail | null>(null);
 
   useEffect(() => {
     const applyOnlineSnapshot = () => {
@@ -104,17 +147,37 @@ export default function TopBar() {
     };
   }, []);
 
+  useEffect(() => {
+    setRouteState(null);
+  }, [pathname]);
+
+  useEffect(() => {
+    function onState(event: Event) {
+      const custom = event as CustomEvent<TopbarStateDetail>;
+      setRouteState(custom.detail || null);
+    }
+    window.addEventListener(RDV_TOPBAR_STATE_EVENT, onState as EventListener);
+    return () => window.removeEventListener(RDV_TOPBAR_STATE_EVENT, onState as EventListener);
+  }, []);
+
   const netState = useMemo<NetState>(() => {
     if (!online) return "offline";
     if (weak) return "weak";
     return "online";
   }, [online, weak]);
 
-  const barMeta = useMemo(() => resolveBarMeta(pathname, lang), [lang, pathname]);
+  const barMeta = useMemo(
+    () => resolveBarMeta(pathname, lang, searchParams),
+    [lang, pathname, searchParams]
+  );
   const dotState = netState === "online" ? "online" : "offline";
   const netText = dotState === "online"
     ? t("network.online", "Online")
     : t("network.offline", "Offline");
+  const isTables = pathname === "/tables";
+  const isOrder = pathname === "/order";
+  const tablesSelectMode = isTables && routeState?.route === "tables" ? Boolean(routeState.selectMode) : false;
+  const tablesSelectDisabled = isTables && routeState?.route === "tables" ? Boolean(routeState.disableMultiSelect) : false;
 
   return (
     <div className="topbar-shell">
@@ -140,6 +203,57 @@ export default function TopBar() {
         </div>
 
         <div className="topbar-side topbar-side--right">
+          {isTables ? (
+            <>
+              <button
+                type="button"
+                className="topbar-btn topbar-btn--icon"
+                onClick={() => dispatchTopbarAction({ action: "tables-refresh" })}
+                aria-label={t("common.refresh", "Refresh")}
+                title={t("common.refresh", "Refresh")}
+              >
+                <svg viewBox="0 0 24 24" className="topbar-icon" aria-hidden="true">
+                  <path
+                    d="M20 12a8 8 0 1 1-2.34-5.66"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.8"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                  <path
+                    d="M20 4v6h-6"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.8"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+              </button>
+              <button
+                type="button"
+                className="topbar-btn topbar-btn--compact"
+                onClick={() => dispatchTopbarAction({ action: "tables-toggle-select" })}
+                disabled={tablesSelectDisabled}
+              >
+                {tablesSelectMode
+                  ? (lang === "en" ? "Done" : "完成")
+                  : (lang === "en" ? "Multi-select" : "拼桌选择")}
+              </button>
+            </>
+          ) : null}
+
+          {isOrder ? (
+            <button
+              type="button"
+              className="topbar-btn topbar-btn--compact"
+              onClick={() => dispatchTopbarAction({ action: "order-open-actions" })}
+            >
+              {lang === "en" ? "Actions" : "操作"}
+            </button>
+          ) : null}
+
           <button
             type="button"
             className="topbar-btn topbar-btn--icon"

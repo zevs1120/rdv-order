@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import BottomNav from "../components/bottom-nav";
 import { getStoredAuth } from "../../lib/client-api";
 import { useI18n } from "../components/i18n-provider";
-import { AppBar, Button, Card } from "../../components/ui";
+import { Button, Card } from "../../components/ui";
 
 type Entry = {
   href: string;
@@ -48,8 +48,6 @@ export default function ManageIndexPage() {
 
   return (
     <div className="stack manage-home-screen">
-      <AppBar title={lang === "en" ? "Manage" : "管理"} />
-
       <div className="manage-home-scroll stack">
         <Card className="more-grid-card">
           <div className="more-grid">
@@ -69,8 +67,6 @@ export default function ManageIndexPage() {
           {lang === "en" ? "Tap one module to enter detailed management page." : "点击模块进入对应的详细管理子页面。"}
         </div>
       </div>
-
-      <BottomNav />
     </div>
   );
 }

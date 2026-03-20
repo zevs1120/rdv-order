@@ -7,7 +7,8 @@ import { apiFetchJson, getStoredAuth } from "../../lib/client-api";
 import { useI18n } from "../components/i18n-provider";
 import { useActionGuard } from "../../lib/use-action-guard";
 import { captureReactProfile } from "../../lib/react-profiler";
-import { AppBar, BottomSheet, Button, Card, EmptyState, IconButton, Skeleton } from "../../components/ui";
+import { BottomSheet, Button, Card, EmptyState, IconButton, Skeleton } from "../../components/ui";
+import { dispatchTopbarState, RDV_TOPBAR_ACTION_EVENT, type TopbarActionDetail } from "../../lib/topbar-events";
 
 type TableItem = {
   tableNo: string;
@@ -89,6 +90,30 @@ export default function TablesPage() {
   useEffect(() => {
     setTableRenderLimit(TABLE_PROGRESSIVE_THRESHOLD);
   }, [tables.length]);
+
+  useEffect(() => {
+    dispatchTopbarState({
+      route: "tables",
+      selectMode,
+      disableMultiSelect: submitting || Boolean(openingTable)
+    });
+  }, [openingTable, selectMode, submitting]);
+
+  useEffect(() => {
+    function onTopbarAction(event: Event) {
+      const custom = event as CustomEvent<TopbarActionDetail>;
+      if (custom.detail?.action === "tables-refresh") {
+        void loadTables();
+        return;
+      }
+      if (custom.detail?.action === "tables-toggle-select") {
+        setSelectMode((v) => !v);
+        setMergeSelection([]);
+      }
+    }
+    window.addEventListener(RDV_TOPBAR_ACTION_EVENT, onTopbarAction as EventListener);
+    return () => window.removeEventListener(RDV_TOPBAR_ACTION_EVENT, onTopbarAction as EventListener);
+  }, []);
 
   async function loadTables() {
     if (typeof window !== "undefined") {
@@ -314,51 +339,6 @@ export default function TablesPage() {
 
   return (
     <div className="stack tables-screen">
-      <AppBar
-        className="tables-appbar"
-        title={t("tables.title", "Select Table")}
-        left={<span className="tables-appbar__spacer" aria-hidden="true" />}
-        right={
-          <div className="row tables-toolbar">
-            <IconButton
-              label={t("common.refresh", "Refresh")}
-              icon={(
-                <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
-                  <path
-                    d="M20 12a8 8 0 1 1-2.34-5.66"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="1.8"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                  <path
-                    d="M20 4v6h-6"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="1.8"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                </svg>
-              )}
-              onClick={loadTables}
-              disabled={loadingTables || submitting}
-            />
-            <Button
-              variant="secondary"
-              onClick={() => {
-                setSelectMode((v) => !v);
-                setMergeSelection([]);
-              }}
-              disabled={submitting || Boolean(openingTable)}
-            >
-              {selectMode ? (lang === "en" ? "Done" : "完成") : (lang === "en" ? "Multi-select" : "拼桌选择")}
-            </Button>
-          </div>
-        }
-      />
-
       {loadingTables ? (
         <PerfSection id="Tables/GridLoading">
           <div className="table-grid-shell">
@@ -449,8 +429,6 @@ export default function TablesPage() {
           </div>
         </div>
       ) : null}
-
-      <BottomNav />
     </div>
   );
 }

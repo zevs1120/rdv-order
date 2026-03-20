@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, type ReactNode } from "react";
+import { Suspense, useEffect, type ReactNode } from "react";
 import { usePathname } from "next/navigation";
 import TopBar from "./top-bar";
 import BottomNav from "./bottom-nav";
@@ -10,7 +10,7 @@ type Props = {
   children: ReactNode;
 };
 
-const HIDE_TOP_BAR_PATHS = new Set<string>([]);
+const HIDE_TOP_BAR_PATHS = new Set<string>(["/"]);
 const HIDE_TAB_BAR_PREFIXES = ["/"];
 
 function shouldHideTabBar(pathname: string) {
@@ -37,7 +37,11 @@ export default function AppShell({ children }: Props) {
 
   return (
     <div className="app-shell">
-      {!hideTopBar ? <TopBar /> : null}
+      {!hideTopBar ? (
+        <Suspense fallback={null}>
+          <TopBar />
+        </Suspense>
+      ) : null}
       <div
         className={[
           hideTabBar ? "app-shell-main no-tabbar" : "app-shell-main has-tabbar",

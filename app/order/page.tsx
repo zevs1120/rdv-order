@@ -10,7 +10,8 @@ import { useActionGuard } from "../../lib/use-action-guard";
 import { captureReactProfile } from "../../lib/react-profiler";
 import { beginPerfInteraction } from "../../lib/perf-debug";
 import { createDebounced, scheduleIdleTask } from "../../lib/scheduler";
-import { AppBar, Badge, BottomSheet, Button, Card, Chip, EmptyState, SearchField, Toast } from "../../components/ui";
+import { Badge, BottomSheet, Button, Card, Chip, EmptyState, SearchField, Toast } from "../../components/ui";
+import { dispatchTopbarState, RDV_TOPBAR_ACTION_EVENT, type TopbarActionDetail } from "../../lib/topbar-events";
 import styles from "./page.module.css";
 
 type ShiftKey = string;
@@ -1612,38 +1613,38 @@ export default function OrderPage() {
     };
   }, []);
 
+  useEffect(() => {
+    dispatchTopbarState({ route: "order" });
+  }, [guests, tableNo]);
+
+  useEffect(() => {
+    function onTopbarAction(event: Event) {
+      const custom = event as CustomEvent<TopbarActionDetail>;
+      if (custom.detail?.action === "order-open-actions") {
+        openActionMenu();
+      }
+    }
+    window.addEventListener(RDV_TOPBAR_ACTION_EVENT, onTopbarAction as EventListener);
+    return () => window.removeEventListener(RDV_TOPBAR_ACTION_EVENT, onTopbarAction as EventListener);
+  }, [openActionMenu]);
+
   return (
     <div className={styles.page}>
       <div className={styles.topFixed}>
-        <AppBar
-          className={styles.appBar}
-          title={
-            <div className={styles.topTitle}>
-              <span>{lang === "en" ? `Table ${tableNo}` : `桌号 ${tableNo}`}</span>
+        <Card className={styles.searchPanel}>
+          <div className={styles.searchHeader}>
+            <div className={styles.searchTableMeta}>
+              <span className={styles.searchTableLabel}>{lang === "en" ? `Table ${tableNo}` : `桌号 ${tableNo}`}</span>
               <Badge tone="brand">{lang === "en" ? `${guests} Guests` : `${guests} 人`}</Badge>
             </div>
-          }
-          left={
-              <Button variant="secondary" onClick={() => router.push("/tables")}>
-                {lang === "en" ? "Back" : "返回"}
-              </Button>
-          }
-          right={
-            <div className={styles.topActions}>
-              <Button variant="secondary" onClick={openActionMenu}>
-                {lang === "en" ? "Actions" : "操作"}
-              </Button>
-            </div>
-          }
-          subline={
-            <SearchField
-              value={keywordInput}
-              onChange={(e) => onKeywordInputChange(e.target.value)}
-              placeholder={t("order.searchPlaceholder", "Search dishes")}
-              className={styles.searchCompact}
-            />
-          }
-        />
+          </div>
+          <SearchField
+            value={keywordInput}
+            onChange={(e) => onKeywordInputChange(e.target.value)}
+            placeholder={t("order.searchPlaceholder", "Search dishes")}
+            className={styles.searchCompact}
+          />
+        </Card>
 
         <Card className={styles.shiftPanel}>
           <div className={styles.shiftRow}>
@@ -2126,8 +2127,6 @@ export default function OrderPage() {
         onAction={toast?.onAction}
         onClose={() => setToast(null)}
       />
-
-      <BottomNav />
     </div>
   );
 }
