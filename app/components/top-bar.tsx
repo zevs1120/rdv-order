@@ -242,13 +242,31 @@ export default function TopBar() {
               </button>
               <button
                 type="button"
-                className="topbar-btn topbar-btn--compact"
+                className={`topbar-btn topbar-btn--icon ${tablesSelectMode ? "topbar-btn--active" : ""}`}
                 onClick={() => dispatchTopbarAction({ action: "tables-toggle-select" })}
                 disabled={tablesSelectDisabled}
+                aria-label={tablesSelectMode ? (lang === "en" ? "Done" : "完成") : (lang === "en" ? "Multi-select" : "拼桌选择")}
+                title={tablesSelectMode ? (lang === "en" ? "Done" : "完成") : (lang === "en" ? "Multi-select" : "拼桌选择")}
               >
-                {tablesSelectMode
-                  ? (lang === "en" ? "Done" : "完成")
-                  : (lang === "en" ? "Multi-select" : "拼桌选择")}
+                {tablesSelectMode ? (
+                  <svg viewBox="0 0 24 24" className="topbar-icon" aria-hidden="true">
+                    <path
+                      d="M6 12.5 10 16l8-8"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                ) : (
+                  <svg viewBox="0 0 24 24" className="topbar-icon" aria-hidden="true">
+                    <path
+                      d="M4 7.5A1.5 1.5 0 0 1 5.5 6H11v5.5A1.5 1.5 0 0 1 9.5 13h-4A1.5 1.5 0 0 1 4 11.5v-4Zm9 0A1.5 1.5 0 0 1 14.5 6h4A1.5 1.5 0 0 1 20 7.5v4A1.5 1.5 0 0 1 18.5 13H13V7.5Zm-9 9A1.5 1.5 0 0 1 5.5 15h4A1.5 1.5 0 0 1 11 16.5V22H5.5A1.5 1.5 0 0 1 4 20.5v-4Zm9 0A1.5 1.5 0 0 1 14.5 15h4A1.5 1.5 0 0 1 20 16.5v4A1.5 1.5 0 0 1 18.5 22h-4A1.5 1.5 0 0 1 13 20.5v-4Z"
+                      fill="currentColor"
+                    />
+                  </svg>
+                )}
               </button>
             </>
           ) : null}
@@ -285,10 +303,17 @@ export default function TopBar() {
           {isOrder ? (
             <button
               type="button"
-              className="topbar-btn topbar-btn--compact"
+              className="topbar-btn topbar-btn--icon"
               onClick={() => dispatchTopbarAction({ action: "order-open-actions" })}
+              aria-label={lang === "en" ? "Actions" : "操作"}
+              title={lang === "en" ? "Actions" : "操作"}
             >
-              {lang === "en" ? "Actions" : "操作"}
+              <svg viewBox="0 0 24 24" className="topbar-icon" aria-hidden="true">
+                <path
+                  d="M12 7.25a1.25 1.25 0 1 0 0-2.5 1.25 1.25 0 0 0 0 2.5Zm0 6a1.25 1.25 0 1 0 0-2.5 1.25 1.25 0 0 0 0 2.5Zm0 6a1.25 1.25 0 1 0 0-2.5 1.25 1.25 0 0 0 0 2.5Z"
+                  fill="currentColor"
+                />
+              </svg>
             </button>
           ) : null}
 
