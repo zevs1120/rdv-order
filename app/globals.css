@@ -85,6 +85,8 @@ body {
 }
 
 .app-shell-main {
+  --pull-distance: 0px;
+  --pull-indicator-offset: 0px;
   position: fixed;
   top: var(--shell-top-offset);
   left: 0;
@@ -112,13 +114,15 @@ body {
   backdrop-filter: saturate(var(--glass-sat)) blur(calc(var(--glass-blur) - 2px));
   box-shadow: 0 8px 20px rgba(15, 23, 42, 0.08);
   pointer-events: none;
-  z-index: calc(var(--z-topbar) - 1);
+  z-index: 2;
+  transform: translate(-50%, var(--pull-indicator-offset));
   transition: transform 160ms ease, opacity 140ms ease;
   opacity: 0;
 }
 
-.app-shell-pull-indicator.is-ready,
-.app-shell-pull-indicator.is-refreshing {
+.app-shell-main[data-pull-state="pulling"] .app-shell-pull-indicator,
+.app-shell-main[data-pull-state="ready"] .app-shell-pull-indicator,
+.app-shell-main[data-pull-state="refreshing"] .app-shell-pull-indicator {
   opacity: 1;
 }
 
@@ -130,8 +134,8 @@ body {
   border-top-color: var(--brand);
 }
 
-.app-shell-pull-indicator.is-ready .app-shell-pull-indicator__spinner,
-.app-shell-pull-indicator.is-refreshing .app-shell-pull-indicator__spinner {
+.app-shell-main[data-pull-state="ready"] .app-shell-pull-indicator__spinner,
+.app-shell-main[data-pull-state="refreshing"] .app-shell-pull-indicator__spinner {
   animation: rdv-spin 0.8s linear infinite;
 }
 
@@ -164,6 +168,15 @@ body {
   border-right: 1px solid rgba(148, 163, 184, 0.22);
   overflow-x: hidden;
   min-height: 100%;
+  transform: translateY(var(--pull-distance));
+  will-change: transform;
+  transition: transform 180ms ease;
+}
+
+.app-shell-main[data-pull-state="pulling"] .app-main,
+.app-shell-main[data-pull-state="ready"] .app-main,
+.app-shell-main[data-pull-state="refreshing"] .app-main {
+  transition: none;
 }
 
 h1 {

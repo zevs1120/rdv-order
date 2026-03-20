@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { Suspense, useEffect, useMemo, useRef, type ReactNode } from "react";
 import { usePathname } from "next/navigation";
 import TopBar from "./top-bar";
 import BottomNav from "./bottom-nav";
@@ -24,12 +24,13 @@ export default function AppShell({ children }: Props) {
   const pullStartYRef = useRef<number | null>(null);
   const pullDistanceRef = useRef(0);
   const pullTriggeredRef = useRef(false);
+  const pullFrameRef = useRef<number | null>(null);
+  const pullFinishTimerRef = useRef<number | null>(null);
+  const pullRefreshingRef = useRef(false);
   const hideTopBar = HIDE_TOP_BAR_PATHS.has(pathname);
   const hideTabBar = shouldHideTabBar(pathname);
   const lockRootScroll = pathname.startsWith("/order");
   const refreshAction = useMemo(() => resolveRefreshAction(pathname), [pathname]);
-  const [pullDistance, setPullDistance] = useState(0);
-  const [isPullRefreshing, setIsPullRefreshing] = useState(false);
 
   useEffect(() => {
     const ua = navigator.userAgent.toLowerCase();
@@ -44,11 +45,24 @@ export default function AppShell({ children }: Props) {
   }, []);
 
   useEffect(() => {
-    setPullDistance(0);
-    setIsPullRefreshing(false);
     pullStartYRef.current = null;
     pullDistanceRef.current = 0;
     pullTriggeredRef.current = false;
+    pullRefreshingRef.current = false;
+    if (pullFrameRef.current) {
+      window.cancelAnimationFrame(pullFrameRef.current);
+      pullFrameRef.current = null;
+    }
+    if (pullFinishTimerRef.current) {
+      window.clearTimeout(pullFinishTimerRef.current);
+      pullFinishTimerRef.current = null;
+    }
+    const mainNode = mainRef.current;
+    if (mainNode) {
+      mainNode.style.setProperty("--pull-distance", "0px");
+      mainNode.style.setProperty("--pull-indicator-offset", "0px");
+      mainNode.dataset.pullState = "idle";
+    }
   }, [pathname]);
 
   useEffect(() => {
@@ -59,32 +73,42 @@ export default function AppShell({ children }: Props) {
 
     const PULL_TRIGGER_PX = 64;
     const PULL_MAX_PX = 88;
-    let finishTimer: number | null = null;
+
+    function renderPull(distance: number, state: "idle" | "pulling" | "ready" | "refreshing") {
+      if (pullFrameRef.current) window.cancelAnimationFrame(pullFrameRef.current);
+      pullFrameRef.current = window.requestAnimationFrame(() => {
+        mainNode.style.setProperty("--pull-distance", `${distance}px`);
+        mainNode.style.setProperty("--pull-indicator-offset", `${Math.max(0, distance * 0.56)}px`);
+        mainNode.dataset.pullState = state;
+        pullFrameRef.current = null;
+      });
+    }
 
     function resetPull() {
       pullStartYRef.current = null;
       pullDistanceRef.current = 0;
       pullTriggeredRef.current = false;
-      setPullDistance(0);
+      renderPull(0, "idle");
     }
 
     function finishRefresh() {
-      if (finishTimer) window.clearTimeout(finishTimer);
-      finishTimer = window.setTimeout(() => {
-        setIsPullRefreshing(false);
+      if (pullFinishTimerRef.current) window.clearTimeout(pullFinishTimerRef.current);
+      pullFinishTimerRef.current = window.setTimeout(() => {
+        pullRefreshingRef.current = false;
         resetPull();
+        pullFinishTimerRef.current = null;
       }, 900);
     }
 
     function onTouchStart(event: TouchEvent) {
-      if (mainNode.scrollTop > 0 || isPullRefreshing) return;
+      if (mainNode.scrollTop > 0 || pullRefreshingRef.current) return;
       pullStartYRef.current = event.touches[0]?.clientY ?? null;
       pullDistanceRef.current = 0;
       pullTriggeredRef.current = false;
     }
 
     function onTouchMove(event: TouchEvent) {
-      if (pullStartYRef.current === null || isPullRefreshing) return;
+      if (pullStartYRef.current === null || pullRefreshingRef.current) return;
       if (mainNode.scrollTop > 0) {
         resetPull();
         return;
@@ -97,12 +121,12 @@ export default function AppShell({ children }: Props) {
       }
       const damped = Math.min(PULL_MAX_PX, delta * 0.42);
       pullDistanceRef.current = damped;
-      setPullDistance(damped);
+      renderPull(damped, damped >= PULL_TRIGGER_PX ? "ready" : "pulling");
       event.preventDefault();
     }
 
     function onTouchEnd() {
-      if (isPullRefreshing) return;
+      if (pullRefreshingRef.current) return;
       const shouldRefresh = pullDistanceRef.current >= PULL_TRIGGER_PX;
       if (!shouldRefresh) {
         resetPull();
@@ -110,8 +134,8 @@ export default function AppShell({ children }: Props) {
       }
       if (pullTriggeredRef.current) return;
       pullTriggeredRef.current = true;
-      setIsPullRefreshing(true);
-      setPullDistance(48);
+      pullRefreshingRef.current = true;
+      renderPull(56, "refreshing");
       dispatchTopbarAction({ action: currentRefreshAction });
       finishRefresh();
     }
@@ -122,13 +146,20 @@ export default function AppShell({ children }: Props) {
     mainNode.addEventListener("touchcancel", resetPull, { passive: true });
 
     return () => {
-      if (finishTimer) window.clearTimeout(finishTimer);
+      if (pullFrameRef.current) {
+        window.cancelAnimationFrame(pullFrameRef.current);
+        pullFrameRef.current = null;
+      }
+      if (pullFinishTimerRef.current) {
+        window.clearTimeout(pullFinishTimerRef.current);
+        pullFinishTimerRef.current = null;
+      }
       mainNode.removeEventListener("touchstart", onTouchStart);
       mainNode.removeEventListener("touchmove", onTouchMove);
       mainNode.removeEventListener("touchend", onTouchEnd);
       mainNode.removeEventListener("touchcancel", resetPull);
     };
-  }, [isPullRefreshing, lockRootScroll, refreshAction]);
+  }, [lockRootScroll, refreshAction]);
 
   return (
     <div className="app-shell">
@@ -143,11 +174,11 @@ export default function AppShell({ children }: Props) {
           hideTabBar ? "app-shell-main no-tabbar" : "app-shell-main has-tabbar",
           lockRootScroll ? "app-shell-main--locked" : ""
         ].filter(Boolean).join(" ")}
+        data-pull-state="idle"
       >
         {refreshAction ? (
           <div
-            className={`app-shell-pull-indicator ${isPullRefreshing ? "is-refreshing" : ""} ${pullDistance >= 64 ? "is-ready" : ""}`}
-            style={{ transform: `translate(-50%, ${Math.max(-52, pullDistance - 52)}px)` }}
+            className="app-shell-pull-indicator"
             aria-hidden="true"
           >
             <span className="app-shell-pull-indicator__spinner" />
