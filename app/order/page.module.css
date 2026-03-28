@@ -89,6 +89,13 @@
   box-shadow: 0 10px 24px rgba(15, 23, 42, 0.04);
 }
 
+:global(html[data-platform="ios"]) .searchPanel,
+:global(html[data-platform="ios"]) .shiftPanel,
+:global(html[data-platform="ios"]) .cartDock {
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+
 .shiftRow {
   display: flex;
   align-items: center;
@@ -168,12 +175,20 @@
   contain: layout paint;
 }
 
+:global(html[data-platform="ios"]) .menuPane {
+  contain: none;
+}
+
 .menuList {
   display: grid;
   grid-template-columns: 1fr;
   gap: 8px;
   min-width: 0;
   contain: layout style paint;
+}
+
+:global(html[data-platform="ios"]) .menuList {
+  contain: none;
 }
 
 .menuRow {
@@ -192,6 +207,10 @@
   box-shadow: 0 8px 18px rgba(15, 23, 42, 0.04);
   padding: 12px 13px;
   contain: layout paint;
+}
+
+:global(html[data-platform="ios"]) .menuRow {
+  contain: none;
 }
 
 .menuMain {

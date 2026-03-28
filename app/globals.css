@@ -346,6 +346,10 @@ button:disabled {
   contain: layout paint;
 }
 
+html[data-platform="ios"] .menu-grid {
+  contain: none;
+}
+
 .menu-item {
   display: grid;
   grid-template-rows: auto auto auto 1fr auto;
@@ -358,6 +362,10 @@ button:disabled {
   box-shadow: 0 1px 0 rgba(20, 28, 42, 0.02);
   min-height: 168px;
   contain: content;
+}
+
+html[data-platform="ios"] .menu-item {
+  contain: none;
 }
 
 .order-layout {
@@ -1234,11 +1242,22 @@ button:disabled {
   contain: layout paint;
 }
 
+html[data-platform="ios"] .order-list {
+  contain: none;
+}
+
 .menu-grid > .menu-item,
 .order-list > .menu-item,
 .menu-simple-list > .menu-simple-row {
   content-visibility: auto;
   contain-intrinsic-size: 80px;
+}
+
+html[data-platform="ios"] .menu-grid > .menu-item,
+html[data-platform="ios"] .order-list > .menu-item,
+html[data-platform="ios"] .menu-simple-list > .menu-simple-row {
+  content-visibility: visible;
+  contain-intrinsic-size: auto;
 }
 
 .order-detail-list {
