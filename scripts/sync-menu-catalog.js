@@ -3,7 +3,7 @@ const { Client } = require("pg");
 const lunchDinnerItems = [
   { name: "Chicken Curry", price: 450, category: "Filipino Food", type: "single" },
   { name: "Caramelized Chicken", price: 420, category: "Filipino Food", type: "single" },
-  { name: "Dory en Blanc", price: 400, category: "Filipino Food", type: "single" },
+  { name: "Dory en Blanc", price: 480, category: "Filipino Food", type: "single" },
   { name: "Beef Jalapeno", price: 480, category: "Filipino Food", type: "single" },
   { name: "Chicken Tomato Stew", price: 450, category: "Filipino Food", type: "single" },
   { name: "Chicken Royal", price: 480, category: "Filipino Food", type: "single" },

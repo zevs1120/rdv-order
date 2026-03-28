@@ -35,10 +35,22 @@ html[data-platform="android"] {
   --glass-surface: color-mix(in srgb, #ffffff 94%, #f8fafc);
 }
 
+html[data-platform="ios"] {
+  --glass-blur: 0px;
+  --glass-sat: 1;
+  --glass-surface: color-mix(in srgb, #ffffff 95%, #f8fafc);
+}
+
 html[data-platform="android"] .topbar-shell,
 html[data-platform="android"] .bottom-nav-shell,
 html[data-platform="android"] .ui-appbar__row,
-html[data-platform="android"] .ui-sheet {
+html[data-platform="android"] .ui-sheet,
+html[data-platform="android"] .app-shell-pull-indicator,
+html[data-platform="ios"] .topbar-shell,
+html[data-platform="ios"] .bottom-nav-shell,
+html[data-platform="ios"] .ui-appbar__row,
+html[data-platform="ios"] .ui-sheet,
+html[data-platform="ios"] .app-shell-pull-indicator {
   -webkit-backdrop-filter: none !important;
   backdrop-filter: none !important;
   border-color: color-mix(in srgb, var(--line-default) 92%, #fff);
@@ -169,7 +181,6 @@ body {
   overflow-x: hidden;
   min-height: 100%;
   transform: translateY(var(--pull-distance));
-  will-change: transform;
   transition: transform 180ms ease;
 }
 
