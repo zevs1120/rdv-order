@@ -7,6 +7,7 @@ import { createDebounced } from "../../lib/scheduler";
 import {
   dispatchTopbarAction,
   RDV_TOPBAR_STATE_EVENT,
+  resolveRefreshAction,
   type TopbarActionDetail,
   type TopbarStateDetail
 } from "../../lib/topbar-events";
@@ -179,6 +180,7 @@ export default function TopBar() {
   const isOrder = pathname === "/order";
   const tablesSelectMode = isTables && routeState?.route === "tables" ? Boolean(routeState.selectMode) : false;
   const tablesSelectDisabled = isTables && routeState?.route === "tables" ? Boolean(routeState.disableMultiSelect) : false;
+  const refreshAction = resolveRefreshAction(pathname);
 
   return (
     <div className="topbar-shell">
@@ -204,6 +206,35 @@ export default function TopBar() {
         </div>
 
         <div className="topbar-side topbar-side--right">
+          {refreshAction ? (
+            <button
+              type="button"
+              className="topbar-btn topbar-btn--icon"
+              onClick={() => dispatchTopbarAction({ action: refreshAction })}
+              aria-label={t("common.refresh", "Refresh")}
+              title={t("common.refresh", "Refresh")}
+            >
+              <svg viewBox="0 0 24 24" className="topbar-icon" aria-hidden="true">
+                <path
+                  d="M20 12a8 8 0 1 1-2.34-5.66"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.8"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+                <path
+                  d="M20 4v6h-6"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.8"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            </button>
+          ) : null}
+
           {isTables ? (
             <>
               <button

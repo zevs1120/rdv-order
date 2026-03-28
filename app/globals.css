@@ -97,8 +97,6 @@ body {
 }
 
 .app-shell-main {
-  --pull-distance: 0px;
-  --pull-indicator-offset: 0px;
   position: fixed;
   top: var(--shell-top-offset);
   left: 0;
@@ -109,55 +107,6 @@ body {
   -webkit-overflow-scrolling: touch;
   overscroll-behavior: contain;
   z-index: var(--z-base);
-}
-
-.app-shell-pull-indicator {
-  position: absolute;
-  left: 50%;
-  top: 8px;
-  width: 42px;
-  height: 42px;
-  display: grid;
-  place-items: center;
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--glass-surface) 90%, #ffffff);
-  border: 1px solid color-mix(in srgb, var(--glass-border) 88%, #fff);
-  -webkit-backdrop-filter: saturate(var(--glass-sat)) blur(calc(var(--glass-blur) - 2px));
-  backdrop-filter: saturate(var(--glass-sat)) blur(calc(var(--glass-blur) - 2px));
-  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.08);
-  pointer-events: none;
-  z-index: 2;
-  transform: translate(-50%, var(--pull-indicator-offset));
-  transition: transform 160ms ease, opacity 140ms ease;
-  opacity: 0;
-}
-
-.app-shell-main[data-pull-state="pulling"] .app-shell-pull-indicator,
-.app-shell-main[data-pull-state="ready"] .app-shell-pull-indicator,
-.app-shell-main[data-pull-state="refreshing"] .app-shell-pull-indicator {
-  opacity: 1;
-}
-
-.app-shell-pull-indicator__spinner {
-  width: 18px;
-  height: 18px;
-  border-radius: 999px;
-  border: 2px solid rgba(15, 23, 42, 0.16);
-  border-top-color: var(--brand);
-}
-
-.app-shell-main[data-pull-state="ready"] .app-shell-pull-indicator__spinner,
-.app-shell-main[data-pull-state="refreshing"] .app-shell-pull-indicator__spinner {
-  animation: rdv-spin 0.8s linear infinite;
-}
-
-@keyframes rdv-spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
 }
 
 .app-shell-main.has-tabbar {
@@ -180,14 +129,6 @@ body {
   border-right: 1px solid rgba(148, 163, 184, 0.22);
   overflow-x: hidden;
   min-height: 100%;
-  transform: translateY(var(--pull-distance));
-  transition: transform 180ms ease;
-}
-
-.app-shell-main[data-pull-state="pulling"] .app-main,
-.app-shell-main[data-pull-state="ready"] .app-main,
-.app-shell-main[data-pull-state="refreshing"] .app-main {
-  transition: none;
 }
 
 h1 {
