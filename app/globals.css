@@ -45,12 +45,16 @@ html[data-platform="android"] .topbar-shell,
 html[data-platform="android"] .bottom-nav-shell,
 html[data-platform="android"] .ui-appbar__row,
 html[data-platform="android"] .ui-sheet,
-html[data-platform="android"] .app-shell-pull-indicator,
+html[data-platform="android"] .merge-action-bar,
+html[data-platform="android"] .more-grid-card,
+html[data-platform="android"] .login-card,
 html[data-platform="ios"] .topbar-shell,
 html[data-platform="ios"] .bottom-nav-shell,
 html[data-platform="ios"] .ui-appbar__row,
 html[data-platform="ios"] .ui-sheet,
-html[data-platform="ios"] .app-shell-pull-indicator {
+html[data-platform="ios"] .merge-action-bar,
+html[data-platform="ios"] .more-grid-card,
+html[data-platform="ios"] .login-card {
   -webkit-backdrop-filter: none !important;
   backdrop-filter: none !important;
   border-color: color-mix(in srgb, var(--line-default) 92%, #fff);

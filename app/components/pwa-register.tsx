@@ -6,7 +6,10 @@ export default function PwaRegister() {
   useEffect(() => {
     if (!("serviceWorker" in navigator)) return;
 
-    navigator.serviceWorker.register("/sw.js").catch(() => undefined);
+    navigator.serviceWorker
+      .register("/sw.js")
+      .then((registration) => registration.update().catch(() => undefined))
+      .catch(() => undefined);
   }, []);
 
   return null;
