@@ -39,6 +39,7 @@ export async function GET(req: Request) {
          AND o.created_at <= $2
          AND o.status IN ('paid', 'closed')
          AND o.cancelled_at IS NULL
+         AND o.merged_into_order_id IS NULL
        GROUP BY mi.id, mi.name
        ORDER BY qty DESC, mi.name ASC`,
       [rangeFrom.toISOString(), rangeTo.toISOString()]

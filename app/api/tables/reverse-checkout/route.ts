@@ -3,6 +3,7 @@ import { pool } from "../../../../lib/db";
 import { requirePermission } from "../../../../lib/permissions";
 import { writeAuditLogSafe } from "../../../../lib/audit";
 import { lockSessionName } from "../../../../lib/table-lock";
+import { replaceAutoChargesForOrder } from "../../../../lib/auto-charges";
 
 type SessionRow = {
   id: string;
@@ -82,12 +83,9 @@ export async function POST(req: Request) {
         [session.table_no, session.opened_at, session.closed_at]
       );
 
-      await client.query(
-        `DELETE FROM order_charges
-         WHERE order_id = ANY($1::uuid[])
-           AND source = 'rule_auto'`,
-        [revertedOrders.rows.map((row) => row.id)]
-      );
+      for (const row of revertedOrders.rows) {
+        await replaceAutoChargesForOrder(client, row.id, auth.userId);
+      }
 
       for (const row of revertedOrders.rows) {
         await client.query(

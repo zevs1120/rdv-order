@@ -32,6 +32,7 @@ export async function GET(req: Request) {
            AND o.created_at <= $2
            AND o.status IN ('paid', 'closed')
            AND o.cancelled_at IS NULL
+           AND o.merged_into_order_id IS NULL
        ),
        item_total AS (
          SELECT oi.order_id,
@@ -64,6 +65,7 @@ export async function GET(req: Request) {
            AND o.created_at <= $2
            AND o.status IN ('paid', 'closed')
            AND o.cancelled_at IS NULL
+           AND o.merged_into_order_id IS NULL
        ),
        item_total AS (
          SELECT oi.order_id,

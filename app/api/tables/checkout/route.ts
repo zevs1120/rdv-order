@@ -126,13 +126,15 @@ export async function POST(req: Request) {
                       FROM order_charges oc
                       WHERE oc.order_id = o.id
                     ), 0)::int AS total_amount
-           FROM orders o
-           LEFT JOIN order_items oi ON oi.order_id = o.id
-           LEFT JOIN menu_items mi ON mi.id = oi.menu_item_id
-           WHERE o.table_no = $1
-             AND o.created_at >= $2
-             AND o.status = 'closed'
-           GROUP BY o.id
+         FROM orders o
+         LEFT JOIN order_items oi ON oi.order_id = o.id
+         LEFT JOIN menu_items mi ON mi.id = oi.menu_item_id
+         WHERE o.table_no = $1
+           AND o.created_at >= $2
+           AND o.status = 'closed'
+           AND o.cancelled_at IS NULL
+           AND o.merged_into_order_id IS NULL
+         GROUP BY o.id
          )
          SELECT COUNT(*)::int AS order_count,
                 COALESCE(SUM(total_amount), 0)::int AS total_amount
@@ -146,7 +148,9 @@ export async function POST(req: Request) {
          FROM orders o
          WHERE o.table_no = $2
            AND o.created_at >= $3
-           AND o.status = 'closed'`,
+           AND o.status = 'closed'
+           AND o.cancelled_at IS NULL
+           AND o.merged_into_order_id IS NULL`,
         [auth.userId, s.table_no, s.opened_at]
       );
 

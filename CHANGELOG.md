@@ -9,6 +9,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Revenue CSV export from Manage → Revenue with natural-month range selection (single month or month range).
 - New export API endpoint: `/api/manage/income/export`.
 - Documentation: `docs/revenue-export.md`.
+- Coverage for summary, table bill, checkout, and reverse-checkout accounting edge cases.
 
 ### Changed
 - Documentation system refactor and governance baseline (README/docs/contributing).
@@ -16,10 +17,14 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Language switching moved to a globe icon toggle in the global top bar.
 - Network status indicator simplified to a green/red status dot in the global top bar.
 - Tables / Order / Manage surfaces aligned to the same glassmorphism visual system with unified app bars, cards, search fields, action bars, and bottom navigation styling.
+- Revenue, summary, hot-items, cashier close, and table-bill calculations now share a stricter “exclude cancelled + merged source orders” accounting rule.
 
 ### Fixed
 - Removed duplicate in-page back modules from manage/admin subpages to keep navigation hierarchy consistent.
 - Removed extra top-bar `More` button from the global shell.
+- Summary totals no longer overcount orders with multiple line items and now include order-level charges consistently.
+- Reverse checkout now reapplies active automatic pricing rules instead of silently dropping them.
+- Table bill and checkout summaries no longer include cancelled orders or merge-source orders.
 
 ## [2026-03-06]
 ### Added

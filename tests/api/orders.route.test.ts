@@ -64,6 +64,12 @@ function makeClientForNewOrder() {
     if (sql.includes("INSERT INTO orders") && sql.includes("client_request_id") && sql.includes("NULL")) {
       return { rows: [{ id: "order-new-1" }] };
     }
+    if (sql.includes("DELETE FROM order_charges") && sql.includes("source = 'rule_auto'")) {
+      return { rows: [] };
+    }
+    if (sql.includes("SUM(oi.qty * mi.price)")) {
+      return { rows: [{ item_amount: 450 }] };
+    }
     if (sql.includes("FROM pricing_rules") && sql.includes("charge_type") && sql.includes("mode")) {
       return { rows: [] };
     }

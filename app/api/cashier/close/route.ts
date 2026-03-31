@@ -13,6 +13,7 @@ async function calculateExpected(fromIso: string, toIso: string) {
        LEFT JOIN menu_items mi ON mi.id = oi.menu_item_id
        WHERE o.status IN ('paid', 'closed')
          AND o.cancelled_at IS NULL
+         AND o.merged_into_order_id IS NULL
          AND o.created_at >= $1
          AND o.created_at <= $2
        GROUP BY o.id
