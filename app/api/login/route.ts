@@ -5,13 +5,20 @@ import { signToken } from "../../../lib/auth";
 
 export async function POST(req: Request) {
   const body = await req.json().catch(() => null);
-  if (!body?.username || !body?.pin) {
+  const username = String(body?.username || "").trim();
+  const pin = String(body?.pin || "");
+
+  if (!username || !pin) {
     return NextResponse.json({ error: "缺少账号或 PIN" }, { status: 400 });
   }
 
   const { rows } = await pool.query(
-    "SELECT id, role, pin_salt, pin_hash FROM users WHERE username = $1",
-    [body.username]
+    `SELECT id, role, pin_salt, pin_hash
+     FROM users
+     WHERE lower(username) = lower($1)
+     ORDER BY username ASC
+     LIMIT 1`,
+    [username]
   );
 
   if (rows.length === 0) {
@@ -19,7 +26,7 @@ export async function POST(req: Request) {
   }
 
   const user = rows[0];
-  const hashed = hashPin(body.pin, user.pin_salt);
+  const hashed = hashPin(pin, user.pin_salt);
   if (hashed !== user.pin_hash) {
     return NextResponse.json({ error: "账号或 PIN 错误" }, { status: 401 });
   }

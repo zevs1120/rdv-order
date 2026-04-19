@@ -25,6 +25,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Summary totals no longer overcount orders with multiple line items and now include order-level charges consistently.
 - Reverse checkout now reapplies active automatic pricing rules instead of silently dropping them.
 - Table bill and checkout summaries no longer include cancelled orders or merge-source orders.
+- Login now accepts trimmed / case-insensitive staff usernames, preventing failures such as `joy` vs `Joy`.
+- PWA bootstrap now clears legacy service workers and `rdv-*` caches instead of re-registering them, to reduce reload-loop behavior on mobile.
 
 ## [2026-03-06]
 ### Added
