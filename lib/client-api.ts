@@ -131,6 +131,7 @@ const serverErrorEn: Record<string, string> = {
   "设备不存在": "Device not found",
   "参数无效": "Invalid parameters",
   "打印自检失败": "Print self-test failed",
+  "清空打印队列失败": "Failed to clear print queue",
   "打印失败": "Print failed",
   "请求失败": "Request failed"
 };

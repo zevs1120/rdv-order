@@ -64,6 +64,7 @@ export default function ManageDevicesPage() {
   const [loading, setLoading] = useState(false);
   const [updating, setUpdating] = useState("");
   const [testing, setTesting] = useState("");
+  const [clearingQueue, setClearingQueue] = useState(false);
   const [health, setHealth] = useState<PrintHealth | null>(null);
   const [healthOpen, setHealthOpen] = useState(true);
 
@@ -149,6 +150,28 @@ export default function ManageDevicesPage() {
       setError(err.message || "打印自检失败");
     } finally {
       setTesting("");
+    }
+  }
+
+  async function clearPrintQueue() {
+    const confirmed = window.confirm(
+      t("devices.clearQueueConfirm", "确认清空当前所有待打印、打印中和打印失败的队列任务吗？")
+    );
+    if (!confirmed) return;
+
+    setClearingQueue(true);
+    setError("");
+    try {
+      await apiFetchJson("/api/print/queue", {
+        method: "DELETE",
+        timeoutMs: 8000,
+        retries: 0
+      });
+      await loadData();
+    } catch (err: any) {
+      setError(err.message || "清空打印队列失败");
+    } finally {
+      setClearingQueue(false);
     }
   }
 
@@ -240,7 +263,7 @@ export default function ManageDevicesPage() {
               className="secondary compact-btn"
               type="button"
               onClick={() => { void runSelfTest("kitchen"); }}
-              disabled={testing !== ""}
+              disabled={testing !== "" || clearingQueue}
             >
               {testing === "kitchen" ? t("common.loading", "加载中...") : t("devices.testKitchen", "自检后厨")}
             </button>
@@ -248,7 +271,7 @@ export default function ManageDevicesPage() {
               className="secondary compact-btn"
               type="button"
               onClick={() => { void runSelfTest("bar"); }}
-              disabled={testing !== ""}
+              disabled={testing !== "" || clearingQueue}
             >
               {testing === "bar" ? t("common.loading", "加载中...") : t("devices.testBar", "自检吧台")}
             </button>
@@ -256,9 +279,17 @@ export default function ManageDevicesPage() {
               className="secondary compact-btn"
               type="button"
               onClick={() => { void runSelfTest("both"); }}
-              disabled={testing !== ""}
+              disabled={testing !== "" || clearingQueue}
             >
               {testing === "both" ? t("common.loading", "加载中...") : t("devices.testBoth", "双通道自检")}
+            </button>
+            <button
+              className="secondary compact-btn"
+              type="button"
+              onClick={() => { void clearPrintQueue(); }}
+              disabled={testing !== "" || clearingQueue}
+            >
+              {clearingQueue ? t("common.loading", "加载中...") : t("devices.clearQueue", "清空打印队列")}
             </button>
           </div>
         </div>
