@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { safeStorageGet, safeStorageSet } from "../../lib/browser-storage";
 
 type Lang = "zh" | "en";
 type TranslateFn = (lang: Lang, key: string, fallback?: string) => string;
@@ -16,7 +17,7 @@ const I18nContext = createContext<I18nContextValue | null>(null);
 export default function I18nProvider({ children }: { children: ReactNode }) {
   const [lang, setLang] = useState<Lang>(() => {
     if (typeof window === "undefined") return "en";
-    const stored = localStorage.getItem("rdv_lang");
+    const stored = safeStorageGet("local", "rdv_lang");
     if (stored === "zh" || stored === "en") return stored;
     const browserLang = (navigator.language || "").toLowerCase();
     return browserLang.startsWith("zh") ? "zh" : "en";
@@ -24,14 +25,14 @@ export default function I18nProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     // client-only sync guard for environments where localStorage might change between mounts
-    const stored = localStorage.getItem("rdv_lang");
+    const stored = safeStorageGet("local", "rdv_lang");
     if (stored === "zh" || stored === "en") {
       setLang((prev) => (prev === stored ? prev : stored));
     }
   }, []);
 
   useEffect(() => {
-    localStorage.setItem("rdv_lang", lang);
+    safeStorageSet("local", "rdv_lang", lang);
     document.documentElement.lang = lang === "zh" ? "zh-CN" : "en";
   }, [lang]);
 

@@ -2,6 +2,7 @@
 
 ## Print Behavior (Current)
 - Order submit prints **kitchen copy only** (single printer target by default).
+- Order submit stores the order first, then wakes the print worker in the background.
 - Guest copy is printed only when staff explicitly triggers `Print Receipt` in order bill panel.
 - Default is single copy (`PRINT_FORCE_SINGLE_COPY=true`) to reduce duplicate print risk.
 
@@ -38,6 +39,7 @@ Optional fallback provider:
 - `PRINT_WORKER_KEY`
 - `DEVICE_HEARTBEAT_KEY`
 - `PRINT_TIMEOUT_MS`
+- `PRINT_WAKE_ON_ORDER=true` (`false` keeps orders queued without auto-waking printer)
 - `PRINT_STALE_PRINTING_SECONDS`
 - `PRINT_RETRY_DELAY_SECONDS`
 - `PRINT_MAX_RETRY`
@@ -65,3 +67,4 @@ Fix all reported `problems` before production deployment.
 ## 6) Operational Notes
 - Keep `PRINT_SPLIT_BY_TARGET=false` for single-printer stores.
 - Use bar-category/keyword routing only when physical print paths are actually separated.
+- If printer/network instability affects service, set `PRINT_WAKE_ON_ORDER=false`; orders still save and print jobs stay available for manual dispatch.

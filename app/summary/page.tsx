@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { apiFetchJson } from "../../lib/client-api";
+import { safeStorageClear } from "../../lib/browser-storage";
 import { useI18n } from "../components/i18n-provider";
 import { formatItemQtyDisplay } from "../../lib/qty-display";
 import { Button, Card } from "../../components/ui";
@@ -38,7 +39,7 @@ export default function SummaryPage() {
           <Button variant="secondary" onClick={() => { router.push("/admin/menu"); }}>
             {t("manage.menu", "菜单后台")}
           </Button>
-          <Button variant="secondary" onClick={() => { localStorage.clear(); router.replace("/"); }}>
+          <Button variant="secondary" onClick={() => { safeStorageClear("local"); router.replace("/"); }}>
             {t("common.logout", "退出")}
           </Button>
         </div>

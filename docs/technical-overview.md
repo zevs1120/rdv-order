@@ -50,6 +50,7 @@ Print-related critical keys:
   - `PRINT_WORKER_KEY`
   - `DEVICE_HEARTBEAT_KEY`
   - `ORDER_DEDUPE_WINDOW_SECONDS`
+  - `PRINT_WAKE_ON_ORDER`
   - retry/timeout keys in `.env.example`
 
 ## Build/Test Commands
@@ -72,6 +73,3 @@ npm run check:print-env
 - Print jobs are async queue-based with retries
 - API fetch wrappers with timeout/retry behavior
 - Permission checks enforced in API layer
-
-## Module Boundary Note
-`quant-demo/` exists in same repository but is not part of RDV ordering runtime path. Keep docs and release notes explicit about this boundary.

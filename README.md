@@ -2,9 +2,7 @@
 
 Mobile-first ordering system for hotel/restaurant service staff.
 
-This repository currently contains two workspaces:
-- `rdv-order` (main): production ordering system (Next.js + Postgres + printing)
-- `quant-demo` (separate experimental module): not part of RDV production ordering flow
+This repository contains the production ordering system (Next.js + Postgres + printing).
 
 ## What This System Does
 - Staff login with account + PIN

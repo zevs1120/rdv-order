@@ -19,6 +19,16 @@ type OrderBody = {
 
 const IDEMPOTENCY_KEY = /^[a-zA-Z0-9_-]{8,80}$/;
 
+function shouldWakePrintWorkerOnOrder() {
+  return String(process.env.PRINT_WAKE_ON_ORDER || "true").trim().toLowerCase() !== "false";
+}
+
+function wakePrintWorkerInBackground() {
+  void runPrintWorker(1).catch((err) => {
+    console.error("[print-worker] background wake failed", err);
+  });
+}
+
 async function findRecentDuplicateOrder(
   client: PoolClient,
   waiterId: string,
@@ -91,7 +101,7 @@ export async function POST(req: Request) {
     let deduped = false;
     let createdNewOrder = false;
     let dedupeReason: "none" | "idempotency" | "recent_duplicate" = "none";
-    let shouldKickPrintWorker = false;
+    let shouldWakePrintWorker = false;
 
     const client = await pool.connect();
     try {
@@ -196,7 +206,7 @@ export async function POST(req: Request) {
                updated_at = now()`,
           [createdOrderId]
         );
-        shouldKickPrintWorker = true;
+        shouldWakePrintWorker = true;
       }
       if (deduped && dedupeReason === "idempotency") {
         const ensurePrintJob = await client.query<{ id: string }>(
@@ -206,14 +216,12 @@ export async function POST(req: Request) {
            RETURNING id`,
           [createdOrderId]
         );
-        shouldKickPrintWorker = ensurePrintJob.rows.length > 0;
+        shouldWakePrintWorker = ensurePrintJob.rows.length > 0;
       }
 
       await client.query("COMMIT");
-      // In serverless environments, fire-and-forget is unreliable.
-      // Await one quick worker pass so current order has deterministic print attempt.
-      if (shouldKickPrintWorker) {
-        await runPrintWorker(1).catch(() => undefined);
+      if (shouldWakePrintWorker && shouldWakePrintWorkerOnOrder()) {
+        wakePrintWorkerInBackground();
       }
       await writeAuditLogSafe({
         actorUserId: auth.userId,

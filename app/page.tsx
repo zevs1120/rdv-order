@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { apiFetchJson, getStoredAuth } from "../lib/client-api";
+import { safeStorageSet } from "../lib/browser-storage";
 import { useI18n } from "./components/i18n-provider";
 
 export default function LoginPage() {
@@ -42,8 +43,8 @@ export default function LoginPage() {
         useAuth: false,
         retries: 0
       });
-      localStorage.setItem("rdv_token", data.token);
-      localStorage.setItem("rdv_role", data.role);
+      safeStorageSet("local", "rdv_token", data.token);
+      safeStorageSet("local", "rdv_role", data.role);
       if (data.role === "manager") {
         router.replace("/manage/orders");
       } else {

@@ -7,34 +7,30 @@ export default function PwaRegister() {
     if (!("serviceWorker" in navigator)) return;
 
     let cancelled = false;
-
-    async function cleanupLegacyPwaRuntime() {
+    async function registerRuntime() {
       try {
-        const registrations = await navigator.serviceWorker.getRegistrations();
-        if (!cancelled) {
-          await Promise.all(registrations.map((registration) => registration.unregister().catch(() => false)));
-        }
-      } catch {
-        // Ignore service worker cleanup failures.
-      }
+        const registration = await navigator.serviceWorker.register("/sw.js", { scope: "/" });
+        if (cancelled) return;
 
-      if (!("caches" in window) || cancelled) return;
-      try {
-        const keys = await caches.keys();
-        await Promise.all(
-          keys
-            .filter((key) => key.startsWith("rdv-"))
-            .map((key) => caches.delete(key))
-        );
+        const timer = window.setInterval(() => {
+          void registration.update().catch(() => undefined);
+        }, 30 * 60 * 1000);
+
+        return () => window.clearInterval(timer);
       } catch {
-        // Ignore cache cleanup failures.
+        // PWA support should never block ordering.
+        return undefined;
       }
     }
 
-    void cleanupLegacyPwaRuntime();
+    let cleanup: (() => void) | undefined;
+    void registerRuntime().then((fn) => {
+      cleanup = fn;
+    });
 
     return () => {
       cancelled = true;
+      cleanup?.();
     };
   }, []);
 

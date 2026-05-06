@@ -4,6 +4,7 @@ import { memo, Profiler, useCallback, useEffect, useMemo, useRef, useState, type
 import { useRouter } from "next/navigation";
 import BottomNav from "../components/bottom-nav";
 import { apiFetchJson, getStoredAuth } from "../../lib/client-api";
+import { safeStorageGet, safeStorageRemove, safeStorageSet } from "../../lib/browser-storage";
 import { useI18n } from "../components/i18n-provider";
 import { useActionGuard } from "../../lib/use-action-guard";
 import { captureReactProfile } from "../../lib/react-profiler";
@@ -117,7 +118,7 @@ export default function TablesPage() {
 
   async function loadTables() {
     if (typeof window !== "undefined") {
-      const cachedRaw = sessionStorage.getItem(TABLES_SNAPSHOT_KEY);
+      const cachedRaw = safeStorageGet("session", TABLES_SNAPSHOT_KEY);
       if (cachedRaw) {
         try {
           const parsed = JSON.parse(cachedRaw) as { fetchedAt?: number; tables?: TableItem[] };
@@ -141,16 +142,13 @@ export default function TablesPage() {
       const nextTables = body.tables || [];
       setTables(nextTables);
       if (typeof window !== "undefined") {
-        sessionStorage.setItem(
-          TABLES_SNAPSHOT_KEY,
-          JSON.stringify({ fetchedAt: Date.now(), tables: nextTables })
-        );
+        safeStorageSet("session", TABLES_SNAPSHOT_KEY, JSON.stringify({ fetchedAt: Date.now(), tables: nextTables }));
       }
     } catch (err: any) {
       const message = String(err?.message || "");
       if (message === "未登录" || message === "Not signed in") {
-        localStorage.removeItem("rdv_token");
-        localStorage.removeItem("rdv_role");
+        safeStorageRemove("local", "rdv_token");
+        safeStorageRemove("local", "rdv_role");
         router.replace("/");
         return;
       }
@@ -175,23 +173,22 @@ export default function TablesPage() {
         const subcategories = Array.isArray(body.subcategories)
           ? body.subcategories.map((value) => String(value || "").trim()).filter(Boolean)
           : [];
-        sessionStorage.setItem(
-          `rdv_menu_cache:v${MENU_CACHE_VERSION}:lunch`,
-          JSON.stringify({
-            updatedAt: Date.now(),
-            expiresAt: Date.now() + MENU_CACHE_TTL_MS,
-            items,
-            subcategories
-          })
-        );
+        const snapshot = JSON.stringify({
+          updatedAt: Date.now(),
+          expiresAt: Date.now() + MENU_CACHE_TTL_MS,
+          items,
+          subcategories
+        });
+        safeStorageSet("local", `rdv_menu_cache:v${MENU_CACHE_VERSION}:lunch`, snapshot);
+        safeStorageSet("session", `rdv_menu_cache:v${MENU_CACHE_VERSION}:lunch`, snapshot);
       })
       .catch(() => undefined);
   }, [router]);
 
   const enterMenu = useCallback((tableNo: string, guests: number) => {
     warmOrderData(tableNo, guests);
-    localStorage.setItem("rdv_recent_table", tableNo);
-    localStorage.setItem("rdv_recent_guests", String(guests));
+    safeStorageSet("local", "rdv_recent_table", tableNo);
+    safeStorageSet("local", "rdv_recent_guests", String(guests));
     router.push(`/order?tableNo=${encodeURIComponent(tableNo)}&guests=${guests}`);
   }, [router, warmOrderData]);
 

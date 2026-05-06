@@ -4,6 +4,7 @@ import { memo, Profiler, startTransition, useCallback, useDeferredValue, useEffe
 import { useRouter } from "next/navigation";
 import BottomNav from "../components/bottom-nav";
 import { apiFetchJson, getStoredAuth } from "../../lib/client-api";
+import { safeStorageGet, safeStorageRemove, safeStorageSet } from "../../lib/browser-storage";
 import { useI18n } from "../components/i18n-provider";
 import { localizeMenuText, shortCategoryLabel } from "../../lib/menu-text";
 import { useActionGuard } from "../../lib/use-action-guard";
@@ -93,6 +94,7 @@ type MenuCachePayload = {
   updatedAt: number;
   items: MenuItem[];
   subcategories?: string[];
+  stale?: boolean;
 };
 
 type MajorCategoryOption = {
@@ -122,6 +124,7 @@ type SeafoodConfig = {
 };
 
 const MENU_CACHE_TTL_MS = 6 * 60 * 60 * 1000;
+const MENU_CACHE_STALE_MS = 14 * 24 * 60 * 60 * 1000;
 const MENU_CACHE_VERSION = 3;
 const MENU_VIRTUALIZE_MIN = 48;
 const MENU_ROW_ESTIMATE = 106;
@@ -361,6 +364,7 @@ export default function OrderPage() {
   const keywordDebouncedSyncRef = useRef<(((nextValue: string) => void) & { cancel: () => void }) | null>(null);
   const lastSubmittedSignatureRef = useRef("");
   const lastSubmittedAtRef = useRef(0);
+  const pendingSubmitKeyRef = useRef<{ signature: string; key: string; createdAt: number } | null>(null);
   const isMergedTable = tableNo.includes("+");
   const canRunAction = useActionGuard();
   const deferredKeyword = useDeferredValue(keyword);
@@ -404,23 +408,28 @@ export default function OrderPage() {
   function readMenuCache(shiftKey: ShiftKey): MenuCachePayload | null {
     if (typeof window === "undefined") return null;
     const key = `rdv_menu_cache:v${MENU_CACHE_VERSION}:${shiftKey}`;
-    try {
-      const raw = sessionStorage.getItem(key);
-      if (!raw) return null;
-      const parsed = JSON.parse(raw) as MenuCachePayload;
-      if (!parsed || !Array.isArray(parsed.items)) return null;
-      const age = Date.now() - Number(parsed.updatedAt || 0);
-      if (!Number.isFinite(age) || age < 0 || age > MENU_CACHE_TTL_MS) return null;
-      return {
-        updatedAt: Number(parsed.updatedAt || 0),
-        items: parsed.items.map((item) => stripTransientFields(item)),
-        subcategories: Array.isArray(parsed.subcategories)
-          ? parsed.subcategories.map((value) => String(value || "").trim()).filter(Boolean)
-          : []
-      };
-    } catch {
-      return null;
+    const sources: Array<"local" | "session"> = ["local", "session"];
+    for (const storage of sources) {
+      try {
+        const raw = safeStorageGet(storage, key);
+        if (!raw) continue;
+        const parsed = JSON.parse(raw) as MenuCachePayload;
+        if (!parsed || !Array.isArray(parsed.items)) continue;
+        const age = Date.now() - Number(parsed.updatedAt || 0);
+        if (!Number.isFinite(age) || age < 0 || age > MENU_CACHE_STALE_MS) continue;
+        return {
+          updatedAt: Number(parsed.updatedAt || 0),
+          stale: age > MENU_CACHE_TTL_MS,
+          items: parsed.items.map((item) => stripTransientFields(item)),
+          subcategories: Array.isArray(parsed.subcategories)
+            ? parsed.subcategories.map((value) => String(value || "").trim()).filter(Boolean)
+            : []
+        };
+      } catch {
+        // Some Android WebViews can deny one storage area; try the next one.
+      }
     }
+    return null;
   }
 
   function writeMenuCache(shiftKey: ShiftKey, items: MenuItem[], subcategories: string[]) {
@@ -432,11 +441,10 @@ export default function OrderPage() {
       subcategories
     };
     try {
+      const serialized = JSON.stringify(payload);
       scheduleIdleTask(() => {
-        try {
-          sessionStorage.setItem(key, JSON.stringify(payload));
-        } catch {
-          // Ignore storage errors.
+        for (const storage of ["local", "session"] as const) {
+          safeStorageSet(storage, key, serialized);
         }
       });
     } catch {
@@ -487,8 +495,8 @@ export default function OrderPage() {
       router.replace("/tables");
       return;
     }
-    localStorage.setItem("rdv_recent_table", tableNo);
-    localStorage.setItem("rdv_recent_guests", String(guests));
+    safeStorageSet("local", "rdv_recent_table", tableNo);
+    safeStorageSet("local", "rdv_recent_guests", String(guests));
   }, [tableNo, guests, paramsReady, router]);
 
   useEffect(() => {
@@ -508,6 +516,7 @@ export default function OrderPage() {
     cartSelectionsRef.current = {};
     setCartSelections({});
     draftSerializedRef.current = "";
+    pendingSubmitKeyRef.current = null;
     setMenu([]);
   }, [tableNo]);
 
@@ -515,7 +524,7 @@ export default function OrderPage() {
     if (!paramsReady || !tableNo) return;
     const key = `rdv_order_draft:${tableNo}`;
     try {
-      const raw = localStorage.getItem(key);
+      const raw = safeStorageGet("local", key);
       if (!raw) {
         draftRef.current = null;
         cartSelectionsRef.current = {};
@@ -596,6 +605,9 @@ export default function OrderPage() {
     if (cached) {
       setMenu(cached);
       setShiftSubcategories((prev) => ({ ...prev, [shift]: cachedSubcategories }));
+      if (storageCached?.stale) {
+        setError(t("order.menuUsingCache", "Network is slow. Showing saved menu while refreshing."));
+      }
     }
 
     const controller = new AbortController();
@@ -645,8 +657,10 @@ export default function OrderPage() {
         if (requestId !== menuRequestRef.current) return;
         if (!cached) {
           setMenu([]);
+          setError(err.message || t("order.menuLoadFailed", "Failed to load menu"));
+          return;
         }
-        setError(err.message || t("order.menuLoadFailed", "Failed to load menu"));
+        setError(t("order.menuUsingCache", "Network is slow. Showing saved menu while refreshing."));
       })
       .finally(() => {
         if (requestId === menuRequestRef.current) {
@@ -725,7 +739,7 @@ export default function OrderPage() {
       draftRef.current = draft;
       cancelIdleWrite = scheduleIdleTask(() => {
         try {
-          localStorage.setItem(key, serialized);
+          safeStorageSet("local", key, serialized);
         } catch {
           // Ignore storage write errors.
         }
@@ -1384,9 +1398,20 @@ export default function OrderPage() {
     setSubmitState("loading");
     setSubmitNotice(t("order.submitProgress", "Submitting order, please wait..."));
     try {
-      const requestId = typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
-        ? crypto.randomUUID()
-        : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+      const pendingKey = pendingSubmitKeyRef.current;
+      const canReusePendingKey = pendingKey &&
+        pendingKey.signature === cartSignature &&
+        Date.now() - pendingKey.createdAt < 10 * 60 * 1000;
+      const requestId = canReusePendingKey
+        ? pendingKey.key
+        : (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+          ? crypto.randomUUID()
+          : `${Date.now()}-${Math.random().toString(16).slice(2)}`);
+      pendingSubmitKeyRef.current = {
+        signature: cartSignature,
+        key: requestId,
+        createdAt: canReusePendingKey ? pendingKey.createdAt : Date.now()
+      };
       const payload = {
         tableNo,
         guestCount: guests,
@@ -1411,7 +1436,7 @@ export default function OrderPage() {
       setCartSelections({});
       cartSelectionsRef.current = {};
       setCartSheetOpen(false);
-      localStorage.removeItem(`rdv_order_draft:${tableNo}`);
+      safeStorageRemove("local", `rdv_order_draft:${tableNo}`);
       draftSerializedRef.current = "";
       billCacheRef.current = null;
       lastSubmittedSignatureRef.current = cartSignature;
@@ -1420,6 +1445,7 @@ export default function OrderPage() {
       setShowBill(true);
       setSubmitState("success");
       setSubmitNotice("");
+      pendingSubmitKeyRef.current = null;
       const latencyMs = Math.round(performance.now() - startedAt);
       if (body.deduped) {
         if (body.dedupeReason === "recent_duplicate") {
@@ -1509,7 +1535,7 @@ export default function OrderPage() {
       setCartSelections({});
       cartSelectionsRef.current = {};
       setCartSheetOpen(false);
-      localStorage.removeItem(`rdv_order_draft:${tableNo}`);
+      safeStorageRemove("local", `rdv_order_draft:${tableNo}`);
       draftSerializedRef.current = "";
       billCacheRef.current = null;
       finishCheckoutPerf?.();
@@ -1576,7 +1602,7 @@ export default function OrderPage() {
       setCartSelections({});
       cartSelectionsRef.current = {};
       setCartSheetOpen(false);
-      localStorage.removeItem(`rdv_order_draft:${tableNo}`);
+      safeStorageRemove("local", `rdv_order_draft:${tableNo}`);
       draftSerializedRef.current = "";
       billCacheRef.current = null;
       router.replace("/tables");

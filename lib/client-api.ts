@@ -1,5 +1,7 @@
 "use client";
 
+import { safeStorageGet } from "./browser-storage";
+
 type ApiFetchOptions = Omit<RequestInit, "body"> & {
   body?: unknown;
   timeoutMs?: number;
@@ -154,7 +156,7 @@ function getUiLang(): UiLang {
   if (typeof window === "undefined") {
     return "en";
   }
-  const stored = localStorage.getItem("rdv_lang");
+  const stored = safeStorageGet("local", "rdv_lang");
   if (stored === "zh" || stored === "en") return stored;
   const browserLang = (navigator.language || "").toLowerCase();
   return browserLang.startsWith("zh") ? "zh" : "en";
@@ -248,8 +250,8 @@ export function getStoredAuth() {
     return { token: "", role: "" };
   }
   return {
-    token: localStorage.getItem("rdv_token") || "",
-    role: localStorage.getItem("rdv_role") || ""
+    token: safeStorageGet("local", "rdv_token"),
+    role: safeStorageGet("local", "rdv_role")
   };
 }
 

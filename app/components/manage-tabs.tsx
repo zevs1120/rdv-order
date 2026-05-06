@@ -4,13 +4,14 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { useI18n } from "./i18n-provider";
+import { safeStorageGet } from "../../lib/browser-storage";
 
 export default function ManageTabs() {
   const pathname = usePathname();
   const { t } = useI18n();
   const [role] = useState(() => {
     if (typeof window === "undefined") return "";
-    return localStorage.getItem("rdv_role") || "";
+    return safeStorageGet("local", "rdv_role");
   });
 
   return (

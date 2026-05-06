@@ -45,6 +45,7 @@ function run() {
   const alertQueueFailed = Number(process.env.PRINT_ALERT_QUEUE_FAILED || 3);
   const orderDedupeWindowSeconds = Number(process.env.ORDER_DEDUPE_WINDOW_SECONDS || 8);
   const forceSingleCopy = String(process.env.PRINT_FORCE_SINGLE_COPY || "true").toLowerCase() !== "false";
+  const wakeOnOrder = String(process.env.PRINT_WAKE_ON_ORDER || "true").toLowerCase() !== "false";
   const routeBarCategories = String(process.env.PRINT_ROUTE_BAR_CATEGORIES || "")
     .split(",")
     .map((v) => v.trim())
@@ -105,6 +106,7 @@ function run() {
     alertQueueFailed,
     orderDedupeWindowSeconds,
     forceSingleCopy,
+    wakeOnOrder,
     routeBarCategories,
     routeBarKeywords,
     ok: problems.length === 0,

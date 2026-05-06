@@ -140,7 +140,7 @@ describe("orders api route", () => {
     expect(a).toBe(b);
   });
 
-  it("POST should create new order and kick print worker once", async () => {
+  it("POST should create new order and wake print worker once", async () => {
     const client = makeClientForNewOrder();
     mocks.connect.mockResolvedValue(client);
 
@@ -150,6 +150,20 @@ describe("orders api route", () => {
     expect(res.status).toBe(200);
     expect(body.orderId).toBe("order-new-1");
     expect(body.deduped).toBe(false);
+    expect(mocks.runPrintWorker).toHaveBeenCalledTimes(1);
+    expect(client.release).toHaveBeenCalledTimes(1);
+  });
+
+  it("POST should not wait for a slow print worker", async () => {
+    const client = makeClientForNewOrder();
+    mocks.connect.mockResolvedValue(client);
+    mocks.runPrintWorker.mockReturnValue(new Promise(() => undefined));
+
+    const res = await POST(makeRequest());
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(body.orderId).toBe("order-new-1");
     expect(mocks.runPrintWorker).toHaveBeenCalledTimes(1);
     expect(client.release).toHaveBeenCalledTimes(1);
   });
