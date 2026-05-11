@@ -145,8 +145,9 @@ export default function TablesPage() {
       const body = await apiFetchJson<{ session: { tableNo: string; guestCount: number } }>("/api/tables", {
         method: "POST",
         body: { tableNo: openingTable.tableNo, guestCount },
-        timeoutMs: 4500,
-        retries: 0
+        timeoutMs: 1800,
+        retries: 0,
+        adaptiveTimeout: false
       });
       setOpeningTable(null);
       enterMenu(body.session.tableNo, body.session.guestCount);
@@ -207,9 +208,10 @@ export default function TablesPage() {
       return;
     }
 
+    router.prefetch(`/order?tableNo=${encodeURIComponent(table.tableNo)}&guests=2`);
     setGuestCount(2);
     setOpeningTable(table);
-  }, [enterMenu, selectMode, submitting]);
+  }, [enterMenu, router, selectMode, submitting]);
 
   function tableStatusLabel(table: TableItem) {
     if (table.status === "open") return lang === "en" ? "In Service" : "服务中";

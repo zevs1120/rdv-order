@@ -1142,8 +1142,9 @@ export default function OrderPage() {
       await apiFetchJson("/api/tables/print-bill", {
         method: "POST",
         body: { tableNo },
-        timeoutMs: 10000,
-        retries: 0
+        timeoutMs: 1800,
+        retries: 0,
+        adaptiveTimeout: false
       });
       window.alert(t("order.printReceiptSuccess", "Guest copy sent to printer"));
     } catch (err: any) {

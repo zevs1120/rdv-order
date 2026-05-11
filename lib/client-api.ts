@@ -9,6 +9,7 @@ type ApiFetchOptions = Omit<RequestInit, "body"> & {
   useAuth?: boolean;
   dedupeGet?: boolean;
   cacheTtlMs?: number;
+  adaptiveTimeout?: boolean;
 };
 
 export const NETWORK_POLICY = {
@@ -262,6 +263,7 @@ export async function apiFetchJson<T>(url: string, options: ApiFetchOptions = {}
     useAuth = true,
     dedupeGet = true,
     cacheTtlMs = 0,
+    adaptiveTimeout = true,
     headers,
     body,
     signal: externalSignal,
@@ -271,7 +273,7 @@ export async function apiFetchJson<T>(url: string, options: ApiFetchOptions = {}
   const method = String(rest.method || "GET").toUpperCase();
   const lang = getUiLang();
   const retryCount = resolveRetryCount(method, retries);
-  const effectiveTimeoutMs = resolveTimeout(timeoutMs);
+  const effectiveTimeoutMs = adaptiveTimeout ? resolveTimeout(timeoutMs) : timeoutMs;
 
   const execute = async (): Promise<T> => {
     let lastError: Error | null = null;

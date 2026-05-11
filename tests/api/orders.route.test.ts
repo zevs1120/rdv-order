@@ -2,29 +2,19 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   poolQuery: vi.fn(),
-  connect: vi.fn(),
   requirePermission: vi.fn(),
-  runPrintWorker: vi.fn(),
-  writeAuditLogSafe: vi.fn()
+  requireOrderCreate: vi.fn()
 }));
 
 vi.mock("../../lib/db", () => ({
   pool: {
-    query: mocks.poolQuery,
-    connect: mocks.connect
+    query: mocks.poolQuery
   }
 }));
 
 vi.mock("../../lib/permissions", () => ({
-  requirePermission: mocks.requirePermission
-}));
-
-vi.mock("../../lib/print-worker", () => ({
-  runPrintWorker: mocks.runPrintWorker
-}));
-
-vi.mock("../../lib/audit", () => ({
-  writeAuditLogSafe: mocks.writeAuditLogSafe
+  requirePermission: mocks.requirePermission,
+  requireOrderCreate: mocks.requireOrderCreate
 }));
 
 import { POST } from "../../app/api/orders/route";
@@ -49,71 +39,19 @@ function makeRequest(idempotencyKey?: string) {
   });
 }
 
-function makeClientForNewOrder() {
-  const release = vi.fn();
-  const query = vi.fn(async (sql: string) => {
-    if (sql.includes("BEGIN") || sql.includes("COMMIT") || sql.includes("ROLLBACK")) {
-      return { rows: [] };
-    }
-    if (sql.includes("FROM table_sessions") && sql.includes("FOR UPDATE")) {
-      return { rows: [{ id: "session-1" }] };
-    }
-    if (sql.includes("string_agg") && sql.includes("FROM orders o")) {
-      return { rows: [] };
-    }
-    if (sql.includes("INSERT INTO orders") && sql.includes("client_request_id") && sql.includes("NULL")) {
-      return { rows: [{ id: "order-new-1" }] };
-    }
-    if (sql.includes("DELETE FROM order_charges") && sql.includes("source = 'rule_auto'")) {
-      return { rows: [] };
-    }
-    if (sql.includes("SUM(oi.qty * mi.price)")) {
-      return { rows: [{ item_amount: 450 }] };
-    }
-    if (sql.includes("FROM pricing_rules") && sql.includes("charge_type") && sql.includes("mode")) {
-      return { rows: [] };
-    }
-    if (sql.includes("INSERT INTO order_items")) {
-      return { rows: [] };
-    }
-    if (sql.includes("INSERT INTO order_events")) {
-      return { rows: [] };
-    }
-    if (sql.includes("INSERT INTO print_jobs")) {
-      return { rows: [] };
-    }
-    throw new Error(`Unhandled SQL in test(new-order): ${sql.slice(0, 120)}`);
-  });
-  return { query, release };
-}
-
-function makeClientForIdempotencyHit() {
-  const release = vi.fn();
-  const query = vi.fn(async (sql: string) => {
-    if (sql.includes("BEGIN") || sql.includes("COMMIT") || sql.includes("ROLLBACK")) {
-      return { rows: [] };
-    }
-    if (sql.includes("FROM table_sessions") && sql.includes("FOR UPDATE")) {
-      return { rows: [{ id: "session-1" }] };
-    }
-    if (sql.includes("WHERE waiter_id = $1") && sql.includes("client_request_id = $2")) {
-      return { rows: [{ id: "order-existing-1" }] };
-    }
-    if (sql.includes("INSERT INTO print_jobs") && sql.includes("DO NOTHING")) {
-      return { rows: [] };
-    }
-    throw new Error(`Unhandled SQL in test(idempotency-hit): ${sql.slice(0, 120)}`);
-  });
-  return { query, release };
-}
-
 describe("orders api route", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.requirePermission.mockResolvedValue({ userId: "u-1", role: "waiter" });
-    mocks.poolQuery.mockResolvedValue({ rows: [{ id: dishIdA }, { id: dishIdB }] });
-    mocks.runPrintWorker.mockResolvedValue({ picked: 1, printed: 1, failed: 0 });
-    mocks.writeAuditLogSafe.mockResolvedValue(undefined);
+    mocks.requireOrderCreate.mockResolvedValue({ userId: "u-1", role: "waiter" });
+    mocks.poolQuery.mockResolvedValue({
+      rows: [{
+        session_open: true,
+        valid_items: true,
+        order_id: "order-new-1",
+        inserted: true
+      }]
+    });
   });
 
   it("parseItems should merge duplicate line items by dish+note", () => {
@@ -140,37 +78,30 @@ describe("orders api route", () => {
     expect(a).toBe(b);
   });
 
-  it("POST should create new order and wake print worker once", async () => {
-    const client = makeClientForNewOrder();
-    mocks.connect.mockResolvedValue(client);
-
+  it("POST should create order and queue print job in one database call", async () => {
     const res = await POST(makeRequest());
     const body = await res.json();
 
     expect(res.status).toBe(200);
     expect(body.orderId).toBe("order-new-1");
     expect(body.deduped).toBe(false);
-    expect(mocks.runPrintWorker).toHaveBeenCalledTimes(1);
-    expect(client.release).toHaveBeenCalledTimes(1);
+    expect(mocks.poolQuery).toHaveBeenCalledTimes(1);
+    const sql = String(mocks.poolQuery.mock.calls[0][0]);
+    expect(sql).toContain("INSERT INTO orders");
+    expect(sql).toContain("INSERT INTO order_items");
+    expect(sql).toContain("INSERT INTO print_jobs");
+    expect(sql).not.toContain("FOR UPDATE");
   });
 
-  it("POST should not wait for a slow print worker", async () => {
-    const client = makeClientForNewOrder();
-    mocks.connect.mockResolvedValue(client);
-    mocks.runPrintWorker.mockReturnValue(new Promise(() => undefined));
-
-    const res = await POST(makeRequest());
-    const body = await res.json();
-
-    expect(res.status).toBe(200);
-    expect(body.orderId).toBe("order-new-1");
-    expect(mocks.runPrintWorker).toHaveBeenCalledTimes(1);
-    expect(client.release).toHaveBeenCalledTimes(1);
-  });
-
-  it("POST idempotency hit should not trigger duplicate print worker", async () => {
-    const client = makeClientForIdempotencyHit();
-    mocks.connect.mockResolvedValue(client);
+  it("POST idempotency hit should return existing order without duplicate items", async () => {
+    mocks.poolQuery.mockResolvedValueOnce({
+      rows: [{
+        session_open: true,
+        valid_items: true,
+        order_id: "order-existing-1",
+        inserted: false
+      }]
+    });
 
     const res = await POST(makeRequest("idem_12345678"));
     const body = await res.json();
@@ -179,13 +110,40 @@ describe("orders api route", () => {
     expect(body.orderId).toBe("order-existing-1");
     expect(body.deduped).toBe(true);
     expect(body.dedupeReason).toBe("idempotency");
-    expect(mocks.runPrintWorker).not.toHaveBeenCalled();
-    expect(client.release).toHaveBeenCalledTimes(1);
+    expect(mocks.poolQuery).toHaveBeenCalledTimes(1);
+  });
 
-    const printInsertCalls = client.query.mock.calls.filter(
-      (args: unknown[]) => typeof args[0] === "string" && (args[0] as string).includes("INSERT INTO print_jobs")
-    );
-    expect(printInsertCalls).toHaveLength(1);
-    expect(String(printInsertCalls[0][0])).toContain("DO NOTHING");
+  it("POST should reject when table is not open", async () => {
+    mocks.poolQuery.mockResolvedValueOnce({
+      rows: [{
+        session_open: false,
+        valid_items: true,
+        order_id: null,
+        inserted: null
+      }]
+    });
+
+    const res = await POST(makeRequest());
+    const body = await res.json();
+
+    expect(res.status).toBe(400);
+    expect(body.error).toBe("该桌未开台，请先开台");
+  });
+
+  it("POST should reject invalid menu items", async () => {
+    mocks.poolQuery.mockResolvedValueOnce({
+      rows: [{
+        session_open: true,
+        valid_items: false,
+        order_id: null,
+        inserted: null
+      }]
+    });
+
+    const res = await POST(makeRequest());
+    const body = await res.json();
+
+    expect(res.status).toBe(400);
+    expect(body.error).toBe("存在无效或已下架菜品");
   });
 });

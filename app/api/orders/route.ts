@@ -1,16 +1,7 @@
 import { NextResponse } from "next/server";
-import type { PoolClient } from "pg";
 import { pool } from "../../../lib/db";
-import { runPrintWorker } from "../../../lib/print-worker";
-import { requirePermission } from "../../../lib/permissions";
-import { writeAuditLogSafe } from "../../../lib/audit";
-import { replaceAutoChargesForOrder } from "../../../lib/auto-charges";
-import {
-  buildItemSignature,
-  getOrderDedupeWindowSeconds,
-  parseItems,
-  type OrderItemInput
-} from "../../../lib/orders-utils";
+import { requireOrderCreate, requirePermission } from "../../../lib/permissions";
+import { parseItems } from "../../../lib/orders-utils";
 
 type OrderBody = {
   tableNo?: unknown;
@@ -19,62 +10,9 @@ type OrderBody = {
 
 const IDEMPOTENCY_KEY = /^[a-zA-Z0-9_-]{8,80}$/;
 
-function shouldWakePrintWorkerOnOrder() {
-  return String(process.env.PRINT_WAKE_ON_ORDER || "true").trim().toLowerCase() !== "false";
-}
-
-function wakePrintWorkerInBackground() {
-  void runPrintWorker(1).catch((err) => {
-    console.error("[print-worker] background wake failed", err);
-  });
-}
-
-async function findRecentDuplicateOrder(
-  client: PoolClient,
-  waiterId: string,
-  tableNo: string,
-  items: OrderItemInput[],
-  windowSeconds: number
-) {
-  const incomingSignature = buildItemSignature(items);
-  if (!incomingSignature) return null;
-  const { rows } = await client.query<{ id: string; signature: string }>(
-    `SELECT o.id,
-            string_agg(
-              oi.menu_item_id::text || ':' || oi.qty::text || ':' || lower(btrim(COALESCE(oi.note, ''))),
-              '|' ORDER BY oi.menu_item_id::text, lower(btrim(COALESCE(oi.note, ''))), oi.qty
-            ) AS signature
-     FROM orders o
-     JOIN order_items oi ON oi.order_id = o.id
-     WHERE o.waiter_id = $1
-       AND o.table_no = $2
-       AND o.cancelled_at IS NULL
-       AND o.merged_into_order_id IS NULL
-       AND o.created_at >= now() - ($3::int * INTERVAL '1 second')
-     GROUP BY o.id, o.created_at
-     ORDER BY o.created_at DESC
-     LIMIT 12`,
-    [waiterId, tableNo, windowSeconds]
-  );
-
-  const hit = rows.find((row) => row.signature === incomingSignature);
-  return hit?.id || null;
-}
-
-async function validateMenuItems(itemIds: string[]) {
-  const { rows } = await pool.query<{ id: string }>(
-    `SELECT id
-     FROM menu_items
-     WHERE id = ANY($1::uuid[])
-       AND (is_active = true OR is_temporary = true)`,
-    [itemIds]
-  );
-  return rows.length === itemIds.length;
-}
-
 export async function POST(req: Request) {
   try {
-    const auth = await requirePermission(req, "order.create");
+    const auth = await requireOrderCreate(req);
     const body = (await req.json().catch(() => null)) as OrderBody | null;
     const tableNo = String(body?.tableNo || "").trim();
     if (!tableNo) {
@@ -86,158 +24,94 @@ export async function POST(req: Request) {
     const uniqueItemIds = Array.from(new Set(itemIds));
     const qtyList = items.map((item) => item.qty);
     const noteList = items.map((item) => item.note);
-    const validItems = await validateMenuItems(uniqueItemIds);
-    if (!validItems) {
-      return NextResponse.json({ error: "存在无效或已下架菜品" }, { status: 400 });
-    }
 
     const requestIdRaw = req.headers.get("x-idempotency-key") || "";
-    const requestId = requestIdRaw.trim();
+    const requestId = requestIdRaw.trim() || null;
     if (requestId && !IDEMPOTENCY_KEY.test(requestId)) {
       return NextResponse.json({ error: "请求幂等键格式错误" }, { status: 400 });
     }
 
-    let createdOrderId = "";
-    let deduped = false;
-    let createdNewOrder = false;
-    let dedupeReason: "none" | "idempotency" | "recent_duplicate" = "none";
-    let shouldWakePrintWorker = false;
-
-    const client = await pool.connect();
-    try {
-      await client.query("BEGIN");
-
-      const session = await client.query<{ id: string }>(
-        `SELECT id
+    const { rows } = await pool.query<{
+      session_open: boolean;
+      valid_items: boolean;
+      order_id: string | null;
+      inserted: boolean | null;
+    }>(
+      `WITH input_items AS (
+         SELECT *
+         FROM UNNEST($4::uuid[], $5::int[], $6::text[]) AS x(menu_item_id, qty, note)
+       ),
+       session_ok AS (
+         SELECT 1
          FROM table_sessions
          WHERE table_no = $1
            AND closed_at IS NULL
-         FOR UPDATE`,
-        [tableNo]
-      );
-      if (session.rows.length === 0) {
-        await client.query("ROLLBACK");
-        return NextResponse.json({ error: "该桌未开台，请先开台" }, { status: 400 });
-      }
+         LIMIT 1
+       ),
+       valid_menu AS (
+         SELECT COUNT(DISTINCT id)::int AS count
+         FROM menu_items
+         WHERE id = ANY($4::uuid[])
+           AND (is_active = true OR is_temporary = true)
+       ),
+       created_order AS (
+         INSERT INTO orders (table_no, waiter_id, status, client_request_id)
+         SELECT $1, $2, 'submitted', $3
+         WHERE EXISTS (SELECT 1 FROM session_ok)
+           AND (SELECT count FROM valid_menu) = $7
+         ON CONFLICT (waiter_id, client_request_id)
+         WHERE client_request_id IS NOT NULL
+         DO UPDATE SET client_request_id = EXCLUDED.client_request_id
+         RETURNING id, (xmax = 0) AS inserted
+       ),
+       inserted_items AS (
+         INSERT INTO order_items (order_id, menu_item_id, qty, note)
+         SELECT co.id, ii.menu_item_id, ii.qty, NULLIF(ii.note, '')
+         FROM created_order co
+         JOIN input_items ii ON co.inserted = true
+         RETURNING 1
+       ),
+       queued_print AS (
+         INSERT INTO print_jobs (order_id, status, retry_count)
+         SELECT id, 'pending', 0
+         FROM created_order
+         WHERE inserted = true
+         ON CONFLICT (order_id) DO NOTHING
+         RETURNING 1
+       )
+       SELECT
+         EXISTS (SELECT 1 FROM session_ok) AS session_open,
+         ((SELECT count FROM valid_menu) = $7) AS valid_items,
+         (SELECT id FROM created_order) AS order_id,
+         (SELECT inserted FROM created_order) AS inserted`,
+      [
+        tableNo,
+        auth.userId,
+        requestId,
+        itemIds,
+        qtyList,
+        noteList.map((note) => note || ""),
+        uniqueItemIds.length
+      ]
+    );
 
-      if (requestId) {
-        const existingByRequest = await client.query<{ id: string }>(
-          `SELECT id
-           FROM orders
-           WHERE waiter_id = $1
-             AND client_request_id = $2
-           LIMIT 1
-           FOR UPDATE`,
-          [auth.userId, requestId]
-        );
-        if (existingByRequest.rows[0]?.id) {
-          createdOrderId = existingByRequest.rows[0].id;
-          createdNewOrder = false;
-          deduped = true;
-          dedupeReason = "idempotency";
-        }
-      }
-
-      if (!createdOrderId) {
-        const recentDuplicateOrderId = await findRecentDuplicateOrder(
-          client,
-          auth.userId,
-          tableNo,
-          items,
-          getOrderDedupeWindowSeconds()
-        );
-        if (recentDuplicateOrderId) {
-          createdOrderId = recentDuplicateOrderId;
-          createdNewOrder = false;
-          deduped = true;
-          dedupeReason = "recent_duplicate";
-        }
-      }
-
-      if (!createdOrderId && requestId) {
-        const orderRes = await client.query<{ id: string; inserted: boolean }>(
-          `INSERT INTO orders (table_no, waiter_id, status, client_request_id)
-           VALUES ($1, $2, 'submitted', $3)
-           ON CONFLICT (waiter_id, client_request_id)
-           WHERE client_request_id IS NOT NULL
-           DO UPDATE SET client_request_id = EXCLUDED.client_request_id
-           RETURNING id, (xmax = 0) AS inserted`,
-          [tableNo, auth.userId, requestId]
-        );
-        createdOrderId = orderRes.rows[0].id;
-        createdNewOrder = Boolean(orderRes.rows[0].inserted);
-        deduped = !createdNewOrder;
-        dedupeReason = deduped ? "idempotency" : "none";
-      } else if (!createdOrderId) {
-        const orderRes = await client.query<{ id: string }>(
-          `INSERT INTO orders (table_no, waiter_id, status, client_request_id)
-           VALUES ($1, $2, 'submitted', NULL)
-           RETURNING id`,
-          [tableNo, auth.userId]
-        );
-        createdOrderId = orderRes.rows[0].id;
-        createdNewOrder = true;
-      }
-
-      if (createdNewOrder) {
-        await client.query(
-          `INSERT INTO order_items (order_id, menu_item_id, qty, note)
-           SELECT $1, x.menu_item_id::uuid, x.qty::int, NULLIF(x.note, '')
-           FROM UNNEST($2::text[], $3::int[], $4::text[]) AS x(menu_item_id, qty, note)`,
-          [createdOrderId, itemIds, qtyList, noteList.map((note) => note || "")]
-        );
-
-        await replaceAutoChargesForOrder(client, createdOrderId, auth.userId);
-
-        await client.query(
-          `INSERT INTO order_events (order_id, event_type, payload, created_by)
-           VALUES ($1, 'created', jsonb_build_object('itemCount', $2::int), $3)`,
-          [createdOrderId, items.length, auth.userId]
-        );
-
-        await client.query(
-          `INSERT INTO print_jobs (order_id, status, retry_count)
-           VALUES ($1, 'pending', 0)
-           ON CONFLICT (order_id) DO UPDATE
-           SET status = CASE
-                          WHEN print_jobs.status IN ('printed', 'printing') THEN print_jobs.status
-                          ELSE 'pending'
-                        END,
-               updated_at = now()`,
-          [createdOrderId]
-        );
-        shouldWakePrintWorker = true;
-      }
-      if (deduped && dedupeReason === "idempotency") {
-        const ensurePrintJob = await client.query<{ id: string }>(
-          `INSERT INTO print_jobs (order_id, status, retry_count)
-           VALUES ($1, 'pending', 0)
-           ON CONFLICT (order_id) DO NOTHING
-           RETURNING id`,
-          [createdOrderId]
-        );
-        shouldWakePrintWorker = ensurePrintJob.rows.length > 0;
-      }
-
-      await client.query("COMMIT");
-      if (shouldWakePrintWorker && shouldWakePrintWorkerOnOrder()) {
-        wakePrintWorkerInBackground();
-      }
-      await writeAuditLogSafe({
-        actorUserId: auth.userId,
-        action: deduped ? "order.submit_deduped" : "order.submit",
-        entityType: "order",
-        entityId: createdOrderId,
-        detail: { tableNo, itemCount: items.length, deduped, dedupeReason },
-        req
-      });
-      return NextResponse.json({ orderId: createdOrderId, deduped, dedupeReason });
-    } catch (err) {
-      await client.query("ROLLBACK");
-      throw err;
-    } finally {
-      client.release();
+    const result = rows[0];
+    if (!result?.session_open) {
+      return NextResponse.json({ error: "该桌未开台，请先开台" }, { status: 400 });
     }
+    if (!result.valid_items) {
+      return NextResponse.json({ error: "存在无效或已下架菜品" }, { status: 400 });
+    }
+    if (!result.order_id) {
+      return NextResponse.json({ error: "提交失败" }, { status: 500 });
+    }
+
+    const deduped = result.inserted === false;
+    return NextResponse.json({
+      orderId: result.order_id,
+      deduped,
+      dedupeReason: deduped ? "idempotency" : "none"
+    });
   } catch (err: any) {
     if (err.message === "UNAUTHORIZED") {
       return NextResponse.json({ error: "未登录" }, { status: 401 });
