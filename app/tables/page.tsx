@@ -1,13 +1,12 @@
 "use client";
 
-import { memo, Profiler, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import BottomNav from "../components/bottom-nav";
 import { apiFetchJson, getStoredAuth } from "../../lib/client-api";
 import { safeStorageGet, safeStorageRemove, safeStorageSet } from "../../lib/browser-storage";
 import { useI18n } from "../components/i18n-provider";
 import { useActionGuard } from "../../lib/use-action-guard";
-import { captureReactProfile } from "../../lib/react-profiler";
 import { BottomSheet, Button, Card, EmptyState, IconButton, Skeleton } from "../../components/ui";
 import { dispatchTopbarState, RDV_TOPBAR_ACTION_EVENT, type TopbarActionDetail } from "../../lib/topbar-events";
 
@@ -21,36 +20,10 @@ type TableItem = {
   currentAmount?: number;
 };
 
-type MenuCacheSnapshotItem = {
-  id: string;
-  name: string;
-  price: number;
-  category: string | null;
-  description: string | null;
-  allergens?: string[];
-  menu_group: "breakfast" | "lunch_dinner" | "cocktail" | "set_menu";
-  item_type: "single" | "set";
-};
-
 const TABLE_PROGRESSIVE_THRESHOLD = 24;
 const TABLE_PROGRESSIVE_STEP = 18;
 const TABLES_SNAPSHOT_KEY = "rdv_tables_snapshot:v1";
 const TABLES_SNAPSHOT_TTL_MS = 10_000;
-const MENU_CACHE_VERSION = 3;
-const MENU_CACHE_TTL_MS = 6 * 60 * 60 * 1000;
-
-function toMenuCacheItem(item: MenuCacheSnapshotItem): MenuCacheSnapshotItem {
-  return {
-    id: item.id,
-    name: item.name,
-    price: item.price,
-    category: item.category,
-    description: item.description,
-    allergens: item.allergens,
-    menu_group: item.menu_group,
-    item_type: item.item_type
-  };
-}
 
 export default function TablesPage() {
   const router = useRouter();
@@ -69,7 +42,6 @@ export default function TablesPage() {
   const [mergeGuestCount, setMergeGuestCount] = useState(4);
   const [minuteTick, setMinuteTick] = useState(0);
   const loadMoreAnchorRef = useRef<HTMLDivElement | null>(null);
-  const warmedOrderTablesRef = useRef<Set<string>>(new Set());
   const canRunAction = useActionGuard();
 
   useEffect(() => {
@@ -158,39 +130,11 @@ export default function TablesPage() {
     }
   }
 
-  const warmOrderData = useCallback((tableNo: string, guests = 2) => {
-    if (typeof window === "undefined") return;
-    if (warmedOrderTablesRef.current.has(tableNo)) return;
-    warmedOrderTablesRef.current.add(tableNo);
-
-    router.prefetch(`/order?tableNo=${encodeURIComponent(tableNo)}&guests=${guests}`);
-    void apiFetchJson<{ items: MenuCacheSnapshotItem[]; subcategories?: string[] }>(
-      "/api/menu?shift=lunch",
-      { useAuth: false, timeoutMs: 5000, retries: 1, cacheTtlMs: 3200 }
-    )
-      .then((body) => {
-        const items = (body.items || []).map((item) => toMenuCacheItem(item));
-        const subcategories = Array.isArray(body.subcategories)
-          ? body.subcategories.map((value) => String(value || "").trim()).filter(Boolean)
-          : [];
-        const snapshot = JSON.stringify({
-          updatedAt: Date.now(),
-          expiresAt: Date.now() + MENU_CACHE_TTL_MS,
-          items,
-          subcategories
-        });
-        safeStorageSet("local", `rdv_menu_cache:v${MENU_CACHE_VERSION}:lunch`, snapshot);
-        safeStorageSet("session", `rdv_menu_cache:v${MENU_CACHE_VERSION}:lunch`, snapshot);
-      })
-      .catch(() => undefined);
-  }, [router]);
-
   const enterMenu = useCallback((tableNo: string, guests: number) => {
-    warmOrderData(tableNo, guests);
     safeStorageSet("local", "rdv_recent_table", tableNo);
     safeStorageSet("local", "rdv_recent_guests", String(guests));
     router.push(`/order?tableNo=${encodeURIComponent(tableNo)}&guests=${guests}`);
-  }, [router, warmOrderData]);
+  }, [router]);
 
   async function openTable() {
     if (!canRunAction()) return;
@@ -201,8 +145,8 @@ export default function TablesPage() {
       const body = await apiFetchJson<{ session: { tableNo: string; guestCount: number } }>("/api/tables", {
         method: "POST",
         body: { tableNo: openingTable.tableNo, guestCount },
-        timeoutMs: 7000,
-        retries: 1
+        timeoutMs: 4500,
+        retries: 0
       });
       setOpeningTable(null);
       enterMenu(body.session.tableNo, body.session.guestCount);
@@ -263,10 +207,9 @@ export default function TablesPage() {
       return;
     }
 
-    warmOrderData(table.tableNo, 2);
     setGuestCount(2);
     setOpeningTable(table);
-  }, [enterMenu, selectMode, submitting, warmOrderData]);
+  }, [enterMenu, selectMode, submitting]);
 
   function tableStatusLabel(table: TableItem) {
     if (table.status === "open") return lang === "en" ? "In Service" : "服务中";
@@ -337,28 +280,24 @@ export default function TablesPage() {
   return (
     <div className="stack tables-screen">
       {loadingTables ? (
-        <PerfSection id="Tables/GridLoading">
-          <div className="table-grid-shell">
-            <Skeleton h={108} />
-            <Skeleton h={108} />
-            <Skeleton h={108} />
-            <Skeleton h={108} />
-            <Skeleton h={108} />
-            <Skeleton h={108} />
-          </div>
-        </PerfSection>
+        <div className="table-grid-shell">
+          <Skeleton h={108} />
+          <Skeleton h={108} />
+          <Skeleton h={108} />
+          <Skeleton h={108} />
+          <Skeleton h={108} />
+          <Skeleton h={108} />
+        </div>
       ) : (
-        <PerfSection id="Tables/Grid">
-          <TablesGrid
-            columns={columns}
-            shouldProgressiveTables={shouldProgressiveTables}
-            visibleTableSet={visibleTableSet}
-            selectedBaseSet={selectedBaseSet}
-            tableDisplayByNo={tableDisplayByNo}
-            lang={lang}
-            onClick={onTableClick}
-          />
-        </PerfSection>
+        <TablesGrid
+          columns={columns}
+          shouldProgressiveTables={shouldProgressiveTables}
+          visibleTableSet={visibleTableSet}
+          selectedBaseSet={selectedBaseSet}
+          tableDisplayByNo={tableDisplayByNo}
+          lang={lang}
+          onClick={onTableClick}
+        />
       )}
 
       {shouldProgressiveTables && tableRenderLimit < tables.length ? (
@@ -520,14 +459,3 @@ const TableGridCard = memo(function TableGridCard({
     </Card>
   );
 });
-
-function PerfSection({ id, children }: { id: string; children: ReactNode }) {
-  if (process.env.NODE_ENV === "production") {
-    return <>{children}</>;
-  }
-  return (
-    <Profiler id={id} onRender={captureReactProfile}>
-      {children}
-    </Profiler>
-  );
-}

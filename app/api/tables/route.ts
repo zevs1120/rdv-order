@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { pool } from "../../../lib/db";
-import { requirePermission } from "../../../lib/permissions";
-import { writeAuditLogSafe } from "../../../lib/audit";
+import { requireOrderCreate, requirePermission } from "../../../lib/permissions";
 import { lockBaseTables } from "../../../lib/table-lock";
 import { TABLE_LAYOUT, buildTables, splitTableNo, type OpenSessionRow } from "../../../lib/tables-utils";
 
@@ -114,34 +113,68 @@ async function getOpenSessionRows() {
   }
 }
 
-async function getUsedBaseTables(client: Awaited<ReturnType<typeof pool.connect>>) {
+type CreatedSessionRow = {
+  id: string;
+  table_no: string;
+  guest_count: number;
+  opened_at: string;
+};
+
+async function createOpenTableSession(
+  client: Awaited<ReturnType<typeof pool.connect>>,
+  tableNo: string,
+  guestCount: number,
+  userId: string
+) {
   try {
-    const { rows } = await client.query<{ table_no: string }>(
-      `SELECT DISTINCT tst.table_no
-       FROM table_sessions ts
-       JOIN table_session_tables tst ON tst.session_id = ts.id
-       WHERE ts.closed_at IS NULL`
+    const { rows } = await client.query<CreatedSessionRow>(
+      `WITH used AS (
+         SELECT 1
+         FROM table_sessions ts
+         JOIN table_session_tables tst ON tst.session_id = ts.id
+         WHERE ts.closed_at IS NULL
+           AND tst.table_no = $1
+         LIMIT 1
+       ),
+       created AS (
+         INSERT INTO table_sessions (table_no, guest_count, opened_by)
+         SELECT $1, $2, $3
+         WHERE NOT EXISTS (SELECT 1 FROM used)
+         ON CONFLICT (table_no) WHERE closed_at IS NULL DO NOTHING
+         RETURNING id, table_no, guest_count, opened_at
+       ),
+       mapped AS (
+         INSERT INTO table_session_tables (session_id, table_no)
+         SELECT id, table_no FROM created
+         ON CONFLICT DO NOTHING
+       )
+       SELECT id, table_no, guest_count, opened_at
+       FROM created`,
+      [tableNo, guestCount, userId]
     );
-    return new Set(rows.map((r) => r.table_no));
+    return rows[0] || null;
   } catch (err: any) {
     if (!isMissingTableSessionTablesError(err)) {
       throw err;
     }
 
-    const fallback = await client.query<{ table_no: string }>(
+    const active = await client.query<{ table_no: string }>(
       `SELECT table_no
        FROM table_sessions
        WHERE closed_at IS NULL`
     );
-    const used = new Set<string>();
-    for (const row of fallback.rows) {
-      for (const part of splitTableNo(row.table_no)) {
-        if (TABLE_SET.has(part)) {
-          used.add(part);
-        }
-      }
+    if (active.rows.some((row) => splitTableNo(row.table_no).includes(tableNo))) {
+      return null;
     }
-    return used;
+
+    const { rows } = await client.query<CreatedSessionRow>(
+      `INSERT INTO table_sessions (table_no, guest_count, opened_by)
+       VALUES ($1, $2, $3)
+       ON CONFLICT (table_no) WHERE closed_at IS NULL DO NOTHING
+       RETURNING id, table_no, guest_count, opened_at`,
+      [tableNo, guestCount, userId]
+    );
+    return rows[0] || null;
   }
 }
 
@@ -164,7 +197,7 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
   try {
-    const auth = await requirePermission(req, "order.create");
+    const auth = await requireOrderCreate(req);
     const body = await req.json().catch(() => null);
     const tableNo = String(body?.tableNo || "").trim();
     const guestCount = Number(body?.guestCount);
@@ -178,46 +211,19 @@ export async function POST(req: Request) {
       await client.query("BEGIN");
       await lockBaseTables(client, [tableNo]);
 
-      const used = await getUsedBaseTables(client);
-      if (used.has(tableNo)) {
+      const created = await createOpenTableSession(client, tableNo, guestCount, auth.userId);
+      if (!created) {
         await client.query("ROLLBACK");
         return NextResponse.json({ error: "该桌已开台" }, { status: 409 });
       }
 
-      const created = await client.query(
-        `INSERT INTO table_sessions (table_no, guest_count, opened_by)
-         VALUES ($1, $2, $3)
-         RETURNING id, table_no, guest_count, opened_at`,
-        [tableNo, guestCount, auth.userId]
-      );
-
-      try {
-        await client.query(
-          `INSERT INTO table_session_tables (session_id, table_no)
-           VALUES ($1, $2)`,
-          [created.rows[0].id, tableNo]
-        );
-      } catch (err: any) {
-        if (!isMissingTableSessionTablesError(err)) {
-          throw err;
-        }
-      }
-
       await client.query("COMMIT");
-      await writeAuditLogSafe({
-        actorUserId: auth.userId,
-        action: "table.open",
-        entityType: "table_session",
-        entityId: created.rows[0].id,
-        detail: { tableNo: created.rows[0].table_no, guestCount: created.rows[0].guest_count },
-        req
-      });
       return NextResponse.json({
         session: {
-          id: created.rows[0].id,
-          tableNo: created.rows[0].table_no,
-          guestCount: created.rows[0].guest_count,
-          openedAt: created.rows[0].opened_at
+          id: created.id,
+          tableNo: created.table_no,
+          guestCount: created.guest_count,
+          openedAt: created.opened_at
         }
       }, { status: 201 });
     } catch (err) {

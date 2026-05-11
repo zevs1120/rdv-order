@@ -107,6 +107,10 @@ export async function requirePermission(req: Request, permission: Permission) {
   return auth;
 }
 
+export async function requireOrderCreate(req: Request) {
+  return requireAuth(req, ["waiter", "manager"]);
+}
+
 export function clearPermissionCache() {
   cacheByRole.clear();
 }

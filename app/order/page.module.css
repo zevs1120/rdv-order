@@ -18,10 +18,8 @@
 .searchPanel {
   padding: 10px;
   border-color: color-mix(in srgb, var(--glass-border) 88%, #fff);
-  background: color-mix(in srgb, var(--glass-surface) 84%, #ffffff);
-  -webkit-backdrop-filter: saturate(var(--glass-sat)) blur(var(--glass-blur));
-  backdrop-filter: saturate(var(--glass-sat)) blur(var(--glass-blur));
-  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.05);
+  background: #fff;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
 }
 
 .searchHeader {
@@ -83,17 +81,8 @@
 .shiftPanel {
   padding: 10px;
   border-color: color-mix(in srgb, var(--line-default) 92%, #fff);
-  background: color-mix(in srgb, #ffffff 84%, #f8fafc);
-  -webkit-backdrop-filter: saturate(var(--glass-sat)) blur(calc(var(--glass-blur) - 4px));
-  backdrop-filter: saturate(var(--glass-sat)) blur(calc(var(--glass-blur) - 4px));
-  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.04);
-}
-
-:global(html[data-platform="ios"]) .searchPanel,
-:global(html[data-platform="ios"]) .shiftPanel,
-:global(html[data-platform="ios"]) .cartDock {
-  -webkit-backdrop-filter: none;
-  backdrop-filter: none;
+  background: #fff;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.035);
 }
 
 .shiftRow {
@@ -282,11 +271,9 @@
   align-items: center;
   padding: 10px;
   border-color: color-mix(in srgb, var(--glass-border) 88%, #fff);
-  border-radius: 20px;
-  background: color-mix(in srgb, var(--glass-surface) 84%, #ffffff);
-  -webkit-backdrop-filter: saturate(var(--glass-sat)) blur(calc(var(--glass-blur) - 2px));
-  backdrop-filter: saturate(var(--glass-sat)) blur(calc(var(--glass-blur) - 2px));
-  box-shadow: 0 -4px 20px rgba(15, 23, 42, 0.06);
+  border-radius: 16px;
+  background: #fff;
+  box-shadow: 0 -2px 10px rgba(15, 23, 42, 0.05);
 }
 
 .cartSummaryBtn {
@@ -295,12 +282,6 @@
 
 .submitBtn {
   min-width: 132px;
-  transition: transform 80ms ease, opacity 100ms ease;
-}
-
-.submitBtnPressed {
-  transform: scale(0.98);
-  opacity: 0.92;
 }
 
 .submitProgressHint {

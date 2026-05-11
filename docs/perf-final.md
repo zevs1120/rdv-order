@@ -121,13 +121,10 @@
 
 结论：核心链路可用，未出现功能回归。
 
-## 6) PERF_DEBUG 使用说明（仅诊断）
+## 6) PERF_DEBUG 状态
 
-- 入口：`lib/perf-debug.ts`
-- 能力：
-  - 记录关键交互耗时（add/switch tab/sheet/submit/checkout）
-  - 记录 long task（`PerformanceObserver`）
-- 默认：关闭时走轻量分支，不影响正常业务流程；用于开发/诊断采样。
+- 2026-05-11 稳定性精简后，日常运行链路已移除 PERF_DEBUG 代码。
+- 目标：减少安卓手机上的运行时监控、额外回调和调试日志，优先保证点餐页面足够轻、足够快。
 
 ## 7) 结论与剩余风险
 

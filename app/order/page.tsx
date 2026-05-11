@@ -1,6 +1,6 @@
 "use client";
 
-import { memo, Profiler, startTransition, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import BottomNav from "../components/bottom-nav";
 import { apiFetchJson, getStoredAuth } from "../../lib/client-api";
@@ -8,8 +8,6 @@ import { safeStorageGet, safeStorageRemove, safeStorageSet } from "../../lib/bro
 import { useI18n } from "../components/i18n-provider";
 import { localizeMenuText, shortCategoryLabel } from "../../lib/menu-text";
 import { useActionGuard } from "../../lib/use-action-guard";
-import { captureReactProfile } from "../../lib/react-profiler";
-import { beginPerfInteraction } from "../../lib/perf-debug";
 import { createDebounced, scheduleIdleTask } from "../../lib/scheduler";
 import { Badge, BottomSheet, Button, Card, Chip, EmptyState, SearchField, Toast } from "../../components/ui";
 import { dispatchTopbarState, RDV_TOPBAR_ACTION_EVENT, type TopbarActionDetail } from "../../lib/topbar-events";
@@ -304,7 +302,6 @@ export default function OrderPage() {
   const [loading, setLoading] = useState(false);
   const [submitState, setSubmitState] = useState<SubmitUiState>("idle");
   const [submitNotice, setSubmitNotice] = useState("");
-  const [submitPressed, setSubmitPressed] = useState(false);
   const [menuLoading, setMenuLoading] = useState(false);
   const [menuViewportHeight, setMenuViewportHeight] = useState(0);
   const [menuScrollRow, setMenuScrollRow] = useState(0);
@@ -354,10 +351,7 @@ export default function OrderPage() {
   const draftRef = useRef<OrderDraft | null>(null);
   const draftSerializedRef = useRef("");
   const submitInFlightRef = useRef(false);
-  const submitClickCountRef = useRef(0);
-  const submitAttemptRef = useRef(0);
   const submitResetTimerRef = useRef<number | null>(null);
-  const submitPressedTimerRef = useRef<number | null>(null);
   const menuPaneRef = useRef<HTMLDivElement | null>(null);
   const menuScrollRafRef = useRef<number | null>(null);
   const menuScrollClassTimerRef = useRef<number | null>(null);
@@ -367,19 +361,6 @@ export default function OrderPage() {
   const pendingSubmitKeyRef = useRef<{ signature: string; key: string; createdAt: number } | null>(null);
   const isMergedTable = tableNo.includes("+");
   const canRunAction = useActionGuard();
-  const deferredKeyword = useDeferredValue(keyword);
-
-  function debugSubmit(stage: string, payload: Record<string, unknown> = {}) {
-    if (process.env.NODE_ENV === "production") return;
-    console.info("[submit-order]", {
-      stage,
-      time: new Date().toISOString(),
-      tableNo,
-      guests,
-      cartCount: cart.length,
-      ...payload
-    });
-  }
 
   function resetSubmitStateLater(ms = 1200) {
     if (submitResetTimerRef.current) {
@@ -576,9 +557,7 @@ export default function OrderPage() {
 
   useEffect(() => {
     const debounced = createDebounced((nextValue: string) => {
-      startTransition(() => {
-        setKeyword(nextValue);
-      });
+      setKeyword(nextValue);
     }, 120);
     keywordDebouncedSyncRef.current = debounced;
 
@@ -752,7 +731,7 @@ export default function OrderPage() {
     };
   }, [paramsReady, tableNo, shift, keywordInput, selectedCategory, cartSelections]);
 
-  const normalizedKeyword = deferredKeyword.trim().toLowerCase();
+  const normalizedKeyword = keyword.trim().toLowerCase();
   const menuSearchIndex = useMemo(() => {
     const index = new Map<string, string>();
     for (const item of menu) {
@@ -1048,7 +1027,6 @@ export default function OrderPage() {
   }
 
   const addFromMenu = useCallback((itemId: string) => {
-    const finishMeasure = beginPerfInteraction("order:add-item-feedback");
     const current = cartSelectionsRef.current[itemId];
     const previousQty = current?.qty || 0;
     const nextQty = previousQty + 1;
@@ -1062,11 +1040,6 @@ export default function OrderPage() {
       setQty(itemId, nextQty);
       setNoteSheetOpen(false);
       setCartSheetOpen(true);
-    }
-    if (finishMeasure) {
-      window.requestAnimationFrame(() => {
-        finishMeasure();
-      });
     }
   }, [menuById, openNoteSheetFor, setQty, updateCartSelection]);
 
@@ -1102,43 +1075,19 @@ export default function OrderPage() {
   }, []);
 
   const onSelectShift = useCallback((nextShift: ShiftKey) => {
-    const finishMeasure = beginPerfInteraction("order:switch-shift");
     setShift((prev) => (prev === nextShift ? prev : nextShift));
-    if (finishMeasure) {
-      window.requestAnimationFrame(() => {
-        finishMeasure();
-      });
-    }
   }, []);
 
   const onSelectCategory = useCallback((value: string) => {
-    const finishMeasure = beginPerfInteraction("order:switch-category");
     setSelectedCategory((prev) => (prev === value ? prev : value));
-    if (finishMeasure) {
-      window.requestAnimationFrame(() => {
-        finishMeasure();
-      });
-    }
   }, []);
 
   const openActionMenu = useCallback(() => {
-    const finishMeasure = beginPerfInteraction("order:open-action-sheet");
     setActionMenuOpen(true);
-    if (finishMeasure) {
-      window.requestAnimationFrame(() => {
-        finishMeasure();
-      });
-    }
   }, []);
 
   const closeActionMenu = useCallback(() => {
-    const finishMeasure = beginPerfInteraction("order:close-action-sheet");
     setActionMenuOpen(false);
-    if (finishMeasure) {
-      window.requestAnimationFrame(() => {
-        finishMeasure();
-      });
-    }
   }, []);
 
   async function loadBill() {
@@ -1322,16 +1271,9 @@ export default function OrderPage() {
   }
 
   async function submitOrder() {
-    submitClickCountRef.current += 1;
-    debugSubmit("click", { clickCount: submitClickCountRef.current, submitState });
-    const finishSubmitPerf = beginPerfInteraction("order:submit-order");
-
     if (submitInFlightRef.current || submitState === "loading") {
       const waitMsg = t("order.submitInProgressToast", "Submitting... please wait");
-      setToast({ message: waitMsg });
       setSubmitNotice(waitMsg);
-      debugSubmit("blocked_inflight", { clickCount: submitClickCountRef.current });
-      finishSubmitPerf?.();
       return;
     }
 
@@ -1352,8 +1294,6 @@ export default function OrderPage() {
         actionLabel: lang === "en" ? "Retry" : "重试",
         onAction: () => { void submitOrder(); }
       });
-      debugSubmit("blocked_offline");
-      finishSubmitPerf?.();
       return;
     }
 
@@ -1362,8 +1302,6 @@ export default function OrderPage() {
       setSubmitState("error");
       setSubmitNotice(msg);
       setError(msg);
-      debugSubmit("blocked_no_table");
-      finishSubmitPerf?.();
       return;
     }
     if (cart.length === 0) {
@@ -1371,8 +1309,6 @@ export default function OrderPage() {
       setSubmitState("error");
       setSubmitNotice(msg);
       setError(msg);
-      debugSubmit("blocked_empty_cart");
-      finishSubmitPerf?.();
       return;
     }
     if (
@@ -1381,18 +1317,12 @@ export default function OrderPage() {
       Date.now() - lastSubmittedAtRef.current < 12000
     ) {
       const msg = t("order.duplicateBlocked", "Duplicate submit blocked. Please wait a moment.");
-      setSubmitState("error");
+      setSubmitState("success");
       setSubmitNotice(msg);
-      setError(msg);
-      setToast({ message: msg });
-      debugSubmit("blocked_recent_duplicate");
-      finishSubmitPerf?.();
+      resetSubmitStateLater();
       return;
     }
 
-    submitAttemptRef.current += 1;
-    const attemptNo = submitAttemptRef.current;
-    const startedAt = performance.now();
     submitInFlightRef.current = true;
     setLoading(true);
     setSubmitState("loading");
@@ -1419,12 +1349,6 @@ export default function OrderPage() {
         items: cart.map((c) => ({ menuItemId: c.id, qty: c.qty, note: c.note || null }))
       };
 
-      debugSubmit("request_start", {
-        attemptNo,
-        idempotencyKey: requestId,
-        payload
-      });
-
       const body = await apiFetchJson<{ orderId: string; deduped?: boolean; dedupeReason?: string }>("/api/orders", {
         method: "POST",
         headers: { "X-Idempotency-Key": requestId },
@@ -1446,32 +1370,6 @@ export default function OrderPage() {
       setSubmitState("success");
       setSubmitNotice("");
       pendingSubmitKeyRef.current = null;
-      const latencyMs = Math.round(performance.now() - startedAt);
-      if (body.deduped) {
-        if (body.dedupeReason === "recent_duplicate") {
-          setToast({ message: t("order.duplicateBlocked", "Duplicate submit blocked. Please wait a moment.") });
-        } else {
-          setToast({ message: t("order.submitDeduped", "Duplicate submission detected. Existing order reused.") });
-        }
-      } else {
-        setToast({
-          message: `${t("order.submitSuccess", "Order submitted. Kitchen copy only.")} #${body.orderId.slice(0, 8)}`,
-          actionLabel: t("order.ordered", "Items"),
-          onAction: () => {
-            setShowBill(true);
-            void loadBill();
-          }
-        });
-      }
-      debugSubmit("request_success", {
-        attemptNo,
-        idempotencyKey: requestId,
-        orderId: body.orderId,
-        deduped: Boolean(body.deduped),
-        dedupeReason: body.dedupeReason || "none",
-        latencyMs
-      });
-      finishSubmitPerf?.();
       resetSubmitStateLater();
     } catch (err: any) {
       const message = String(err?.message || "").trim();
@@ -1488,12 +1386,6 @@ export default function OrderPage() {
         actionLabel: lang === "en" ? "Retry" : "重试",
         onAction: () => { void submitOrder(); }
       });
-      debugSubmit("request_error", {
-        attemptNo,
-        latencyMs: Math.round(performance.now() - startedAt),
-        error: normalized
-      });
-      finishSubmitPerf?.();
     } finally {
       setLoading(false);
       submitInFlightRef.current = false;
@@ -1501,9 +1393,7 @@ export default function OrderPage() {
   }
 
   async function checkout() {
-    const finishCheckoutPerf = beginPerfInteraction("order:checkout");
     if (!canRunAction()) {
-      finishCheckoutPerf?.();
       return;
     }
     const confirmed = window.confirm(
@@ -1512,7 +1402,6 @@ export default function OrderPage() {
         : `确认结账并关台吗？\n桌号：${tableNo}`
     );
     if (!confirmed) {
-      finishCheckoutPerf?.();
       return;
     }
 
@@ -1538,11 +1427,9 @@ export default function OrderPage() {
       safeStorageRemove("local", `rdv_order_draft:${tableNo}`);
       draftSerializedRef.current = "";
       billCacheRef.current = null;
-      finishCheckoutPerf?.();
       router.replace("/tables");
     } catch (err: any) {
       setError(err.message || t("order.checkoutFailed", "Checkout failed"));
-      finishCheckoutPerf?.();
     } finally {
       setLoading(false);
     }
@@ -1632,10 +1519,6 @@ export default function OrderPage() {
         window.clearTimeout(submitResetTimerRef.current);
         submitResetTimerRef.current = null;
       }
-      if (submitPressedTimerRef.current) {
-        window.clearTimeout(submitPressedTimerRef.current);
-        submitPressedTimerRef.current = null;
-      }
     };
   }, []);
 
@@ -1685,14 +1568,12 @@ export default function OrderPage() {
 
       <div className={styles.middle}>
         <aside className={styles.sidebar}>
-          <PerfSection id="Order/CategorySidebar">
-            <CategorySidebarList
-              categories={categories}
-              labelByValue={categoryLabelByValue}
-              selectedCategory={selectedCategory}
-              onSelect={onSelectCategory}
-            />
-          </PerfSection>
+          <CategorySidebarList
+            categories={categories}
+            labelByValue={categoryLabelByValue}
+            selectedCategory={selectedCategory}
+            onSelect={onSelectCategory}
+          />
         </aside>
 
         <section
@@ -1713,17 +1594,15 @@ export default function OrderPage() {
             <EmptyState title={t("order.categoryEmpty", "No dishes in this category")} />
           ) : null}
           {!menuLoading ? (
-            <PerfSection id="Order/MenuList">
-              <MenuVirtualList
-                items={renderedMenuItems}
-                displayById={menuDisplayById}
-                qtyById={menuQtyById}
-                qtyLabelById={menuQtyLabelById}
-                onAdd={addFromMenu}
-                topSpacer={menuVirtualWindow.topSpacer}
-                bottomSpacer={menuVirtualWindow.bottomSpacer}
-              />
-            </PerfSection>
+            <MenuVirtualList
+              items={renderedMenuItems}
+              displayById={menuDisplayById}
+              qtyById={menuQtyById}
+              qtyLabelById={menuQtyLabelById}
+              onAdd={addFromMenu}
+              topSpacer={menuVirtualWindow.topSpacer}
+              bottomSpacer={menuVirtualWindow.bottomSpacer}
+            />
           ) : null}
         </section>
       </div>
@@ -1742,20 +1621,10 @@ export default function OrderPage() {
           </Button>
           <Button
             onClick={() => { void submitOrder(); }}
-            onPointerDown={() => {
-              setSubmitPressed(true);
-              if (submitPressedTimerRef.current) {
-                window.clearTimeout(submitPressedTimerRef.current);
-              }
-              submitPressedTimerRef.current = window.setTimeout(() => {
-                setSubmitPressed(false);
-                submitPressedTimerRef.current = null;
-              }, 90);
-            }}
             loading={submitState === "loading"}
             disableWhenLoading={false}
             disabled={cart.length === 0}
-            className={`${styles.submitBtn} ${submitPressed ? styles.submitBtnPressed : ""}`}
+            className={styles.submitBtn}
           >
             {submitState === "loading" ? t("order.submitting", "Submitting...") : t("order.submit", "Submit Order")}
           </Button>
@@ -1916,22 +1785,20 @@ export default function OrderPage() {
         {billLoading ? <div className="muted">{t("common.loading", "Loading...")}</div> : null}
         {!billLoading && billItems.length === 0 ? <EmptyState title={t("order.billEmpty", "No items yet")} /> : null}
         {!billLoading ? (
-          <PerfSection id="Order/BillItemsList">
-            <div className="order-list">
-              {billItems.map((item) => {
-                const seafoodConfig = seafoodConfigById.get(item.menu_item_id) || getSeafoodConfig({ name: item.name });
-                return (
-                  <div key={`${item.menu_item_id}-${item.note || ""}`} className="row" style={{ justifyContent: "space-between", alignItems: "flex-start" }}>
-                    <div className="stack" style={{ gap: 2 }}>
-                      <span>{localizeMenuText(item.name, lang)} · {formatQtyWithUnit(item.qty, seafoodConfig)}</span>
-                      {item.note ? <span className="muted">{t("order.noteLabel", "Note")}: {item.note}</span> : null}
-                    </div>
-                    <strong>₱{item.amount}</strong>
+          <div className="order-list">
+            {billItems.map((item) => {
+              const seafoodConfig = seafoodConfigById.get(item.menu_item_id) || getSeafoodConfig({ name: item.name });
+              return (
+                <div key={`${item.menu_item_id}-${item.note || ""}`} className="row" style={{ justifyContent: "space-between", alignItems: "flex-start" }}>
+                  <div className="stack" style={{ gap: 2 }}>
+                    <span>{localizeMenuText(item.name, lang)} · {formatQtyWithUnit(item.qty, seafoodConfig)}</span>
+                    {item.note ? <span className="muted">{t("order.noteLabel", "Note")}: {item.note}</span> : null}
                   </div>
-                );
-              })}
-            </div>
-          </PerfSection>
+                  <strong>₱{item.amount}</strong>
+                </div>
+              );
+            })}
+          </div>
         ) : null}
         <div className="row" style={{ justifyContent: "space-between" }}>
           <strong>{t("order.billQty", "Total Qty")}: {billQty}</strong>
@@ -2000,37 +1867,35 @@ export default function OrderPage() {
           </>
         )}
       >
-        <PerfSection id="Order/CartSheetList">
-          <div className="order-list">
-            {cart.map((item) => {
-              const seafoodConfig = seafoodConfigById.get(item.id) || null;
-              const unitLabel = seafoodConfig ? getSeafoodUnitLabel(seafoodConfig.unit, lang) : "";
-              return (
-                <div key={`cart-${item.id}-${item.note || ""}`} className="row cart-row">
-                  <div className="stack" style={{ gap: 2, flex: "1 1 auto" }}>
-                    <span>{localizeMenuText(item.name, lang)}</span>
-                    <span className="muted">
-                      ₱{item.price}{unitLabel ? `/${unitLabel}` : ""} · {lang === "en" ? "Qty" : "数量"} {formatQtyWithUnit(item.qty, seafoodConfig)}
-                    </span>
-                    {item.note ? <span className="muted">{t("order.noteLabel", "Note")}: {item.note}</span> : null}
-                  </div>
-                  <div className="cart-row-actions">
-                    <Button variant="secondary" onClick={() => setQty(item.id, Math.max(0, item.qty - 1))}>-</Button>
-                    <span>{formatQtyWithUnit(item.qty, seafoodConfig)}</span>
-                    <Button variant="secondary" onClick={() => setQty(item.id, item.qty + 1)}>+</Button>
-                    <Button variant="secondary" onClick={() => openNoteSheetFor(item.id)}>
-                      {t("order.noteAction", "Note")}
-                    </Button>
-                    <Button variant="danger" onClick={() => setQty(item.id, 0)}>
-                      {lang === "en" ? "Remove" : "移除"}
-                    </Button>
-                  </div>
+        <div className="order-list">
+          {cart.map((item) => {
+            const seafoodConfig = seafoodConfigById.get(item.id) || null;
+            const unitLabel = seafoodConfig ? getSeafoodUnitLabel(seafoodConfig.unit, lang) : "";
+            return (
+              <div key={`cart-${item.id}-${item.note || ""}`} className="row cart-row">
+                <div className="stack" style={{ gap: 2, flex: "1 1 auto" }}>
+                  <span>{localizeMenuText(item.name, lang)}</span>
+                  <span className="muted">
+                    ₱{item.price}{unitLabel ? `/${unitLabel}` : ""} · {lang === "en" ? "Qty" : "数量"} {formatQtyWithUnit(item.qty, seafoodConfig)}
+                  </span>
+                  {item.note ? <span className="muted">{t("order.noteLabel", "Note")}: {item.note}</span> : null}
                 </div>
-              );
-            })}
-            {cart.length === 0 ? <EmptyState title={t("order.currentOrderEmpty", "Cart is empty")} /> : null}
-          </div>
-        </PerfSection>
+                <div className="cart-row-actions">
+                  <Button variant="secondary" onClick={() => setQty(item.id, Math.max(0, item.qty - 1))}>-</Button>
+                  <span>{formatQtyWithUnit(item.qty, seafoodConfig)}</span>
+                  <Button variant="secondary" onClick={() => setQty(item.id, item.qty + 1)}>+</Button>
+                  <Button variant="secondary" onClick={() => openNoteSheetFor(item.id)}>
+                    {t("order.noteAction", "Note")}
+                  </Button>
+                  <Button variant="danger" onClick={() => setQty(item.id, 0)}>
+                    {lang === "en" ? "Remove" : "移除"}
+                  </Button>
+                </div>
+              </div>
+            );
+          })}
+          {cart.length === 0 ? <EmptyState title={t("order.currentOrderEmpty", "Cart is empty")} /> : null}
+        </div>
       </BottomSheet>
 
       <BottomSheet
@@ -2286,14 +2151,3 @@ const MenuListItem = memo(function MenuListItem({
     </div>
   );
 });
-
-function PerfSection({ id, children }: { id: string; children: ReactNode }) {
-  if (process.env.NODE_ENV === "production") {
-    return <>{children}</>;
-  }
-  return (
-    <Profiler id={id} onRender={captureReactProfile}>
-      {children}
-    </Profiler>
-  );
-}

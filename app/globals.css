@@ -241,7 +241,6 @@ button {
   -webkit-tap-highlight-color: transparent;
   box-shadow: 0 3px 8px rgba(127, 15, 22, 0.12);
   border-radius: 14px;
-  transition: transform 100ms ease, opacity 100ms ease, background-color 140ms ease, border-color 140ms ease, color 140ms ease;
 }
 
 button.secondary {
@@ -675,11 +674,9 @@ html[data-platform="ios"] .menu-item {
   bottom: calc(var(--bottombar-h) + env(safe-area-inset-bottom) + 8px);
   z-index: var(--z-actionbar);
   border: 1px solid color-mix(in srgb, var(--glass-border) 88%, #fff);
-  border-radius: 20px;
-  background: color-mix(in srgb, var(--glass-surface) 84%, #ffffff);
-  -webkit-backdrop-filter: saturate(var(--glass-sat)) blur(calc(var(--glass-blur) - 2px));
-  backdrop-filter: saturate(var(--glass-sat)) blur(calc(var(--glass-blur) - 2px));
-  box-shadow: 0 14px 30px rgba(15, 23, 42, 0.08);
+  border-radius: 16px;
+  background: #fff;
+  box-shadow: 0 3px 10px rgba(15, 23, 42, 0.06);
   padding: 10px;
   display: grid;
   gap: var(--space-2);
@@ -1228,10 +1225,8 @@ html[data-platform="ios"] .menu-simple-list > .menu-simple-row {
   bottom: 0;
   z-index: var(--z-tabbar);
   border-top: 1px solid color-mix(in srgb, var(--glass-border) 90%, #fff);
-  background: color-mix(in srgb, var(--glass-surface) 84%, #ffffff);
-  -webkit-backdrop-filter: saturate(var(--glass-sat)) blur(var(--glass-blur));
-  backdrop-filter: saturate(var(--glass-sat)) blur(var(--glass-blur));
-  box-shadow: 0 -10px 28px rgba(15, 23, 42, 0.08);
+  background: #fff;
+  box-shadow: 0 -2px 8px rgba(15, 23, 42, 0.06);
 }
 
 .bottom-nav {
@@ -1355,9 +1350,7 @@ html[data-platform="ios"] .menu-simple-list > .menu-simple-row {
 .more-grid-card {
   padding: 14px;
   border-color: color-mix(in srgb, var(--glass-border) 90%, #fff);
-  background: color-mix(in srgb, var(--glass-surface) 84%, #ffffff);
-  -webkit-backdrop-filter: saturate(var(--glass-sat)) blur(calc(var(--glass-blur) - 2px));
-  backdrop-filter: saturate(var(--glass-sat)) blur(calc(var(--glass-blur) - 2px));
+  background: #fff;
 }
 
 .more-grid {
@@ -1481,9 +1474,7 @@ html[data-platform="ios"] .menu-simple-list > .menu-simple-row {
   z-index: var(--z-appbar);
   height: calc(var(--topbar-h) + env(safe-area-inset-top));
   border-bottom: 1px solid var(--glass-border);
-  background: var(--glass-surface);
-  -webkit-backdrop-filter: saturate(var(--glass-sat)) blur(var(--glass-blur));
-  backdrop-filter: saturate(var(--glass-sat)) blur(var(--glass-blur));
+  background: #fff;
 }
 
 .topbar-shell__inner {
@@ -1612,10 +1603,8 @@ html[data-platform="ios"] .menu-simple-list > .menu-simple-row {
 .login-card {
   border-top: 2px solid var(--brand);
   border-color: color-mix(in srgb, var(--glass-border) 88%, #fff);
-  background: color-mix(in srgb, var(--glass-surface) 84%, #ffffff);
-  -webkit-backdrop-filter: saturate(var(--glass-sat)) blur(calc(var(--glass-blur) - 4px));
-  backdrop-filter: saturate(var(--glass-sat)) blur(calc(var(--glass-blur) - 4px));
-  box-shadow: 0 16px 34px rgba(15, 23, 42, 0.07);
+  background: #fff;
+  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.06);
 }
 
 .login-footnote {
@@ -1661,7 +1650,6 @@ html[data-platform="ios"] .menu-simple-list > .menu-simple-row {
   border-radius: 999px;
   background: #fff;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
-  transition: transform 0.18s ease;
 }
 
 .ios-switch.on::after {
@@ -1670,9 +1658,7 @@ html[data-platform="ios"] .menu-simple-list > .menu-simple-row {
 
 .skeleton {
   border: 1px solid var(--line);
-  background: linear-gradient(90deg, #efe6d7 25%, #f7efe2 37%, #efe6d7 63%);
-  background-size: 300% 100%;
-  animation: skeleton-shimmer 1.1s linear infinite;
+  background: #efe6d7;
 }
 
 .skeleton-row {
@@ -1683,34 +1669,6 @@ html[data-platform="ios"] .menu-simple-list > .menu-simple-row {
 .skeleton-card {
   height: 72px;
   border-radius: 2px;
-}
-
-@keyframes skeleton-shimmer {
-  from {
-    background-position: 100% 0;
-  }
-  to {
-    background-position: 0 0;
-  }
-}
-
-@media (prefers-reduced-motion: no-preference) {
-  button,
-  .bottom-nav-item,
-  .manage-tab,
-  .table-btn,
-  .category-btn,
-  .menu-item,
-  .panel {
-    transition: background-color 0.16s ease, border-color 0.16s ease, color 0.16s ease, transform 0.12s ease, opacity 0.18s ease;
-  }
-
-  button:active,
-  .table-btn:active,
-  .category-btn:active,
-  .bottom-nav-item:active {
-    transform: scale(0.98);
-  }
 }
 
 a {
