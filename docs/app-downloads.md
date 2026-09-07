@@ -7,14 +7,14 @@
 - Vercel 项目：`rdv-downloads`，现有账号 `renfei-zhaos-projects`。
 - GitHub：`zevs1120/rdv-order`，Production Branch `main`，Root Directory `distribution/site`。
 - 静态输出：`public`；不安装依赖，构建执行 `node verify.mjs`。无数据库、JWT 或打印环境变量。
-- 网页根路径 `/`；版本安装包 `/releases/rdv-order-0.1.4.apk`；固定最新包入口 `/rdv-order.apk`；机器可读版本 `/release.json`。
+- 网页根路径 `/`；版本安装包 `/releases/rdv-order-0.1.5.apk`；固定最新包入口 `/rdv-order.apk`；机器可读版本 `/release.json`。
 - Vercel 为该子域名提供 HTTPS。原点餐后台、酒店官网及邮件记录不变；APK 自 0.1.2 起使用后台子域名。
 
 DNSPod 新增 `download` CNAME → `12f9a96e363566ac.vercel-dns-017.com`（TTL 600）；另新增 `_vercel` TXT 完成这个子域名的所有权验证。保留原有全部记录，不转移根域名、不替换官网。
 
 ## 当前安装包
 
-`0.1.4` / versionCode 5，`com.rdv.order`，Android 8.0+，1,559,425 字节（1.49 MiB）。SHA-256：`7c9c0e88d3d5fa9007bdf257d9c06cc0e112f17a41979c3c8652cd3d0249f589`。沿用原签名，直接覆盖安装；旧版本保留但不再是默认下载。
+`0.1.5` / versionCode 6，`com.rdv.order`，Android 8.0+，1,559,425 字节（1.49 MiB）。SHA-256：`b16d97b0f9f3b5c3f6ece455ae2743276301d931872b94438f9031c5f863cef3`。沿用原签名，直接覆盖安装；旧版本保留但不再是默认下载。
 
 版本文件使用不可变缓存；最新入口和 release.json 不缓存。APK 使用 Android 安装包 MIME 与 attachment 响应头。JavaScript 禁用时仍可直接下载英文点餐 APK，并有员工应用制作中提示；语言与应用切换是渐进增强。没有第三方脚本、字体或统计。品牌标识从酒店官网本地素材缩小为 WebP，页面资源总计约 22 KB（不含 APK）；未改变文件托管或跨境下载链路。
 
@@ -32,6 +32,6 @@ DNSPod 新增 `download` CNAME → `12f9a96e363566ac.vercel-dns-017.com`（TTL 6
 - 原服务端 `npm run verify` 94 项测试及构建通过；下载构建检查文件 SHA/大小/元信息/按钮与固定入口一致性。
 - 原 APK 的实际登录/桌台、签名/R8 检查见 [交付记录](deployment-delivery.md)。网站发布不代替酒店网络、实际设备及出纸验收。
 
-## 0.1.4 图标更新（2026-09-08）
+## 0.1.5 更新详情（2026-09-08）
 
-当前下载为 0.1.4 / versionCode 5，1,559,425 字节；SHA-256 `7c9c0e88d3d5fa9007bdf257d9c06cc0e112f17a41979c3c8652cd3d0249f589`。用户提供的 1772px 点餐 APP 图稿已作为下载页和 Android 桌面图标的统一来源；网页继续使用同一图稿的 256px WebP 缩放版本。0.1.3 起每次冷启动检查正式新版并强制更新；已安装 0.1.3 的设备启动时会提示升级到 0.1.4。详见 [应用内更新](android-in-app-updates.md)。
+当前下载为 0.1.5 / versionCode 6，1,559,425 字节；SHA-256 `b16d97b0f9f3b5c3f6ece455ae2743276301d931872b94438f9031c5f863cef3`。更新页显示“优化更新提示体验 / Improved the update experience.”。以后每一版都必须填入中英文更新内容；小更新使用简洁概括，大功能再补充具体变更。点餐 APP 图标继续使用用户提供的统一高清图稿。详见 [应用内更新](android-in-app-updates.md)。

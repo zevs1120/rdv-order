@@ -15,11 +15,24 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import kotlin.coroutines.coroutineContext
 
-@Serializable data class AppRelease(val version: String, val versionCode: Int, val file: String, val bytes: Long, val sha256: String) {
+@Serializable data class ReleaseNotes(
+    val zh: String = "修复已知问题，优化使用体验。",
+    val en: String = "Bug fixes and experience improvements.",
+) {
+    fun validated(): ReleaseNotes = apply {
+        require(zh.trim().length in 1..600 && en.trim().length in 1..600)
+    }
+}
+
+@Serializable data class AppRelease(
+    val version: String, val versionCode: Int, val file: String, val bytes: Long, val sha256: String,
+    val notes: ReleaseNotes = ReleaseNotes(),
+) {
     fun validated(): AppRelease = apply {
         require(version.matches(Regex("[0-9]+\\.[0-9]+\\.[0-9]+")) && versionCode > 0)
         require(file == "/releases/rdv-order-$version.apk")
         require(bytes in 1..50L * 1024 * 1024 && sha256.matches(Regex("[a-f0-9]{64}")))
+        notes.validated()
     }
     fun encode(): String = RdvJson.encodeToString(serializer(), this)
     companion object {

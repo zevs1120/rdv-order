@@ -1,9 +1,9 @@
 # Android 实施记录
 
-## 0.1.4 桌面图标（2026-09-08）
+## 0.1.5 更新详情（2026-09-08）
 
-- Android 桌面图标替换为用户提供的点餐 APP 高清图稿，按 Android launcher 各密度尺寸缩小；下载页使用的原始 PNG 与该图稿 SHA-256 一致，现有 WebP 是同一图稿缩小版本。
-- 正式包升级为 0.1.4 / versionCode 5：`distribution/site/public/releases/rdv-order-0.1.4.apk`，1,559,425 字节，SHA-256 `7c9c0e88d3d5fa9007bdf257d9c06cc0e112f17a41979c3c8652cd3d0249f589`。签名、后台地址、点餐和更新逻辑未改变。
+- Android 桌面图标继续使用用户提供的点餐 APP 高清图稿，按 Android launcher 各密度尺寸缩小；下载页使用的原始 PNG 与该图稿 SHA-256 一致，现有 WebP 是同一图稿缩小版本。
+- 正式包升级为 0.1.5 / versionCode 6：`distribution/site/public/releases/rdv-order-0.1.5.apk`，1,559,425 字节，SHA-256 `b16d97b0f9f3b5c3f6ece455ae2743276301d931872b94438f9031c5f863cef3`。强制更新页会显示 manifest 提供的中英文更新内容；发布脚本强制每版填写该内容。
 - 按用户明确指示，本次仅构建和发布，不重复运行测试、设备安装或下载校验；复用 0.1.3 更新机制的已通过基线。下载站部署自身会检查 APK、清单和链接一致性。
 
 ## 已确定

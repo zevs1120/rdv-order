@@ -22,15 +22,15 @@
 
 1. 同时评估网页和原生的业务改动；服务端保持与营业中的旧客户端兼容。
 2. 增加 `android/app/build.gradle.kts` 中的版本名和 `versionCode`，按 `CONTRIBUTING.md` 只运行本次改动相关的验证；网页未变化时复用已有通过结果，不重复跑网页全套。
-3. 使用既有本机签名和固定正式后台构建：
+3. 为用户写一条简洁中英文更新内容。小更新使用概括句，例如“修复已知问题，优化使用体验。”；只有大功能才列出具体内容。使用既有本机签名和固定正式后台构建：
 
    ```sh
    scripts/android/gradle.sh :app:lintRelease :app:assembleRelease -PrdvApiBaseUrl=https://order.resortdejavu.cn
-   npm run android:stage-release
+   npm run android:stage-release -- --zh "修复已知问题，优化使用体验。" --en "Bug fixes and experience improvements."
    node distribution/site/verify.mjs
    ```
 
-4. `android:stage-release` 验证实际 APK 的包名、版本、API 基线、签名与上一公开版本一致、ZIP 对齐及大小；拒绝覆盖历史版本。同步生成版本清单、下载页版本/大小/文件名和稳定入口。
+4. `android:stage-release` 要求每次填写中英文更新内容，并验证实际 APK 的包名、版本、API 基线、签名与上一公开版本一致、ZIP 对齐及大小；拒绝覆盖历史版本。同步生成版本清单、下载页版本/大小/文件名和稳定入口。APP 强制更新页在版本号下展示对应语言的更新内容。
 5. APK、清单和页面在同一提交/同一次下载站部署发布，完成直接 HTTPS 清单与 APK 校验后再通知员工。每次提交代码不必发布 APK。
 
 签名包身份测试和完整系统安装测试已经为更新机制建立基线；以后仅在更新器、签名、安装权限、存储迁移等相关机制变化或有明确故障时重跑。普通小功能更新不自动重复整套安装、网页和多尺寸设备测试；仅改文档不重新验证 APP。一次交付集中推送，相关检查通过后即交付。

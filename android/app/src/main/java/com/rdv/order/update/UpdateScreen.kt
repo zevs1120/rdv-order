@@ -90,6 +90,10 @@ import kotlinx.coroutines.*
                 } else {
                     Text(text("更新后继续使用", "Update to continue"), style = MaterialTheme.typography.titleMedium)
                     Text("v${state.release?.version}", color = RdvColors.Secondary)
+                    state.release?.let { release ->
+                        Text(text("更新内容", "What's new"), style = MaterialTheme.typography.labelLarge)
+                        Text(if (language == "zh") release.notes.zh else release.notes.en)
+                    }
                     if (state.downloading) {
                         LinearProgressIndicator(progress = { state.progress / 100f }, modifier = Modifier.fillMaxWidth())
                         Text(text("正在下载 ${state.progress}%", "Downloading ${state.progress}%"))

@@ -8,6 +8,8 @@ assert.ok(Number.isSafeInteger(release.versionCode) && release.versionCode > 0);
 assert.equal(release.file, `/releases/rdv-order-${release.version}.apk`);
 assert.ok(Number.isSafeInteger(release.bytes) && release.bytes > 0 && release.bytes <= 50 * 1024 * 1024);
 assert.match(release.sha256, /^[a-f0-9]{64}$/);
+assert.ok(release.notes && typeof release.notes.zh === 'string' && typeof release.notes.en === 'string');
+assert.ok(release.notes.zh.trim().length && release.notes.zh.length <= 600 && release.notes.en.trim().length && release.notes.en.length <= 600);
 assert.match(release.file, /^\/releases\/rdv-order-\d+\.\d+\.\d+\.apk$/);
 const apk = read('./public' + release.file);
 assert.equal(apk.length, release.bytes, 'APK size changed');

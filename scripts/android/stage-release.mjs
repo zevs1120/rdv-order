@@ -7,6 +7,15 @@ import path from 'node:path';
 import assert from 'node:assert/strict';
 
 const root = fileURLToPath(new URL('../../', import.meta.url));
+const args = process.argv.slice(2);
+const option = name => {
+  const index = args.indexOf(name);
+  assert.ok(index >= 0 && index + 1 < args.length, `Usage: npm run android:stage-release -- --zh <更新内容> --en <What's new>`);
+  return args[index + 1].trim();
+};
+const notes = { zh: option('--zh'), en: option('--en') };
+assert.ok(args.length === 4 && notes.zh.length >= 1 && notes.zh.length <= 600 && notes.en.length >= 1 && notes.en.length <= 600,
+  'Update details must be one Chinese and one English message, each up to 600 characters');
 const site = path.join(root, 'distribution/site');
 const apk = path.join(root, 'android/app/build/outputs/apk/release/app-release.apk');
 const metadata = JSON.parse(readFileSync(path.join(path.dirname(apk), 'output-metadata.json'))).elements[0];
@@ -27,7 +36,7 @@ run('zipalign', ['-c', '-P', '16', '4', apk]);
 const bytes = readFileSync(apk);
 const release = { ...current, version: metadata.versionName, versionCode: metadata.versionCode,
   file: `/releases/rdv-order-${metadata.versionName}.apk`, bytes: bytes.length,
-  sha256: createHash('sha256').update(bytes).digest('hex') };
+  sha256: createHash('sha256').update(bytes).digest('hex'), notes };
 assert.ok(release.bytes <= 50 * 1024 * 1024, 'APK exceeds updater size bound');
 const destination = path.join(site, 'public', release.file);
 assert.ok(!existsSync(destination), 'Never overwrite a versioned APK');
