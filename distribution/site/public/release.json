@@ -1,10 +1,10 @@
 {
   "name": "RDV Order",
-  "version": "0.1.3",
-  "versionCode": 4,
+  "version": "0.1.4",
+  "versionCode": 5,
   "minAndroid": "8.0",
   "apiOrigin": "https://order.resortdejavu.cn",
-  "file": "/releases/rdv-order-0.1.3.apk",
-  "bytes": 1521277,
-  "sha256": "f798cebfbd5b96b8c57aaf634c16e0ad2676dc3bea0751ed266557d39b1ed264"
+  "file": "/releases/rdv-order-0.1.4.apk",
+  "bytes": 1559425,
+  "sha256": "7c9c0e88d3d5fa9007bdf257d9c06cc0e112f17a41979c3c8652cd3d0249f589"
 }
