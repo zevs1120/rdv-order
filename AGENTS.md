@@ -15,6 +15,7 @@
 - `npm run android:apk` exports signed debug `artifacts/android/rdv-order-0.1.0-internal.apk` plus SHA/signature/alignment/metadata. Internal package `com.rdv.order.test`, min API 26, target/compile 36. Production `com.rdv.order` requires a pinned HTTPS origin and local signing configuration; neither has been supplied.
 - Current local evidence: web verify 67 tests + build; Android 29 JVM + 12 API-35 device tests, lint/build. See `docs/android-progress.md` for exact boundaries and `docs/android-acceptance.md` for remaining parity/CRUD/CSV/physical print/device acceptance. Do not call this production-ready or equate fixture callbacks with actual printing.
 - Low-height native ordering content scrolls while cart/submit remain visible. Device screenshot tests must assert actual visibility and capture the whole display (dialogs use separate windows); a passing synthetic click alone previously missed clipped landscape controls.
+- Native implementation commit `53c69fa`, recovery API `c1966d2`, plan baseline `b8c2885`. Final internal APK installed/cold-started on API 35; phone, 360dp small-screen/1.3 font and 640dp landscape screenshot flows passed. Curated fixture screenshots are in `docs/android-assets/`; exact APK checksum and release blockers in `docs/android-progress.md`.
 
 ## Completion reporting
 
