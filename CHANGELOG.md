@@ -15,6 +15,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Coverage for summary, table bill, checkout, and reverse-checkout accounting edge cases.
 
 ### Changed
+- Corrected deployment assumptions to the user-confirmed working Vercel baseline. The optional dispatcher is not required; historical order-trigger changes must be reconciled before altering hosting.
 - Documentation system refactor and governance baseline (README/docs/contributing).
 - Global top bar now owns subpage back navigation and centered titles for manage/admin detail pages.
 - Language switching moved to a globe icon toggle in the global top bar.

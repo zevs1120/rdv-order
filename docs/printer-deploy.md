@@ -1,6 +1,8 @@
 # Printer Deploy Checklist
 
 ## Print Behavior (Current)
+- User-confirmed acceptance baseline: the previous Vercel deployment automatically printed after submission, with the existing queue-clear button for operator recovery. Do not infer that Vercel needs a separate scheduler just from the current local route.
+- Git history: `d89d3ec` awaited the worker after order commit; `0b704d8` changed that to background wake; `ee66a93` removed the call. The deployed revision is not yet verified. Reconcile this version difference before architecture changes.
 - Order submit prints **kitchen copy only** (single printer target by default).
 - Current `app/api/orders/route.ts` atomically stores orders/items/print jobs; it does **not** directly wake the worker. Verify the actual deployment's dispatch scheduler/worker before relying on queue progress.
 - Guest copy is printed only when staff explicitly triggers `Print Receipt` in order bill panel.
@@ -43,7 +45,7 @@ Optional fallback provider:
 - `PRINT_WORKER_KEY`
 - `DEVICE_HEARTBEAT_KEY`
 - `PRINT_TIMEOUT_MS`
-- `PRINT_WAKE_ON_ORDER` is a legacy/config diagnostic flag; current order POST does not invoke a worker regardless of this value. A real scheduler is required.
+- `PRINT_WAKE_ON_ORDER` is a legacy/config diagnostic flag; current order POST does not invoke a worker regardless of this value. Reconcile the original order-trigger path before treating a separate scheduler as necessary.
 - `PRINT_STALE_PRINTING_SECONDS`
 - `PRINT_RETRY_DELAY_SECONDS`
 - `PRINT_MAX_RETRY`
@@ -63,7 +65,9 @@ Fix all reported `problems` before production deployment.
 3. Check `/api/print/health` with manager account.
 4. Optional retry trigger: `POST /api/print/dispatch`.
 
-## Always-on cloud dispatcher
+## Optional cloud dispatcher (not required for the existing Vercel workflow)
+
+This utility has never been activated. It is not a prerequisite for preserving the user's Vercel setup.
 
 `npm run worker:print` starts `scripts/print-dispatcher.mjs` as a separate process. Required environment: `PRINT_DISPATCH_ORIGIN` (HTTPS root URL; HTTP allowed only on loopback for isolated tests) and the backend's `PRINT_WORKER_KEY`. Variables must be injected into the process; this script does not read Next.js `.env.local`. It needs no database/provider credentials. Never put the worker key in the APK or a public variable.
 

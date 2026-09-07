@@ -19,7 +19,7 @@ Native Android client: see [android/README.md](android/README.md) for building t
 - Database: PostgreSQL (Neon/Supabase compatible)
 - Auth: JWT (`jose`)
 - Testing: Vitest
-- Deploy: Node service; first cloud deployment is being prepared, no live deployment assumed
+- Deploy: existing Vercel workflow; user reports successful previous use, deployed revision still to be reconciled
 
 ## Quick Start
 
@@ -54,11 +54,11 @@ For existing database, apply migration files in order under `db/migrations/`.
 npm run dev
 ```
 
-### 5) Cloud operation (preparation, not deployed)
+### 5) Existing Vercel deployment and Android integration
 
-The hotel owner selected cloud hosting. Deploy this same Next.js application and keep the existing API and database model. See [first deployment runbook](docs/hotel-first-deployment.md) for the remaining account, region, data and release decisions.
+The hotel owner already uses Vercel Hobby and reports that the previous deployment automatically printed submitted orders. Preserve that workflow, including the familiar queue-clear action. See [deployment reconciliation runbook](docs/hotel-first-deployment.md). The current local order route differs from earlier versions in how printing is triggered; check the working revision before changing hosting or introducing a scheduler.
 
-The web service runs `npm ci`, `npm run build`, then `npm start`. A separate always-on process runs `npm run worker:print` with `PRINT_DISPATCH_ORIGIN` and the same `PRINT_WORKER_KEY` as the backend. It calls the existing print dispatch API; starting it can send pending jobs to the configured printers. Configure one automatic dispatcher, with no sleeping or overlapping scheduler. The dispatcher does not load `.env.local`; inject its two variables through the cloud platform. First validate against an isolated backend and simulated printer. Do not start it against an unreviewed existing queue.
+`npm run worker:print` is an optional, unactivated utility added during cloud preparation, not a Vercel migration requirement. Do not start it alongside an existing automatic printing path. The migration does not require upgrading a plan or buying another cloud service on the basis of the previous proposal.
 
 ## Quality Baseline
 Before any commit, run:
