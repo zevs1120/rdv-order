@@ -2,6 +2,8 @@
 
 ## Core priorities and updates (2026-09-08)
 
+- Latest explicit user direction: avoid excessive/repeated verification. Follow the proportional verification rules in `CONTRIBUTING.md`, which supersede older blanket per-commit/full-suite requirements below. Reuse unchanged passing baselines; docs-only edits do not trigger runtime tests/builds/device/live checks. After relevant checks pass, deliver without expanding the test scope merely for reassurance. Group a delivery into one push when practical.
+
 - User priority: reliability/durability first, then speed and small/light implementation; keep UI attractive without unrelated redesign. Changes affecting web and native business behavior must be implemented and verified on both sides; web UI code does not automatically update native code. Menu/price data changes normally do not need an APK.
 - User authorized complete in-app update implementation and delivery. Every newer published APK is mandatory, without skip. Check once per process cold start, not on resume or during ordering. Unknown version/check failure allows use; a confirmed newer requirement persists across restarts. Retain existing drafts, no new business/draft flows.
 - Native 0.1.3 / versionCode 4 adds this updater. Original 0.1.2 must be manually upgraded once. New signed APK: `distribution/site/public/releases/rdv-order-0.1.3.apk`, SHA-256 `f798cebfbd5b96b8c57aaf634c16e0ad2676dc3bea0751ed266557d39b1ed264`; 1,521,277 bytes. Preserve older APKs and signing key. Rules: `docs/android-in-app-updates.md`; final test/deployment evidence: `docs/android-progress.md`.

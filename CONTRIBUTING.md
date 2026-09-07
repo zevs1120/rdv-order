@@ -15,16 +15,20 @@ Examples:
 - `fix(order): prevent duplicate submit on weak network`
 - `docs(api): update table billing endpoints`
 
-## Pre-Commit Baseline (Required)
-Run all before commit:
-```bash
-npm run verify
-```
+## Verification: proportional, once per relevant change
 
-If print logic changed, also run:
-```bash
-npm run check:print-env
-```
+User direction (2026-09-08): keep verification focused. Do not spend the development cycle repeatedly checking unchanged code. These rules supersede older blanket instructions to run the full suite before every commit.
+
+- Choose checks for the actual change and risk before running them. Small changes get small checks; do not automatically run web + Android + device + deployment checks together.
+- Reuse passing results while their source/configuration/dependencies remain unchanged, including across adjacent commits in the same delivery. A new commit by itself does not invalidate the baseline.
+- Documentation, comments and working-memory edits need only a focused diff review; do not rerun builds, runtime tests, device flows or live API checks.
+- For web changes, use targeted checks during development. Run `npm run verify` once before delivering a batch that changes web source, configuration or dependencies; reuse an unchanged passing web baseline for Android-only work.
+- For Android changes, run the affected tests and a suitable build/lint once for the completed batch. Use device tests for changes that depend on real Android UI, lifecycle, permissions or installation, rather than replaying every device flow for every edit.
+- For printing changes, run the relevant order/print tests and `npm run check:print-env`; never exercise production orders or historical queues merely to reconfirm unrelated work.
+- Rerun a check only after a relevant change, a failure, or concrete unresolved evidence. Fixing a test harness calls for rerunning that test, not all already-passing suites.
+- Once the relevant checks pass and no concrete issue remains, stop testing and deliver. Do not add extra cross-checks, screenshots, scenarios or repeated status polls solely for reassurance.
+- Group related changes into one delivery/push where practical, preserving scoped commits. Avoid repeatedly triggering deployment pipelines for intermediate documentation or evidence updates.
+- Record which results were reused and any material untested boundary briefly. Never describe unperformed checks as passed.
 
 ## Documentation Governance (SSOT)
 Docs are source-aligned, not wish lists.
