@@ -3,8 +3,16 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({
   poolQuery: vi.fn(),
   requirePermission: vi.fn(),
-  requireOrderCreate: vi.fn()
+  requireOrderCreate: vi.fn(),
+  after: vi.fn(),
+  runOrderPrintWorker: vi.fn()
 }));
+
+vi.mock("next/server", async importOriginal => ({
+  ...await importOriginal<typeof import("next/server")>(),
+  after: mocks.after
+}));
+vi.mock("../../lib/print-worker", () => ({ runOrderPrintWorker: mocks.runOrderPrintWorker }));
 
 vi.mock("../../lib/db", () => ({
   pool: {
@@ -42,6 +50,10 @@ function makeRequest(idempotencyKey?: string) {
 describe("orders api route", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.after.mockReset();
+    mocks.runOrderPrintWorker.mockReset();
+    mocks.runOrderPrintWorker.mockResolvedValue({ picked: 1, printed: 1, failed: 0 });
+    vi.stubEnv("PRINT_WAKE_ON_ORDER", "true");
     mocks.requirePermission.mockResolvedValue({ userId: "u-1", role: "waiter" });
     mocks.requireOrderCreate.mockResolvedValue({ userId: "u-1", role: "waiter" });
     mocks.poolQuery.mockResolvedValue({
@@ -91,6 +103,10 @@ describe("orders api route", () => {
     expect(sql).toContain("INSERT INTO order_items");
     expect(sql).toContain("INSERT INTO print_jobs");
     expect(sql).not.toContain("FOR UPDATE");
+    expect(mocks.after).toHaveBeenCalledTimes(1);
+    expect(mocks.runOrderPrintWorker).not.toHaveBeenCalled();
+    await mocks.after.mock.calls[0][0]();
+    expect(mocks.runOrderPrintWorker).toHaveBeenCalledWith("order-new-1");
   });
 
   it("POST idempotency hit should return existing order without duplicate items", async () => {
@@ -111,6 +127,7 @@ describe("orders api route", () => {
     expect(body.deduped).toBe(true);
     expect(body.dedupeReason).toBe("idempotency");
     expect(mocks.poolQuery).toHaveBeenCalledTimes(1);
+    expect(mocks.after).not.toHaveBeenCalled();
   });
 
   it("POST should reject when table is not open", async () => {
@@ -128,6 +145,7 @@ describe("orders api route", () => {
 
     expect(res.status).toBe(400);
     expect(body.error).toBe("该桌未开台，请先开台");
+    expect(mocks.after).not.toHaveBeenCalled();
   });
 
   it("POST should reject invalid menu items", async () => {
@@ -145,5 +163,68 @@ describe("orders api route", () => {
 
     expect(res.status).toBe(400);
     expect(body.error).toBe("存在无效或已下架菜品");
+    expect(mocks.after).not.toHaveBeenCalled();
+  });
+
+  it("returns the same committed receipt on retry without scheduling a second print", async () => {
+    const first = await POST(makeRequest("idem_12345678"));
+    mocks.poolQuery.mockResolvedValueOnce({ rows: [{ session_open: true, valid_items: true, order_id: "order-new-1", inserted: false }] });
+    const retry = await POST(makeRequest("idem_12345678"));
+    expect((await first.json()).orderId).toBe((await retry.json()).orderId);
+    expect(mocks.after).toHaveBeenCalledTimes(1);
+  });
+
+  it.each(["false", " FALSE "])("respects the existing PRINT_WAKE_ON_ORDER=%s switch", async value => {
+    vi.stubEnv("PRINT_WAKE_ON_ORDER", value);
+    expect((await POST(makeRequest())).status).toBe(200);
+    expect(mocks.after).not.toHaveBeenCalled();
+    expect(mocks.poolQuery).toHaveBeenCalledTimes(1);
+  });
+
+  it("automatically prints when the optional switch is unset", async () => {
+    vi.stubEnv("PRINT_WAKE_ON_ORDER", undefined);
+    await POST(makeRequest());
+    expect(mocks.after).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps a committed order successful if the printer or worker fails after response", async () => {
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+    mocks.runOrderPrintWorker.mockRejectedValue(new Error("provider secret detail"));
+    const res = await POST(makeRequest());
+    expect(res.status).toBe(200);
+    await expect(mocks.after.mock.calls[0][0]()).resolves.toBeUndefined();
+    expect(log).toHaveBeenCalledWith("[order-print] worker failed; inspect print queue");
+    expect(log.mock.calls.flat().join(" ")).not.toContain("provider secret detail");
+    expect(mocks.poolQuery).toHaveBeenCalledTimes(1);
+  });
+
+  it("reports a recorded print failure without changing the order receipt", async () => {
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+    mocks.runOrderPrintWorker.mockResolvedValue({ picked: 1, printed: 0, failed: 1 });
+    expect((await POST(makeRequest())).status).toBe(200);
+    await mocks.after.mock.calls[0][0]();
+    expect(log).toHaveBeenCalledWith("[order-print] print failed; inspect print queue");
+  });
+
+  it("preserves the committed receipt if lifecycle registration fails", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    mocks.after.mockImplementation(() => { throw new Error("missing request context"); });
+    const res = await POST(makeRequest());
+    expect(res.status).toBe(200);
+    expect((await res.json()).orderId).toBe("order-new-1");
+    expect(mocks.runOrderPrintWorker).not.toHaveBeenCalled();
+  });
+
+  it("never schedules printing on a database failure", async () => {
+    mocks.poolQuery.mockRejectedValueOnce(new Error("database unavailable"));
+    expect((await POST(makeRequest())).status).toBe(500);
+    expect(mocks.after).not.toHaveBeenCalled();
+  });
+
+  it.each(["UNAUTHORIZED", "FORBIDDEN"])("never creates or prints an unauthorized order: %s", async message => {
+    mocks.requireOrderCreate.mockRejectedValueOnce(new Error(message));
+    expect((await POST(makeRequest())).status).toBe(message === "UNAUTHORIZED" ? 401 : 403);
+    expect(mocks.poolQuery).not.toHaveBeenCalled();
+    expect(mocks.after).not.toHaveBeenCalled();
   });
 });

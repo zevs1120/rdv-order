@@ -29,7 +29,8 @@ async function pickJobs(
   limit: number,
   maxRetry: number,
   staleSeconds: number,
-  retryDelaySeconds: number
+  retryDelaySeconds: number,
+  orderId?: string
 ): Promise<PrintJobRow[]> {
   const client = await pool.connect();
   try {
@@ -44,6 +45,7 @@ async function pickJobs(
            OR (status = 'printing' AND updated_at < (now() - ($3::int * INTERVAL '1 second')))
          )
            AND retry_count < $2
+           ${orderId === undefined ? "" : "AND order_id = $5::uuid"}
          ORDER BY created_at ASC
          LIMIT $1
          FOR UPDATE SKIP LOCKED
@@ -54,7 +56,9 @@ async function pickJobs(
        FROM picked
        WHERE pj.id = picked.id
        RETURNING pj.id, pj.order_id, pj.retry_count`,
-      [limit, maxRetry, staleSeconds, retryDelaySeconds]
+      orderId === undefined
+        ? [limit, maxRetry, staleSeconds, retryDelaySeconds]
+        : [limit, maxRetry, staleSeconds, retryDelaySeconds, orderId]
     );
     await client.query("COMMIT");
     return rows;
@@ -93,10 +97,20 @@ async function markFailed(id: string, message: string, retryable: boolean, maxRe
 }
 
 export async function runPrintWorker(limit = 6): Promise<PrintWorkerResult> {
+  return processJobs(limit);
+}
+
+// Automatic order wake must not consume an older queued order instead of the submitted one.
+export async function runOrderPrintWorker(orderId: string): Promise<PrintWorkerResult> {
+  if (!orderId) throw new Error("Order ID is required");
+  return processJobs(1, orderId);
+}
+
+async function processJobs(limit: number, orderId?: string): Promise<PrintWorkerResult> {
   const maxRetry = getMaxRetry();
   const staleSeconds = getStalePrintingSeconds();
   const retryDelaySeconds = getRetryDelaySeconds();
-  const jobs = await pickJobs(limit, maxRetry, staleSeconds, retryDelaySeconds);
+  const jobs = await pickJobs(limit, maxRetry, staleSeconds, retryDelaySeconds, orderId);
   if (jobs.length === 0) {
     return { picked: 0, printed: 0, failed: 0 };
   }

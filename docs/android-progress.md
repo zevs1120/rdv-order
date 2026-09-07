@@ -13,7 +13,7 @@
 
 | ID | 决策/证据 | 推荐与影响 | 状态 |
 | --- | --- | --- | --- |
-| D1 | 原 Vercel 部署版本及根网址 | 用户确认曾在 Vercel 正常使用并自动打印；先对照可用版本与当前本地差异 | 已知 Vercel Hobby 账号；部署版本待核对 |
+| D1 | 创建当前 Vercel 项目及根网址 | 已明确过去使用过，但当前没有部署；先修复/提交，再推送与创建 GitHub 关联项目 | 代码和配置已准备，尚未 push/部署 |
 | D2 | 目标设备型号与 Android 版本 | 暂以 Android 8.0/API 26 作为工程起点；确认设备后可调整 | 已询问 |
 | D3 | 使用与交付范围 | 自有酒店使用，交付可安装 APK；无需另做门店分发或商店上架决策 | 已明确 |
 | D4 | 打印 worker、provider、机型及实际份数 | 保留服务端链路；本地模拟测试不能证明纸单输出 | 待现场核实 |
@@ -98,3 +98,13 @@ D3 已明确为自有酒店安装 APK；D1 已改为核对原 Vercel 部署与�
 - 不替用户对项目性质下结论，不把未经请求的平台条款或法律判断作为要求升级、换平台的依据。项目用途及与平台的沟通由用户决定。
 
 - 本次文档更正后 `npm run verify` 再次通过：76 项测试、类型检查与生产构建；日志 `.tools/downloads/vercel-baseline-correction-verify.log`。安卓源码与 APK 未变，沿用上轮验证。
+
+## 自动打印恢复与 Vercel 发布准备（2026-09-07）
+
+- 用户再次明确：当前没有部署，只有 Vercel 账号；过去的软件使用经验用于行为基线。先完成代码、检查和一个提交，再创建 GitHub 关联的 Vercel 项目。
+- 新订单保存后通过 Next.js `after()` 调用只领取当前订单的 worker；旧失败队列不占用本次新单机会。同键重试不再次触发；显式关闭 PRINT_WAKE_ON_ORDER 仍只保存队列。失败、手动重试和清队列的现有流程保留。
+- 新增 10 项下单路由回归、8 项 PostgreSQL WASM 集成测试，执行仓库 schema（仅省略测试不需要的 pgcrypto 扩展加载）及真实路由/worker SQL。打印 provider 与认证被替换为隔离测试实现，after 回调由测试控制执行。不是 Vercel 生命周期、真实网络纸单或多连接并发验收。
+- 为部署更新 Next.js 15.5.25，保持主版本；Vitest 3.2.7、PostCSS 8.5.28 override、sharp/nanoid 锁文件补丁用于消除本次实际审计发现。PostCSS override 覆盖 Next.js 15 固定的旧依赖；删除此覆盖前需确认上游修复并回归构建。
+- `vercel.json` 将类型/测试/生产构建设为每次部署的构建命令，Node 22.x；文档明确当前分支与 GitHub 推送/Production Branch 的关系。没有创建项目、push、营业数据库操作或真实打印；无需启动此前可选常驻脚本。
+- 干净 `npm ci --include=dev` 后完整 `npm run verify` 通过：94 项测试（22 文件）、类型检查与 Next.js 15.5.25 生产构建；`npm audit` 全依赖 0 已知漏洞。日志为 `.tools/downloads/vercel-clean-install.log`、`vercel-final-verify.log`、`vercel-final-audit.json`。
+- `npm run check:print-env` 显式假配置通过；不等于酒店配置验证。安卓源码及 APK 未变，沿用 30 项 JVM、13 项 API 35 设备验证；实际后台及纸单仍待部署后核验。

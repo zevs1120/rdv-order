@@ -6,6 +6,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 ### Added
+- Vercel import configuration with Node 22.x and verification before every build; GitHub production/preview setup instructions. Eight isolated PostgreSQL WASM integration tests exercise order-to-print state, idempotency and queue clearing.
 - Opt-in cloud print dispatcher for the existing API, with single-flight polling, bounded requests, failure backoff, shutdown handling and isolated tests. First cloud deployment runbook records the hotel's hosting decision and pending deployment/real-printer acceptance.
 - Native Kotlin / Compose Android internal APK with ordering and management screens, encrypted local drafts and submission recovery, shared resource generation, JVM/device tests and repeatable build/verification/packaging scripts. Store acceptance and release signing remain pending.
 - Authenticated owner-scoped read-only `/api/orders/request-status` for recovering committed orders after lost responses; existing order/pricing/printing writes are unchanged.
@@ -15,6 +16,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Coverage for summary, table bill, checkout, and reverse-checkout accounting edge cases.
 
 ### Changed
+- Deployment dependency fixes: Next.js 15.5.25, Vitest 3.2.7, PostCSS 8.5.28 override and refreshed sharp/nanoid lock resolutions; added test-only PGlite 0.5.8.
 - Corrected deployment assumptions to the user-confirmed working Vercel baseline. The optional dispatcher is not required; historical order-trigger changes must be reconciled before altering hosting.
 - Documentation system refactor and governance baseline (README/docs/contributing).
 - Global top bar now owns subpage back navigation and centered titles for manage/admin detail pages.
@@ -24,6 +26,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Revenue, summary, hot-items, cashier close, and table-bill calculations now share a stricter “exclude cancelled + merged source orders” accounting rule.
 
 ### Fixed
+- Restored automatic kitchen printing after a new order through Next.js `after()`, targeting that order so older queued failures cannot consume its print attempt. Replayed submissions do not schedule another print; manual retry and queue clearing remain unchanged.
 - Android 0.1.1 internal: queued draft saves retain their original account ownership; expired sessions clear prior UI data before re-login; submission cooldown resets after login. Added regression tests.
 - Removed duplicate in-page back modules from manage/admin subpages to keep navigation hierarchy consistent.
 - Removed extra top-bar `More` button from the global shell.

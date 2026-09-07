@@ -40,6 +40,7 @@ Base: Next.js Route Handlers under `app/api`.
 | GET, PATCH | `/api/devices` | `device.view` / `device.manage` |
 | POST | `/api/devices/heartbeat` | key-based (`DEVICE_HEARTBEAT_KEY`) |
 | POST | `/api/print/dispatch` | `device.manage` or worker key |
+| DELETE | `/api/print/queue` | `device.manage` |
 | GET | `/api/print/health` | `device.view` |
 | POST | `/api/print/self-test` | `device.manage` |
 | GET, PATCH | `/api/admin/permissions` | `rbac.manage` |
@@ -73,6 +74,8 @@ Base: Next.js Route Handlers under `app/api`.
   ]
 }
 ```
+
+Order/items/queue are saved atomically. On a new insertion, `after()` automatically processes that order's queued print (unless `PRINT_WAKE_ON_ORDER=false`). Same-key replay keeps the existing response and does not register another print or recreate a cleared job. The success response confirms the saved order, not physical paper. Printing failures stay available through existing queue operations; runtime/lifecycle errors do not turn an already committed order into a submission failure.
 
 ### Open Table
 `POST /api/tables`

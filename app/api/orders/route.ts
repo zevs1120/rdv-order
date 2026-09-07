@@ -1,7 +1,11 @@
-import { NextResponse } from "next/server";
+import { after, NextResponse } from "next/server";
 import { pool } from "../../../lib/db";
 import { requireOrderCreate, requirePermission } from "../../../lib/permissions";
 import { parseItems } from "../../../lib/orders-utils";
+import { runOrderPrintWorker } from "../../../lib/print-worker";
+
+export const runtime = "nodejs";
+export const maxDuration = 120;
 
 type OrderBody = {
   tableNo?: unknown;
@@ -107,6 +111,23 @@ export async function POST(req: Request) {
     }
 
     const deduped = result.inserted === false;
+    if (result.inserted === true && String(process.env.PRINT_WAKE_ON_ORDER || "true").trim().toLowerCase() !== "false") {
+      const orderId = result.order_id;
+      try {
+        // Keep printing inside the serverless request lifetime without delaying the order receipt.
+        after(async () => {
+          try {
+            const printResult = await runOrderPrintWorker(orderId);
+            if (printResult.failed) console.error("[order-print] print failed; inspect print queue");
+          } catch {
+            console.error("[order-print] worker failed; inspect print queue");
+          }
+        });
+      } catch {
+        // The order is already committed. Keep its receipt valid and its queued job recoverable.
+        console.error("[order-print] scheduling failed; inspect print queue");
+      }
+    }
     return NextResponse.json({
       orderId: result.order_id,
       deduped,

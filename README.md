@@ -19,7 +19,7 @@ Native Android client: see [android/README.md](android/README.md) for building t
 - Database: PostgreSQL (Neon/Supabase compatible)
 - Auth: JWT (`jose`)
 - Testing: Vitest
-- Deploy: existing Vercel workflow; user reports successful previous use, deployed revision still to be reconciled
+- Deploy: Vercel + GitHub; current project not yet deployed, import settings prepared in `vercel.json`
 
 ## Quick Start
 
@@ -54,11 +54,13 @@ For existing database, apply migration files in order under `db/migrations/`.
 npm run dev
 ```
 
-### 5) Existing Vercel deployment and Android integration
+### 5) Vercel + GitHub deployment
 
-The hotel owner already uses Vercel Hobby and reports that the previous deployment automatically printed submitted orders. Preserve that workflow, including the familiar queue-clear action. See [deployment reconciliation runbook](docs/hotel-first-deployment.md). The current local order route differs from earlier versions in how printing is triggered; check the working revision before changing hosting or introducing a scheduler.
+The owner has a Vercel account and previously used this software there; the current project is not deployed. Follow [Vercel setup and automatic deployment](docs/hotel-first-deployment.md): push the verified commit to GitHub, import that repository with its root directory, select the branch containing the fix, and add server-only environment variables.
 
-`npm run worker:print` is an optional, unactivated utility added during cloud preparation, not a Vercel migration requirement. Do not start it alongside an existing automatic printing path. The migration does not require upgrading a plan or buying another cloud service on the basis of the previous proposal.
+`vercel.json` installs with `npm ci --include=dev` and builds with `npm run verify` so each deployment runs types, tests and the Next build. Node 22.x is pinned in `package.json`. Production-branch pushes deploy production; other branches normally create previews. Keep preview data and printers isolated. This does not automatically deploy an unpushed local commit.
+
+New orders automatically trigger their own queued kitchen print through Next.js `after()`. Failed jobs retain the original retry/clear controls. No always-on service or cron is needed; the optional `worker:print` utility remains off. The restored trigger has isolated regression coverage; physical printing must still be verified after deployment.
 
 ## Quality Baseline
 Before any commit, run:

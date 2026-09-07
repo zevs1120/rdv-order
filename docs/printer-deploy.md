@@ -2,9 +2,9 @@
 
 ## Print Behavior (Current)
 - User-confirmed acceptance baseline: the previous Vercel deployment automatically printed after submission, with the existing queue-clear button for operator recovery. Do not infer that Vercel needs a separate scheduler just from the current local route.
-- Git history: `d89d3ec` awaited the worker after order commit; `0b704d8` changed that to background wake; `ee66a93` removed the call. The deployed revision is not yet verified. Reconcile this version difference before architecture changes.
+- Git history: `d89d3ec` awaited the worker after order commit; `0b704d8` changed that to background wake; `ee66a93` removed the call. The user confirms there is no current deployment. This change restores the missing trigger before creating the new Vercel project.
 - Order submit prints **kitchen copy only** (single printer target by default).
-- Current `app/api/orders/route.ts` atomically stores orders/items/print jobs; it does **not** directly wake the worker. Verify the actual deployment's dispatch scheduler/worker before relying on queue progress.
+- Current `app/api/orders/route.ts` atomically stores orders/items/print jobs and schedules `runOrderPrintWorker(orderId)` through Next.js `after()` only for a newly inserted order. The automatic claim targets that order, so older failed/pending jobs do not consume its attempt. Same-key replay does not print again. The route uses Node.js and `maxDuration=120`; no separate scheduler is required.
 - Guest copy is printed only when staff explicitly triggers `Print Receipt` in order bill panel.
 - Default is single copy (`PRINT_FORCE_SINGLE_COPY=true`) to reduce duplicate print risk.
 
@@ -45,7 +45,7 @@ Optional fallback provider:
 - `PRINT_WORKER_KEY`
 - `DEVICE_HEARTBEAT_KEY`
 - `PRINT_TIMEOUT_MS`
-- `PRINT_WAKE_ON_ORDER` is a legacy/config diagnostic flag; current order POST does not invoke a worker regardless of this value. Reconcile the original order-trigger path before treating a separate scheduler as necessary.
+- `PRINT_WAKE_ON_ORDER=true` (default): automatically attempts printing new orders. `false` keeps jobs queued for existing manual dispatch.
 - `PRINT_STALE_PRINTING_SECONDS`
 - `PRINT_RETRY_DELAY_SECONDS`
 - `PRINT_MAX_RETRY`
@@ -57,7 +57,7 @@ Optional fallback provider:
 npm run check:print-env
 ```
 
-Fix all reported `problems` before production deployment.
+Run this command with the intended environment injected; the script does not load `.env.local` itself. It checks configuration presence, not printer connectivity. Automatic order printing does not require the worker-key header; that key belongs to external dispatch. Local fixture checks are not proof of valid hotel credentials.
 
 ## 4) Production Verification
 1. Submit one test order (should print kitchen copy).
