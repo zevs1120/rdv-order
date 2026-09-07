@@ -62,3 +62,6 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [2026-02-15]
 ### Added
 - Initial MVP baseline for login, tables, order, summary, serverless APIs.
+# Android migration — 2026-09-07
+
+- Add an authenticated, owner-scoped read-only order request-status API so clients can recover a committed order after a lost response, including after checkout. Existing submission, pricing and printing behavior is unchanged.

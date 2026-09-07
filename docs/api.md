@@ -23,6 +23,7 @@ Base: Next.js Route Handlers under `app/api`.
 | POST | `/api/tables/close` | `order.create` |
 | POST | `/api/tables/reverse-checkout` | `cashier.reverse_checkout` |
 | POST, GET | `/api/orders` | `order.create` / `report.orders` |
+| GET | `/api/orders/request-status` | authenticated waiter/manager; only own requests |
 | DELETE | `/api/orders/[id]` | `order.delete` |
 | POST | `/api/orders/[id]/cancel` | `order.cancel` |
 | POST | `/api/orders/[id]/return-item` | `order.return_item` |
@@ -120,6 +121,18 @@ Base: Next.js Route Handlers under `app/api`.
 ```
 
 ## Error Style
+
+### Recover a timed-out order submission (additive endpoint)
+
+`GET /api/orders/request-status?key=<X-Idempotency-Key>` returns
+`{ "found": true, "orderId": "..." }` or `{ "found": false }` with `Cache-Control: no-store`.
+The key uses the same 8–80 character letters/digits/underscore/hyphen validation as order submission.
+Results are scoped to the authenticated user's `waiter_id`, including manager-created orders.
+This read does not require the table to remain open and never creates or reprints an order.
+Native clients can use it after a lost response/process restart, before retrying the original immutable payload with the original key.
+A missing result is a snapshot, not a guarantee that an in-flight POST cannot still commit; retries must always retain the original key.
+Older deployments return 404 for the missing route; native clients fall back to the existing idempotent POST.
+No database migration or existing endpoint behavior change is required.
 - 401: unauthorized / not signed in
 - 403: forbidden / insufficient permission
 - 400: validation/input error
