@@ -3,6 +3,8 @@
 This folder defines the documentation system for `rdv-order`.
 
 ## Doc Map
+- `android-native-migration-plan.md` — native Android migration plan and parity gates
+- `android-progress.md` — Android implementation evidence, decisions and release blockers
 - `api.md` — server API contracts (method/path/auth/request/response)
 - `features.md` — feature matrix by role and module
 - `user-guide.md` — operational guide for waiter/manager
