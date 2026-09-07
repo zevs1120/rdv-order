@@ -1,5 +1,7 @@
 # RDV project working memory
 
+- Brand naming standard: always write the hotel name as `RESORT DEJA VU` (no accented “Déjà”). Use the canonical starless `rdv-wordmark.svg` for rendered RDV wordmarks rather than a system typeface.
+
 ## Android migration (2026-09-07)
 
 - The user authorized implementing a **native Kotlin / Jetpack Compose Android app**, producing an installable APK, adding meaningful tests and documentation, double-checking changes, and committing in separate scopes. The user handles on-site coordination.

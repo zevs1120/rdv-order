@@ -4,7 +4,7 @@ const tablist = document.querySelector('[role="tablist"]');
 
 function setLanguage(lang) {
   document.documentElement.lang = lang === 'zh' ? 'zh-CN' : 'en';
-  document.title = lang === 'zh' ? '团队应用 · Resort Déjà Vu' : 'Team Apps · Resort Déjà Vu';
+  document.title = lang === 'zh' ? '团队应用 · RESORT DEJA VU' : 'Team Apps · RESORT DEJA VU';
   document.querySelectorAll('[data-en]').forEach(node => { node.textContent = node.dataset[lang]; });
   document.querySelectorAll('[data-label-en]').forEach(node => { node.setAttribute('aria-label', node.dataset[lang === 'zh' ? 'labelZh' : 'labelEn']); });
   toggle.textContent = lang === 'zh' ? 'EN' : '中';
