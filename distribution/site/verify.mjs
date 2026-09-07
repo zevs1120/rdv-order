@@ -1,0 +1,16 @@
+import { readFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
+import assert from 'node:assert/strict';
+const read = path => readFileSync(new URL(path, import.meta.url));
+const release = JSON.parse(read('./public/release.json'));
+assert.match(release.file, /^\/releases\/rdv-order-\d+\.\d+\.\d+\.apk$/);
+const apk = read('./public' + release.file);
+assert.equal(apk.length, release.bytes, 'APK size changed');
+assert.equal(createHash('sha256').update(apk).digest('hex'), release.sha256, 'APK checksum mismatch');
+const page = read('./public/index.html').toString();
+assert.ok(page.includes(`href="${release.file}"`), 'Download button points to wrong APK');
+assert.ok(page.includes(`v${release.version}`), 'Page version differs from APK release');
+assert.ok(page.includes(`Android ${release.minAndroid}+`), 'Minimum Android version differs');
+const config = JSON.parse(read('./vercel.json'));
+assert.equal(config.rewrites.find(r => r.source === '/rdv-order.apk')?.destination, release.file);
+console.log(`Verified RDV Order ${release.version}: APK checksum, size, page and stable download URL.`);

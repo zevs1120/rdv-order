@@ -94,3 +94,7 @@ Local verification: 9 dispatcher tests use isolated fetches and controlled timin
 ## 已部署配置（2026-09-07）
 
 `rdv-order` 已在现有 Vercel 账号上线，GitHub `main` 自动部署；正式根网址为 https://rdv-order-renfei-zhaos-projects.vercel.app 。Node 22.x、Next.js、`sin1` 区域与仓库构建命令已生效。15 项生产变量通过秘密输入传输保存，Preview 停用且无营业凭据。实际经理登录后的 `/api/print/health` 返回配置 ready=true，provider=xpyun；原 108 条 pending 保持不变。健康检查验证配置与队列读取，不代表云打印服务收到新任务或纸张已打印；本次没有发送营业测试单、清队列或启动 dispatcher。具体记录见 [deployment-delivery.md](deployment-delivery.md)。
+
+## APK 下载入口
+
+新增静态下载项目 `rdv-downloads`（GitHub 同仓库，根目录 `distribution/site`），子域名 `download.resortdejavu.cn`。该项目只提供安装包，不连接数据库或打印服务；现有 `rdv-order` 后端与 APK 内置接口地址保持不变。更新说明见 [app-downloads.md](app-downloads.md)。

@@ -91,3 +91,7 @@ npm run verify
 
 ## SSOT Principle
 All docs must be derived from repository code (routes, schema, pages, components, env files). When code behavior changes, update the corresponding docs in the same commit.
+
+## Android app downloads
+
+Employees can use [download.resortdejavu.cn](https://download.resortdejavu.cn) to download the signed APK and read bilingual installation instructions. The independent static Vercel project `rdv-downloads` uses `distribution/site` from the same GitHub main branch. See [download publishing and updates](docs/app-downloads.md). Its build checks the release APK checksum and links; it has no backend secrets.

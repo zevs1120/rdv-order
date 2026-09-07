@@ -38,3 +38,9 @@ Report APK location, build type, supported Android baseline, exact tests perform
 - GitHub remote main is an ancestor of the reviewed implementation. Production branch is main; first automatic build/deployment succeeded. Preview deployments are disabled until isolated data/provider configuration exists.
 
 - Live verification: 17 read-only HTTP checks passed, including manager/waiter login, menu/tables, management queries, permissions and print configuration (ready=true). Historical pending queue remains 108; no business writes or real paper tests were performed. Local direct DNS returned an unrelated address; checks use the existing local HTTPS CONNECT proxy, without disabling TLS validation. Hotel-network availability still needs on-device evidence. See `docs/deployment-delivery.md`.
+
+## APK download distribution (2026-09-07)
+
+- User authorized a public APK download site under their own `resortdejavu.cn` domain; selected `download.resortdejavu.cn`. DNS is managed through the already logged-in Tencent Cloud DNSPod account. Only add the download CNAME and its required verification TXT; preserve apex/www/mail and prior verification records.
+- Static source is `distribution/site/`, deployed as a separate Vercel project `rdv-downloads` linked to this GitHub repository/main with that Root Directory. It has no database or printer credentials. The original `rdv-order` backend and embedded APK origin remain unchanged.
+- Explicit exception to ignored build artifacts: the reviewed, signed public APK is versioned in `distribution/site/public/releases/` for repeatable Git-based downloads. Never commit keystores/properties, internal/debug APKs, credentials or runtime data. The download build verifies APK SHA-256, size, version and links against `release.json`; never overwrite an existing versioned APK.

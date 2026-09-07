@@ -5,6 +5,9 @@ All notable changes to this project are documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
+### APK downloads
+- Added a bilingual static Android download page and verified signed release artifact, with a separate Git-linked Vercel project for download.resortdejavu.cn.
+
 ### Deployment delivery (2026-09-07)
 - Created and connected the Vercel production project to GitHub main, configured 15 production secrets and Singapore functions, and verified the first automatic deployment plus 17 live read-only checks.
 - Built the pinned-origin, long-term signed Android 0.1.1 release APK with R8, release lint, signature/alignment checks and private local signing backup. Physical paper and target-device acceptance remain open; see `docs/deployment-delivery.md`.

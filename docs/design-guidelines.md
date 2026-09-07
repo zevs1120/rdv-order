@@ -70,3 +70,7 @@ Source: `components/ui/*` + `styles/ui.css`.
 - Don't add floating dropdowns that overlap core ordering region.
 - Don't use heavy shadows or saturated gradients outside required table status blocks.
 - Don't add extra overlays if existing BottomSheet can solve the interaction.
+
+## APK download page (2026-09-07)
+
+The independent static download page reuses the RDV icon and cream/red palette. Its primary action is the Android APK download, followed by three installation steps. A language toggle supports English/Chinese, the viewport permits zoom, and small screens use a single column with the download button visible before scrolling. Existing ordering screens are unchanged.
