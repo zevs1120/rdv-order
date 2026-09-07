@@ -45,7 +45,7 @@ h1 em { color: var(--ink); font-weight: 400; }
 .app-intro { width: min(100% - 40px, 430px); margin: 0 0 32px; color: var(--muted); font-family: var(--serif); font-size: 16px; line-height: 1.75; }
 .download { display: inline-flex; align-items: center; justify-content: center; gap: 14px; min-height: 58px; padding: 15px 24px; color: var(--surface); background: var(--accent); border-radius: 100px; font-size: 14px; text-decoration: none; }
 .download:hover { background: var(--accent-dark); }
-.button-arrow { margin-left: 14px; font-size: 20px; }
+.button-arrow { flex: none; width: 20px; height: 20px; margin-left: 14px; }
 .release { font-size: 12px; color: var(--muted); margin: 24px 0 0; line-height: 1.6; }
 .release span { padding: 0 6px; }
 .coming-soon { min-height: 58px; display: grid; place-items: center; margin: 0; padding: 14px 34px; border: 1px solid #c4bcae; border-radius: 100px; font-size: 14px; color: var(--muted); }
