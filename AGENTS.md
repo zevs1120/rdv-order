@@ -1,5 +1,12 @@
 # RDV project working memory
 
+## Core priorities and updates (2026-09-08)
+
+- User priority: reliability/durability first, then speed and small/light implementation; keep UI attractive without unrelated redesign. Changes affecting web and native business behavior must be implemented and verified on both sides; web UI code does not automatically update native code. Menu/price data changes normally do not need an APK.
+- User authorized complete in-app update implementation and delivery. Every newer published APK is mandatory, without skip. Check once per process cold start, not on resume or during ordering. Unknown version/check failure allows use; a confirmed newer requirement persists across restarts. Retain existing drafts, no new business/draft flows.
+- Native 0.1.3 / versionCode 4 adds this updater. Original 0.1.2 must be manually upgraded once. New signed APK: `distribution/site/public/releases/rdv-order-0.1.3.apk`, SHA-256 `f798cebfbd5b96b8c57aaf634c16e0ad2676dc3bea0751ed266557d39b1ed264`; 1,521,277 bytes. Preserve older APKs and signing key. Rules: `docs/android-in-app-updates.md`; final test/deployment evidence: `docs/android-progress.md`.
+- `npm run android:stage-release` stages a built signed APK, validates version/signature/alignment, and updates public metadata/links together. It refuses overwriting versioned APKs. `ANDROID_SERIAL=<isolated-emulator> bash scripts/android/test-release.sh` runs real signed artifact checks using test-only assets in ignored build output.
+
 - Brand naming standard: always write the hotel name as `RESORT DEJA VU` (no accented “Déjà”). Use the canonical starless `rdv-wordmark.svg` for rendered RDV wordmarks rather than a system typeface.
 
 ## Android migration (2026-09-07)
