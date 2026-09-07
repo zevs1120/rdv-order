@@ -22,6 +22,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Revenue, summary, hot-items, cashier close, and table-bill calculations now share a stricter “exclude cancelled + merged source orders” accounting rule.
 
 ### Fixed
+- Android 0.1.1 internal: queued draft saves retain their original account ownership; expired sessions clear prior UI data before re-login; submission cooldown resets after login. Added regression tests.
 - Removed duplicate in-page back modules from manage/admin subpages to keep navigation hierarchy consistent.
 - Removed extra top-bar `More` button from the global shell.
 - Summary totals no longer overcount orders with multiple line items and now include order-level charges consistently.

@@ -42,6 +42,7 @@ class RdvViewModel(val repository: RdvRepository, val strings: Strings, private 
     private var lastSubmitted = ""
     private var lastSubmittedAt = 0L
     private var epoch = 0
+    private var expiringSession = false
     init {
         viewModelScope.launch {
             try {
@@ -63,8 +64,20 @@ class RdvViewModel(val repository: RdvRepository, val strings: Strings, private 
     private fun fail(error: Throwable) {
         if (error is CancellationException) throw error
         mutable.update { it.copy(error = strings.error(it.lang, error)) }
-        if (error is ApiException && error.status == 401 && state.value.screen != Screen.LOGIN) {
-            viewModelScope.launch { repository.logout(); mutable.update { it.copy(screen = Screen.LOGIN, role = "", sheet = "") } }
+        if (error is ApiException && error.status == 401 && state.value.screen != Screen.LOGIN && !expiringSession) {
+            expiringSession = true
+            epoch++
+            loadJob?.cancel(); menuJob?.cancel()
+            mutable.update { it.copy(busy = true, loading = false) }
+            viewModelScope.launch {
+                var message = strings.error(state.value.lang, error)
+                try { persistJob?.join(); repository.logout() }
+                catch (e: Exception) { if (e is CancellationException) throw e; message = strings.error(state.value.lang, e) }
+                finally {
+                    mutable.update { UiState(ready = true, lang = it.lang, error = message) }
+                    expiringSession = false
+                }
+            }
         }
     }
     fun toggleLanguage() {
@@ -74,6 +87,7 @@ class RdvViewModel(val repository: RdvRepository, val strings: Strings, private 
     }
     fun login(username: String, pin: String) = action {
         val session = repository.login(username, pin)
+        lastSubmitted = ""; lastSubmittedAt = 0L
         mutable.update { it.copy(role = session.role) }
         navigate(if (session.role == "manager") Screen.ORDERS else Screen.TABLES)
     }
@@ -85,6 +99,7 @@ class RdvViewModel(val repository: RdvRepository, val strings: Strings, private 
         mutable.update { UiState(ready = true, lang = it.lang) }
     }
     fun navigate(screen: Screen) {
+        if (expiringSession) return
         if (screen !in setOf(Screen.LOGIN, Screen.TABLES, Screen.ORDER, Screen.MORE, Screen.ORDERS) && !repository.isManager) return
         epoch++
         loadJob?.cancel(); menuJob?.cancel()
@@ -118,11 +133,11 @@ class RdvViewModel(val repository: RdvRepository, val strings: Strings, private 
         }
     }
     fun action(block: suspend () -> Unit) {
-        if (state.value.busy) return
+        if (state.value.busy || expiringSession) return
         mutable.update { it.copy(busy = true, error = "") }
         viewModelScope.launch {
             try { block() } catch (e: Exception) { fail(e) }
-            finally { mutable.update { it.copy(busy = false) } }
+            finally { mutable.update { it.copy(busy = expiringSession) } }
         }
     }
     fun toggleSelect() {
@@ -163,10 +178,11 @@ class RdvViewModel(val repository: RdvRepository, val strings: Strings, private 
         val draft = state.value.draft ?: return
         val next = transform(draft)
         mutable.update { it.copy(draft = next) }
+        val save = repository.prepareDraftSave(next)
         val previous = persistJob
         persistJob = viewModelScope.launch {
             previous?.join()
-            try { repository.saveDraft(next); persistError = null } catch (e: Exception) { persistError = e; fail(e) }
+            try { save(); persistError = null } catch (e: Exception) { persistError = e; fail(e) }
         }
     }
     fun keyword(value: String) = editDraft { it.copy(keyword = value) }

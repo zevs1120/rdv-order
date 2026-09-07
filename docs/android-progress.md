@@ -72,3 +72,12 @@ D3 已明确为自有酒店安装 APK；D1、D2、D4、D5 的实际连接/设备
 - 最终截图测试改为捕获完整 Android 显示，并等待系统弹窗动画结束，避免只截图 Compose 主窗口而漏掉弹层。该测试源码最后调整后重新编译、lint 通过，三种窗口专项均重新通过。
 
 已归档的隔离测试截图（不是门店数据）：[桌台](android-assets/tables-phone.png)、[点菜](android-assets/order-phone.png)、[小屏大字体购物车](android-assets/cart-small-large-font.png)、[横屏滚动后的点菜](android-assets/order-landscape.png)。完整截图和安装/签名报告在本机 `artifacts/android/`；可按 `android/README.md` 在新环境重现。
+
+## 0.1.1 内部包复查（2026-09-07）
+
+- 修复延迟保存草稿在切换账号后可能写入新账号空间的问题：入队时固定原账号的保存位置，回归测试在 B 登录后执行 A 的待保存操作并确认隔离。
+- 401 会先完成草稿保存、停止页面加载，再清除旧账号的草稿/账单/管理页面内存并返回登录。同账号重新登录仍可恢复本地草稿。登录同时重置短时重复提交提示状态。
+- `ANDROID_SERIAL=emulator-5556 scripts/android/verify.sh --device` 通过：30 项 JVM、13 项 API 35 设备测试、lint 和构建；日志 `.tools/downloads/android-session-final.log`。网页基线 `npm run verify` 67 项及构建通过，日志 `.tools/downloads/web-session-verify.log`。
+- 新 APK：`artifacts/android/rdv-order-0.1.1-internal.apk`，versionCode 2，包名仍为 `com.rdv.order.test`，最低 Android 8.0。打包脚本从构建元数据读取版本，避免更新后仍输出旧版本文件名。
+- SHA-256：`3d56a691b9b4d5e4cc14dee14735c7e11f22ea5b10d86ecb76759e409f00328e`。签名、16KB ZIP 对齐检查通过；已明确指定专用模拟器安装，真实 MainActivity 冷启动 `Status: ok`。本轮没有验证正式签名覆盖升级。
+- 上文 0.1.0 的指纹和测试数字保留为历史记录；当前交付采用 0.1.1。本轮修复不代表尚未部署的后台和实际纸单已经联通。

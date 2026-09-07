@@ -14,7 +14,8 @@ if [[ -z "${JAVA_HOME:-}" && -d "$repo_dir/.tools/zulu/Contents/Home" ]]; then
 fi
 artifact_dir="$repo_dir/artifacts/android"
 mkdir -p "$artifact_dir"
-artifact_apk="$artifact_dir/rdv-order-0.1.0-internal.apk"
+artifact_version="$(node -e 'const fs = require("fs"); const meta = JSON.parse(fs.readFileSync(process.argv[1], "utf8")); const value = meta.elements[0].versionName; if (!/^[0-9]+\.[0-9]+\.[0-9]+-internal$/.test(value)) throw Error("Unexpected internal APK version"); process.stdout.write(value);' "$repo_dir/android/app/build/outputs/apk/debug/output-metadata.json")"
+artifact_apk="$artifact_dir/rdv-order-$artifact_version.apk"
 cp "$repo_dir/android/app/build/outputs/apk/debug/app-debug.apk" "$artifact_apk"
 "$build_tools/apksigner" verify --verbose --print-certs "$artifact_apk" > "$artifact_dir/apk-signature.txt"
 "$build_tools/zipalign" -c -P 16 -v 4 "$artifact_apk" > "$artifact_dir/apk-alignment.txt"

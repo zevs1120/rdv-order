@@ -104,6 +104,20 @@ class NativeFlowTest {
         compose.waitUntil(10_000) { !vm.state.value.loading && vm.state.value.management.number("totalAmount") == 600.0 }
         compose.onNodeWithText("₱600").assertExists()
     }
+    @Test fun expiredLoginClearsPreviousScreenAndRecoversTheSameUsersDraftAfterLogin() {
+        login(); openTable()
+        compose.onNodeWithTag("add-${transport.rice.id}").performClick()
+        compose.runOnIdle { transport.sessionRejected = true; vm.showBill() }
+        compose.waitUntil(10_000) { vm.state.value.screen == Screen.LOGIN && !vm.state.value.busy }
+        assertNull(vm.state.value.draft)
+        assertNull(vm.state.value.bill)
+        assertTrue(vm.state.value.management.isEmpty())
+        transport.sessionRejected = false
+        login()
+        compose.onNodeWithTag("table-01").performClick()
+        compose.waitUntil { vm.state.value.screen == Screen.ORDER && !vm.state.value.busy && !vm.state.value.loading }
+        assertEquals(transport.rice.id, vm.state.value.draft!!.lines.single().item.id)
+    }
     @Test fun closingOrdinaryNoteSavesTypedTextAfterDismissingTheKeyboard() {
         login(); openTable()
         compose.onNodeWithTag("add-${transport.rice.id}").performClick()

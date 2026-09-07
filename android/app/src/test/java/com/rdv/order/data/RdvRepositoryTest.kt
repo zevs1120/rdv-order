@@ -99,6 +99,20 @@ class RdvRepositoryTest {
         now += 15L * 24 * 60 * 60 * 1000
         assertNull(repo.cachedMenu("lunch"))
     }
+    @Test fun `queued draft writes keep their original account when a new user logs in`() = runBlocking {
+        val store = MemoryStore(); val transport = RecordingTransport()
+        val repo = RdvRepository(transport, store, { "https://test.invalid" })
+        repo.login("staff-a", "test")
+        val firstSave = repo.prepareDraftSave(draft)
+        val edited = draft.copy(lines = listOf(CartLine(dish, 3, "no onion")))
+        val secondSave = repo.prepareDraftSave(edited)
+        repo.logout(); repo.login("staff-b", "test")
+        firstSave(); secondSave()
+        val table = TableInfo("01", guestCount = 2, openedAt = draft.openedAt)
+        assertTrue(repo.loadDraft(table).lines.isEmpty())
+        repo.logout(); repo.login("staff-a", "test")
+        assertEquals(edited.lines, repo.loadDraft(table).lines)
+    }
     @Test fun `malformed successful submit response does not clear the basket`() = runBlocking {
         val store = MemoryStore(); val transport = RecordingTransport(); val repo = RdvRepository(transport, store, { "https://test.invalid" })
         repo.login("staff", "test"); transport.handler = { "{}" }

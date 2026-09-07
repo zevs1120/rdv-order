@@ -63,9 +63,9 @@ class RdvRepository(val api: Transport, private val store: KeyValueStore, privat
         withContext(Dispatchers.IO) { store.put("menu:${digest(origin())}:$shift", RdvJson.encodeToString(CachedMenu(result, clock()))) }
         return result
     }
-    private fun readWorkspace(default: Draft): Workspace = store.get(workspaceKey(default.tableNo))
+    private fun readWorkspace(default: Draft, storageKey: String = workspaceKey(default.tableNo)): Workspace = store.get(storageKey)
         ?.let { RdvJson.decodeFromString<Workspace>(it) } ?: Workspace(default)
-    private fun writeWorkspace(value: Workspace) = store.put(workspaceKey(value.draft.tableNo), RdvJson.encodeToString(value))
+    private fun writeWorkspace(value: Workspace, storageKey: String = workspaceKey(value.draft.tableNo)) = store.put(storageKey, RdvJson.encodeToString(value))
 
     suspend fun loadDraft(table: TableInfo): Draft = withContext(Dispatchers.IO) { workspaceMutex.withLock {
         val fresh = Draft(table.tableNo, table.openedAt, table.guestCount ?: 2)
@@ -76,10 +76,15 @@ class RdvRepository(val api: Transport, private val store: KeyValueStore, privat
             fresh
         } else saved.draft.copy(openedAt = table.openedAt ?: saved.draft.openedAt, guests = fresh.guests)
     } }
-    suspend fun saveDraft(draft: Draft) = withContext(Dispatchers.IO) { workspaceMutex.withLock {
-        val current = readWorkspace(draft)
-        writeWorkspace(current.copy(draft = draft.copy(updatedAt = clock())))
-    } }
+    fun prepareDraftSave(draft: Draft): suspend () -> Unit {
+        // Capture ownership before this write joins the UI's save queue. A later login must not redirect it.
+        val storageKey = workspaceKey(draft.tableNo)
+        return { withContext(Dispatchers.IO) { workspaceMutex.withLock {
+            val current = readWorkspace(draft, storageKey)
+            writeWorkspace(current.copy(draft = draft.copy(updatedAt = clock())), storageKey)
+        } } }
+    }
+    suspend fun saveDraft(draft: Draft) = prepareDraftSave(draft).invoke()
     suspend fun clearDraft(draft: Draft) = saveDraft(draft.copy(lines = emptyList()))
 
     suspend fun submit(draft: Draft): SubmissionResult {
