@@ -1,6 +1,6 @@
 # RDV 原生 Android
 
-Kotlin / Jetpack Compose 客户端，沿用现有 HTTPS API、账号、数据库及服务端打印。没有 WebView，模拟菜单和测试账号只存在于测试代码。当前交付为 `0.1.1-internal` 内部测试 APK；生产替换需通过 [验收清单](../docs/android-acceptance.md)。
+Kotlin / Jetpack Compose 客户端，沿用现有 HTTPS API、账号、数据库及服务端打印。没有 WebView，模拟菜单和测试账号只存在于测试代码。当前同时提供绑定正式后台的长期签名 `0.1.1` APK 和独立内部测试包；酒店全面替换仍需通过 [验收清单](../docs/android-acceptance.md)。
 
 ## 构建与安装
 
@@ -54,7 +54,7 @@ keyPassword=LOCAL_SECRET
 scripts/android/gradle.sh :app:assembleRelease -PrdvApiBaseUrl=https://your-store-origin
 ```
 
-真实签名配置、keystore 不得提交。确认签名所有权/备份、生产地址和现场验收后再制作正式包。本次没有创建生产密钥或部署后端；不能把内部 APK 重命名成正式版。
+正式 APK 已构建为 `artifacts/android/release/rdv-order-0.1.1.apk`，绑定 `https://rdv-order-renfei-zhaos-projects.vercel.app`，完成 R8、release lint、签名和 ZIP 对齐检查。长期签名及配置的私有本机备份位于 `/Users/qiao/Documents/rdv-order-signing`，不在 Git/Vercel/APK 中。后续升级必须沿用该密钥、增加 versionCode；换电脑前应安全备份。详见 [交付记录](../docs/deployment-delivery.md)。
 
 ## 结构与行为
 

@@ -108,3 +108,14 @@ D3 已明确为自有酒店安装 APK；D1 已改为核对原 Vercel 部署与�
 - `vercel.json` 将类型/测试/生产构建设为每次部署的构建命令，Node 22.x；文档明确当前分支与 GitHub 推送/Production Branch 的关系。没有创建项目、push、营业数据库操作或真实打印；无需启动此前可选常驻脚本。
 - 干净 `npm ci --include=dev` 后完整 `npm run verify` 通过：94 项测试（22 文件）、类型检查与 Next.js 15.5.25 生产构建；`npm audit` 全依赖 0 已知漏洞。日志为 `.tools/downloads/vercel-clean-install.log`、`vercel-final-verify.log`、`vercel-final-audit.json`。
 - `npm run check:print-env` 显式假配置通过；不等于酒店配置验证。安卓源码及 APK 未变，沿用 30 项 JVM、13 项 API 35 设备验证；实际后台及纸单仍待部署后核验。
+
+
+## Vercel 上线与长期签名 APK（2026-09-07，最新状态）
+
+此前“没有当前部署/未推送/没有生产签名”的记录均为当时状态，现已完成：Vercel `rdv-order` 正式上线，GitHub `main` 自动部署，现有环境变量已配齐。正式根网址 https://rdv-order-renfei-zhaos-projects.vercel.app ，首个自动部署提交 `9919baf`，云端 94 项测试及构建通过。
+
+已制作 `artifacts/android/release/rdv-order-0.1.1.apk`，长期签名 `com.rdv.order`，versionCode 2，预置正式根网址；R8、release lint、验签、ZIP 对齐和秘密值扫描通过。真实签名包在专用 API 35 模拟器完成服务员登录和正式后台 11 个桌台加载，同版本覆盖重装后冷启动保留登录态。后者不是递增版本或跨系统升级测试。
+
+17 项线上只读 HTTP 检查覆盖两个角色登录、桌台、菜单、管理查询、权限拦截及打印健康。沿用的 Android 本地回归为 30 JVM + 13 设备测试。本机网络检查使用已有 HTTPS CONNECT 代理，未关闭 TLS 校验；不能代替酒店实际网络测试。原 108 条 pending 没有改动，没有发送真实打印或营业写操作。
+
+签名私有备份在 `/Users/qiao/Documents/rdv-order-signing`。APK 指纹、验证日志、更新步骤和仍未通过的现场项目见 [交付记录](deployment-delivery.md)。D1 后台地址和长期签名已解决；实际设备/网络、纸单及完整 CRUD/并发/导出验收保持待核验。

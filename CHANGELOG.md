@@ -5,6 +5,10 @@ All notable changes to this project are documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
+### Deployment delivery (2026-09-07)
+- Created and connected the Vercel production project to GitHub main, configured 15 production secrets and Singapore functions, and verified the first automatic deployment plus 17 live read-only checks.
+- Built the pinned-origin, long-term signed Android 0.1.1 release APK with R8, release lint, signature/alignment checks and private local signing backup. Physical paper and target-device acceptance remain open; see `docs/deployment-delivery.md`.
+
 ### Added
 - Vercel import configuration with Node 22.x and verification before every build; GitHub production/preview setup instructions. Eight isolated PostgreSQL WASM integration tests exercise order-to-print state, idempotency and queue clearing.
 - Opt-in cloud print dispatcher for the existing API, with single-flight polling, bounded requests, failure backoff, shutdown handling and isolated tests. First cloud deployment runbook records the hotel's hosting decision and pending deployment/real-printer acceptance.

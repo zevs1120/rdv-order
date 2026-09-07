@@ -4,7 +4,7 @@ Mobile-first ordering system for hotel/restaurant service staff.
 
 This repository contains the production ordering system (Next.js + Postgres + printing).
 
-Native Android client: see [android/README.md](android/README.md) for building the internal APK, tests and signing. `npm run android:verify` checks the native app; `npm run android:apk` exports a signed debug APK to `artifacts/android/`. Store acceptance is tracked in [docs/android-acceptance.md](docs/android-acceptance.md); the internal APK is not yet a production replacement.
+Native Android client: the signed release APK is `artifacts/android/release/rdv-order-0.1.1.apk`, connected to the same production backend. See [delivery record](docs/deployment-delivery.md), [Android builds/tests/signing](android/README.md) and [remaining hotel acceptance](docs/android-acceptance.md). `npm run android:apk` continues to export the separate internal debug build.
 
 ## What This System Does
 - Staff login with account + PIN
@@ -19,7 +19,7 @@ Native Android client: see [android/README.md](android/README.md) for building t
 - Database: PostgreSQL (Neon/Supabase compatible)
 - Auth: JWT (`jose`)
 - Testing: Vitest
-- Deploy: Vercel + GitHub; current project not yet deployed, import settings prepared in `vercel.json`
+- Deploy: Vercel + GitHub; production is live at https://rdv-order-renfei-zhaos-projects.vercel.app
 
 ## Quick Start
 
@@ -56,7 +56,7 @@ npm run dev
 
 ### 5) Vercel + GitHub deployment
 
-The owner has a Vercel account and previously used this software there; the current project is not deployed. Follow [Vercel setup and automatic deployment](docs/hotel-first-deployment.md): push the verified commit to GitHub, import that repository with its root directory, select the branch containing the fix, and add server-only environment variables.
+The project is deployed in the existing Vercel account and linked to `zevs1120/rdv-order`, production branch `main`. Open [the hotel ordering system](https://rdv-order-renfei-zhaos-projects.vercel.app). Production environment variables have been configured; no re-import is needed. See [deployment runbook](docs/hotel-first-deployment.md) and [verified delivery record](docs/deployment-delivery.md).
 
 `vercel.json` installs with `npm ci --include=dev` and builds with `npm run verify` so each deployment runs types, tests and the Next build. Node 22.x is pinned in `package.json`. Production-branch pushes deploy production; other branches normally create previews. Keep preview data and printers isolated. This does not automatically deploy an unpushed local commit.
 

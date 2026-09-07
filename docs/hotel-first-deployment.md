@@ -2,7 +2,7 @@
 
 ## 当前事实
 
-用户已有 Vercel Hobby 账号，软件以前在 Vercel 上使用过且能够下单自动打印；**当前这份软件没有部署**。先完成代码和提交，再创建项目。不要继续要求用户提供当前不存在的网址，也不要将过去用过等同于现在已上线。
+2026-09-07 已在用户现有 Vercel 账号创建并部署 `rdv-order`，关联 GitHub `zevs1120/rdv-order` 的 `main`。正式网址为 https://rdv-order-renfei-zhaos-projects.vercel.app 。首次自动部署提交 `9919baf`，云端 94 项测试及构建通过。具体证据和 APK 见 [交付记录](deployment-delivery.md)。本次部署前确实没有当前在线实例；该状态现已由实际部署结果更新。
 
 继续迁移本目录的同一个酒店点餐软件，保留主要界面、业务规则及清队列操作。平台使用关系由用户处理，不把未经请求的项目性质判断转化为升级或换平台要求。原生 APK 连接这套 Next.js 后台，数据库和打印密钥留在服务端。
 
@@ -18,10 +18,10 @@
 
 [Next.js 15 after 文档](https://nextjs.org/docs/15/app/api-reference/functions/after)说明了响应后的执行与时长限制。没有增加常驻服务或 Cron 要求；此前可选的 `worker:print` 脚本不启用。
 
-## 创建 Vercel 项目之前
+## 重建项目时的步骤（本次已完成）
 
-1. 将已检查的提交推送到 GitHub。当前开发分支是 `codex/android-native`，仓库 remote 为 `zevs1120/rdv-order`；本轮只做本地提交，未 push、未合并到 `main`。
-2. 推荐将确认过的版本合并并推送到 `main`，再将它设为 Production Branch。若首次要直接部署当前分支，必须明确将 Production Branch 设为 `codex/android-native`。不要让 Vercel 默认部署仍未包含修复的旧 `main`。
+1. 将检查过的提交推送到 GitHub `zevs1120/rdv-order`。本次已保留原提交记录并推送 `main`。
+2. 将 Production Branch 设为 `main`。后续只需继续推送该分支，无需重新创建 Vercel 项目。
 3. 核实数据库结构及现有数据。现有库不要重新执行 `db/seed.sql` 或清库；本次打印修复不新增表，也不要求数据库迁移。初次创建空库另按数据库初始化说明操作。
 4. 在 Vercel 的环境变量页面配置下面的服务端变量，不在聊天、GitHub 或 APK 中填写真实密钥。
 
@@ -72,4 +72,4 @@ Vercel 项目关联 GitHub 后：推送/合并到 Production Branch 会触发生
 4. 完成 `android-acceptance.md` 中管理 CRUD、CSV、目标设备和升级验收；之后固定正式根网址并制作长期签名 APK。
 5. 首次上线前没有当前可回退的线上版本；上线后记录可用部署与数据库备份。回退代码必须与数据库版本兼容，数据库恢复另按备份执行。网页与 APK 共用后台，保留网页不是独立后台容灾。
 
-下一步：将本次本地提交推送到选定的 GitHub 分支，然后按本文导入 Vercel 项目。
+当前后续工作：按交付记录安装签名 APK，并在酒店实际设备/网络核对受控订单和纸单。无需再次创建项目或重复配置环境变量。
