@@ -14,7 +14,7 @@ assert.ok(page.includes(`Android ${release.minAndroid}+`), 'Minimum Android vers
 assert.equal([...page.matchAll(/\sdownload="/g)].length, 1, 'Only the released ordering app may offer an APK');
 const staff = page.match(/<section id="panel-staff"[\s\S]*?<\/section>/)?.[0];
 assert.ok(staff && !/<a\b/.test(staff), 'The unfinished staff app must not offer a download');
-assert.ok(staff.includes('data-zh="制作中"'), 'Staff release status must be explicit');
+assert.ok(staff.includes('data-zh="即将推出"'), 'Staff release status must be explicit');
 for (const match of page.matchAll(/(?:src|href)="(\/[^"#]+)"/g)) {
   if (!match[1].endsWith('.apk')) read('./public' + match[1]);
 }
