@@ -51,3 +51,9 @@ Report APK location, build type, supported Android baseline, exact tests perform
 - Latest signed download is 0.1.2 / versionCode 3 at `distribution/site/public/releases/rdv-order-0.1.2.apk`, same release certificate. Download page and stable APK link now select 0.1.2. Keep 0.1.1 immutable as historical artifact, not the current recommendation.
 - The new origin maps to the legacy origin only for local storage keys, preserving sessions, drafts, pending idempotency keys and menu cache across update. Transport uses the custom origin. Do not alias arbitrary domains or accounts. Three regression tests cover these boundaries.
 - Login and live API checks must use a direct connection without proxy; a proxy-only pass is insufficient evidence for this reported failure. Current direct checks: waiter and manager login/tables, menu, auth rejection and print health passed. Physical hotel-device success still needs user confirmation after installing 0.1.2.
+
+## Single-screen team app downloads (2026-09-07)
+
+- Latest user direction: keep the download site to one screen, with a simple brand bar, capsule switch for Ordering app / Staff app, app name/icon, download button and version information. Do not reintroduce feature introductions, account/PIN/configuration explanations, platform disclaimers or installation steps.
+- Staff app is still being made and has no uploaded release; show only “制作中 / In the making”, with no download or invented features. Preserve bilingual switching and existing RDV Order 0.1.2 APK, signature, links and backend.
+- Visual references are the user's `rdv-website` and `Taboo` projects: real RDV logo, warm cream/deep green, serif title, subtle raised capsule surfaces, minimal hover motion. Sources and UI evidence are documented in `docs/design-guidelines.md` and `docs/app-downloads.md`.

@@ -5,6 +5,10 @@ All notable changes to this project are documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
+### Team app downloads
+- Replaced the download page with a single-screen bilingual Ordering app / Staff app selector, using the hotel's wordmark, cream/green palette and a light capsule treatment inspired by Taboo. Preserved the signed 0.1.2 APK and added an unpublished staff placeholder.
+- Removed feature descriptions, login/configuration explanations, platform disclaimers and installation steps at the user's request. Added keyboard tab navigation and build guards for the placeholder, local assets and translations.
+
 ### Android 0.1.2 — custom backend domain
 - Bound the existing backend to order.resortdejavu.cn and pinned the signed versionCode 3 APK to it, addressing reported login timeouts reaching the old Vercel origin.
 - Preserved old local session/draft/cache/uncertain-submission storage for this verified domain alias; added three upgrade/isolation regression tests. Updated the public download page and stable APK link.

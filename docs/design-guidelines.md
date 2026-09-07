@@ -73,4 +73,6 @@ Source: `components/ui/*` + `styles/ui.css`.
 
 ## APK download page (2026-09-07)
 
-The independent static download page reuses the RDV icon and cream/red palette. Its primary action is the Android APK download, followed by three installation steps. A language toggle supports English/Chinese, the viewport permits zoom, and small screens use a single column with the download button visible before scrolling. Existing ordering screens are unchanged.
+The independent download page is a single-screen team app selector. Use the hotel's real RDV wordmark (optimized locally from `rdv-website/public/rdv-logo.png`), warm cream `#f4ecdf`, deep green `#21483d`, and system serif typography. The lightly raised top bar and segmented capsule borrow the restrained surface treatment of the Taboo website; only hover transitions remain, respecting reduced motion.
+
+Show only the brand bar, Ordering app / Staff app tabs, app icon/name, download button and release metadata. The staff panel is an unpublished placeholder labelled “制作中 / In the making” with no download link. Per the user's explicit direction, omit feature introductions, account/PIN/backend explanations, platform disclaimers and installation steps. English/Chinese switching preserves the selected app. Arrow keys, Home and End operate tabs with a single tab stop and associated hidden panels. Allow zoom or unusually short screens to scroll rather than clipping controls; ordinary desktop and portrait mobile layouts fit one screen. Backend, APK and native screens are unchanged.

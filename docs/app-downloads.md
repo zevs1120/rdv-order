@@ -1,6 +1,6 @@
 # APK 下载网站
 
-员工入口：https://download.resortdejavu.cn 。下载页面不需要登录；安装 RDV Order 后，仍使用原员工账号/PIN。页面提供中英文安装步骤和版本/系统要求。
+员工入口：https://download.resortdejavu.cn 。页面保持一屏，用胶囊切换“点餐软件”和“员工应用”。点餐页只显示应用名称、图标、下载按钮和版本信息；员工应用尚未发布，仅显示“制作中”，没有安装包或虚构功能。保留中英文切换，不展示功能介绍、登录说明、设备免责声明或安装步骤。
 
 ## 部署结构
 
@@ -16,7 +16,7 @@ DNSPod 新增 `download` CNAME → `12f9a96e363566ac.vercel-dns-017.com`（TTL 6
 
 `0.1.2` / versionCode 3，`com.rdv.order`，Android 8.0+，1,504,361 字节（1.44 MiB）。SHA-256：`1e014e6525f8294bf8708e3766fe4bce2ac35ed61189a3c46d1c6084c4affbb6`。0.1.2 使用后台自定义域名 `https://order.resortdejavu.cn`，修复旧 Vercel 地址在用户网络登录超时的问题。沿用原签名，直接覆盖安装；旧 0.1.1 文件仍保留但不再是默认下载。
 
-版本文件使用不可变缓存；最新入口和 release.json 不缓存。APK 使用 Android 安装包 MIME 与 attachment 响应头。页面可在 JavaScript 禁用时直接下载英文版本；语言切换是渐进增强。没有第三方脚本、字体或统计。
+版本文件使用不可变缓存；最新入口和 release.json 不缓存。APK 使用 Android 安装包 MIME 与 attachment 响应头。JavaScript 禁用时仍可直接下载英文点餐 APK，并有员工应用制作中提示；语言与应用切换是渐进增强。没有第三方脚本、字体或统计。品牌标识从酒店官网本地素材缩小为 WebP，页面资源总计约 22 KB（不含 APK）；未改变文件托管或跨境下载链路。
 
 ## 更新 APK
 
@@ -28,6 +28,6 @@ DNSPod 新增 `download` CNAME → `12f9a96e363566ac.vercel-dns-017.com`（TTL 6
 
 ## 检查与边界
 
-- 本地桌面 1280、手机 390、小屏 320 像素，中英文 6 个组合：无横向溢出/脚本错误，下载按钮首屏可见；截图在 `artifacts/android/release/download-*`。
+- 最新单屏页面：1280×720、390×844、320×640，中英文 × 两个应用共 12 个组合，无横向/纵向溢出；点餐 APK 链接正确，员工占位不提供下载。真实浏览器检查方向键环绕、Home/End、焦点、语言切换保持应用选择，控制台无错误。截图和检查数据保存在 `artifacts/download-page/`（本机证据，不提交）。
 - 原服务端 `npm run verify` 94 项测试及构建通过；下载构建检查文件 SHA/大小/元信息/按钮与固定入口一致性。
 - 原 APK 的实际登录/桌台、签名/R8 检查见 [交付记录](deployment-delivery.md)。网站发布不代替酒店网络、实际设备及出纸验收。
