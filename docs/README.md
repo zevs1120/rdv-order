@@ -6,6 +6,7 @@ This folder defines the documentation system for `rdv-order`.
 - `android-native-migration-plan.md` — native Android migration plan and parity gates
 - `android-progress.md` — Android implementation evidence, decisions and release blockers
 - `android-acceptance.md` — native/web parity checklist and store acceptance
+- `hotel-first-deployment.md` — first deployment of the existing hotel WebApp and native client
 - `../android/README.md` — Android build, tests, packaging and signing
 - `api.md` — server API contracts (method/path/auth/request/response)
 - `features.md` — feature matrix by role and module

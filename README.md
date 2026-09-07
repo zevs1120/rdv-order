@@ -19,7 +19,7 @@ Native Android client: see [android/README.md](android/README.md) for building t
 - Database: PostgreSQL (Neon/Supabase compatible)
 - Auth: JWT (`jose`)
 - Testing: Vitest
-- Deploy: Vercel (serverless)
+- Deploy: Node service; first cloud deployment is being prepared, no live deployment assumed
 
 ## Quick Start
 
@@ -53,6 +53,12 @@ For existing database, apply migration files in order under `db/migrations/`.
 ```bash
 npm run dev
 ```
+
+### 5) Cloud operation (preparation, not deployed)
+
+The hotel owner selected cloud hosting. Deploy this same Next.js application and keep the existing API and database model. See [first deployment runbook](docs/hotel-first-deployment.md) for the remaining account, region, data and release decisions.
+
+The web service runs `npm ci`, `npm run build`, then `npm start`. A separate always-on process runs `npm run worker:print` with `PRINT_DISPATCH_ORIGIN` and the same `PRINT_WORKER_KEY` as the backend. It calls the existing print dispatch API; starting it can send pending jobs to the configured printers. Configure one automatic dispatcher, with no sleeping or overlapping scheduler. The dispatcher does not load `.env.local`; inject its two variables through the cloud platform. First validate against an isolated backend and simulated printer. Do not start it against an unreviewed existing queue.
 
 ## Quality Baseline
 Before any commit, run:

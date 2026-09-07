@@ -7,6 +7,7 @@
     "build": "next build",
     "start": "next start",
     "check:print-env": "node scripts/check-print-env.js",
+    "worker:print": "node scripts/print-dispatcher.mjs",
     "lint": "tsc --noEmit",
     "test": "VITE_CJS_IGNORE_WARNING=true vitest run",
     "test:watch": "VITE_CJS_IGNORE_WARNING=true vitest",

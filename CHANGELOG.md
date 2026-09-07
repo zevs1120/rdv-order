@@ -6,6 +6,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 ### Added
+- Opt-in cloud print dispatcher for the existing API, with single-flight polling, bounded requests, failure backoff, shutdown handling and isolated tests. First cloud deployment runbook records the hotel's hosting decision and pending deployment/real-printer acceptance.
 - Native Kotlin / Compose Android internal APK with ordering and management screens, encrypted local drafts and submission recovery, shared resource generation, JVM/device tests and repeatable build/verification/packaging scripts. Store acceptance and release signing remain pending.
 - Authenticated owner-scoped read-only `/api/orders/request-status` for recovering committed orders after lost responses; existing order/pricing/printing writes are unchanged.
 - Revenue CSV export from Manage → Revenue with natural-month range selection (single month or month range).
