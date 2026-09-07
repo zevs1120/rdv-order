@@ -1,0 +1,10 @@
+// Opt-in lower-version harness for the actual updater. Never stage or publish this APK.
+gradle.beforeProject { p ->
+    if (p.path == ':app') {
+        p.afterEvaluate {
+            p.android.defaultConfig.versionCode = 3
+            p.android.defaultConfig.versionName = '0.1.2'
+            p.layout.buildDirectory.set(new File(p.rootProject.projectDir, '../.tools/update-fixture-build'))
+        }
+    }
+}

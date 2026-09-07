@@ -38,4 +38,18 @@
 
 ## 验证记录
 
-本轮最终测试、签名包校验、完整安装操作和公开部署证据将在交付时记录于 `android-progress.md`。本地测试不代表酒店设备或物理打印验收。
+本轮最终测试、签名包校验、完整安装操作和公开部署证据记录于 `android-progress.md`。本地测试不代表酒店设备或物理打印验收。
+
+可选系统安装测试 `UpdateLiveInstallTest` 仅在明确传入 `-e liveUpdate true` 时运行，并会在隔离模拟器上重设此应用的安装来源授权、执行系统安装操作。先用当前代码构建低版本测试包（code 3，包含更新器，绝不是原始公开 0.1.2）：
+
+```sh
+scripts/android/gradle.sh :app:assembleRelease -PrdvApiBaseUrl=https://order.resortdejavu.cn -I ../scripts/android/update-fixture.init.gradle
+adb -s <isolated-emulator> install -r .tools/update-fixture-build/outputs/apk/release/app-release.apk
+scripts/android/gradle.sh :app:assembleDebug :app:assembleDebugAndroidTest
+adb -s <isolated-emulator> install -r android/app/build/outputs/apk/debug/app-debug.apk
+adb -s <isolated-emulator> install -r android/app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
+adb -s <isolated-emulator> shell am force-stop com.rdv.order
+adb -s <isolated-emulator> shell am instrument -w -e liveUpdate true -e class com.rdv.order.UpdateLiveInstallTest com.rdv.order.test.test/androidx.test.runner.AndroidJUnitRunner
+```
+
+仅使用未安装更高版本的专用模拟器；不要卸载或降级营业设备来跑测试。测试包输出在忽略的 `.tools/`，正常正式构建及公开包路径不受影响。首次网络下载和后续完整包复用分别验证；测试截图通过 UiAutomation 捕获整个显示屏，包含系统安装弹窗。

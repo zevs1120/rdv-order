@@ -132,5 +132,14 @@ D3 已明确为自有酒店安装 APK；D1 已改为核对原 Vercel 部署与�
 - `npm run verify`：94 项网页测试、类型检查和生产构建通过；未修改网页业务源码、DB、订单或打印逻辑。
 - Android：44 项 JVM 测试（新增更新 11 项），debug/release lint、debug/release 构建通过。`ANDROID_SERIAL=emulator-5580 npm run android:verify -- --device`：15 项 API-35 设备测试通过；包括 2 项更新 UI 测试。
 - `ANDROID_SERIAL=emulator-5580 bash scripts/android/test-release.sh`：另 2 项真实签名 APK 设备测试通过，验证 0.1.2 → 0.1.3 包身份/哈希，以及错误版本/包名/证书拒绝和 FileProvider 的可读范围。
-- `npm run android:stage-release` 和下载站构建校验通过；旧版本未覆盖。完整公开下载/安装验证待本次部署完成后补录。模拟器专用低版本更新测试包位于忽略的 `.tools/update-fixture-build/`，与原始 0.1.2 不同（包含当前更新器），不得发布或混称原始 0.1.2 已支持更新。
+- `npm run android:stage-release` 和下载站构建校验通过；重复发布被拒绝，清单不变，旧版本未覆盖。模拟器专用低版本更新测试包位于忽略的 `.tools/update-fixture-build/`，与原始 0.1.2 不同（包含当前更新器），不得发布或混称原始 0.1.2 已支持更新。
 - 酒店实际设备网络、厂商安装器、物理打印和原有业务验收仍需现场确认；本轮未发送业务订单、未操作历史打印队列。
+
+### 本轮公开交付与安装验证
+
+- 实现提交 `9458b59`，公开包提交 `b664514`；均已推送 main。Vercel `rdv-downloads`、`rdv-order` 对 `b664514` 都返回 success。
+- 无代理直接 HTTPS 获取公开 `release.json` 和版本 APK 成功，下载文件 SHA-256 与上述本地包一致；固定 `/rdv-order.apk` 返回 200、正确大小/MIME、`no-store`；后台首页返回 200。
+- `UpdateLiveInstallTest` 在隔离 `emulator-5580`（API 35）最终通过 1 项完整系统操作测试：发现真实线上 0.1.3、首次下载及校验、拒绝安装来源授权后重试、允许授权、取消系统安装后重试、确认覆盖安装、重新打开进入原有桌台页面。APK 首次经网络下载，后续测试重试复用并重新校验完整缓存；不是每次重试都重新下载。设备包信息确认为 code 4 / 0.1.3，原登录态保留。模拟器系统代理设置为 null。
+- 系统操作测试初轮失败原因是测试读取 Compose 无障碍节点/页面过渡时的失效节点及残留 Settings 任务；修改测试为遍历节点、等待稳定后重新定位、以干净 Activity 任务启动后通过，未改变或替换已经公开的 APK。
+- 更新 UI 的 2 项测试另外在 640×360、160 dpi、1.3 倍字体下复测通过；按钮实际可见并可操作，完成后恢复模拟器尺寸/字体。整个本轮共 44 JVM、18 个不同设备用例，另有 2 项横屏复测；设备证据不扩大为 Android 8 实机或所有厂商安装器通过。
+- 全显示屏截图：`docs/android-assets/updates/required.png`、`installer.png`、`installed.png`；`compact-landscape.png` 是 UI 测试中的虚拟 0.1.4 文案，不是线上新版本。重新打开的本地截图在 `artifacts/android/update-reopened.png`，没有将营业数据加入 Git。

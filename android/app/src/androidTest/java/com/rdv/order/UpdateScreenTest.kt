@@ -21,6 +21,12 @@ class UpdateScreenTest {
         Espresso.pressBack()
         compose.onNodeWithText("更新后继续使用").assertExists()
         compose.onNodeWithTag("update-action").performScrollTo().assertIsDisplayed()
+        val instrumentation = androidx.test.platform.app.InstrumentationRegistry.getInstrumentation()
+        val folder = java.io.File(instrumentation.targetContext.filesDir, "update-evidence").apply { mkdirs() }
+        instrumentation.uiAutomation.takeScreenshot()?.let { bitmap ->
+            java.io.File(folder, "screen-layout.png").outputStream().use { bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it) }
+            bitmap.recycle()
+        }
     }
     @Test fun downloadingDisablesDuplicateActionsAndFailureOffersRetry() {
         val state = androidx.compose.runtime.mutableStateOf(UpdateState(checking = false, release = release, downloading = true, progress = 42))
