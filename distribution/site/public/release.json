@@ -1,14 +1,14 @@
 {
   "name": "RDV Order",
-  "version": "0.1.5",
-  "versionCode": 6,
+  "version": "0.1.6",
+  "versionCode": 7,
   "minAndroid": "8.0",
   "apiOrigin": "https://order.resortdejavu.cn",
-  "file": "/releases/rdv-order-0.1.5.apk",
+  "file": "/releases/rdv-order-0.1.6.apk",
   "bytes": 1559425,
-  "sha256": "b16d97b0f9f3b5c3f6ece455ae2743276301d931872b94438f9031c5f863cef3",
+  "sha256": "7c19ed43b358deefc1cde7b9440fc46c3733c976c1cee719ff9bbe22aaabb283",
   "notes": {
-    "zh": "优化更新提示体验。",
-    "en": "Improved the update experience."
+    "zh": "更新内容跟随系统语言。",
+    "en": "Update details now follow the system language."
   }
 }

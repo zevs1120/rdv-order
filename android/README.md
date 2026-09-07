@@ -1,6 +1,6 @@
 # RDV 原生 Android
 
-Kotlin / Jetpack Compose 客户端，沿用现有 HTTPS API、账号、数据库及服务端打印。没有 WebView，模拟菜单和测试账号只存在于测试代码。当前同时提供绑定正式后台的长期签名 `0.1.5` APK 和独立内部测试包；酒店全面替换仍需通过 [验收清单](../docs/android-acceptance.md)。
+Kotlin / Jetpack Compose 客户端，沿用现有 HTTPS API、账号、数据库及服务端打印。没有 WebView，模拟菜单和测试账号只存在于测试代码。当前同时提供绑定正式后台的长期签名 `0.1.6` APK 和独立内部测试包；酒店全面替换仍需通过 [验收清单](../docs/android-acceptance.md)。
 
 0.1.3 起支持冷启动强制更新，见 [更新机制与发布流程](../docs/android-in-app-updates.md)。
 
@@ -19,7 +19,7 @@ npm run android:verify
 npm run android:apk
 ```
 
-输出 `artifacts/android/rdv-order-0.1.5-internal.apk`，附 SHA-256、签名、ZIP 对齐及包元数据报告。最低 Android 8.0 / API 26，target / compile API 36。最低版本通过静态检查，尚未覆盖所有系统实机。
+输出 `artifacts/android/rdv-order-0.1.6-internal.apk`，附 SHA-256、签名、ZIP 对齐及包元数据报告。最低 Android 8.0 / API 26，target / compile API 36。最低版本通过静态检查，尚未覆盖所有系统实机。
 
 内部包包名 `com.rdv.order.test`，使用开发调试签名。默认未绑定后台，首次填受控测试环境的 **HTTPS 根网址**，不附 `/order`、参数或账号密码。更换地址目前需清除此测试应用的数据，会同时删除本地草稿，必须先处理草稿。正式包预置地址，不展示连接设置。
 
@@ -58,7 +58,7 @@ npm run android:stage-release
 node distribution/site/verify.mjs
 ```
 
-正式 APK 已构建为 `distribution/site/public/releases/rdv-order-0.1.5.apk`，绑定 `https://order.resortdejavu.cn`，沿用长期签名。图标使用点餐 APP 的统一高清图标；下载页和桌面图标复用同一原始图稿。强制更新页会显示每个版本的中英文更新内容。长期签名及配置的私有本机备份位于 `/Users/qiao/Documents/rdv-order-signing`，不在 Git/Vercel/APK 中。后续升级必须沿用该密钥、增加 versionCode；换电脑前应安全备份。详见 [交付记录](../docs/deployment-delivery.md)。
+正式 APK 已构建为 `distribution/site/public/releases/rdv-order-0.1.6.apk`，绑定 `https://order.resortdejavu.cn`，沿用长期签名。图标使用点餐 APP 的统一高清图标；下载页和桌面图标复用同一原始图稿。强制更新页会按手机系统语言显示每个版本的更新内容。长期签名及配置的私有本机备份位于 `/Users/qiao/Documents/rdv-order-signing`，不在 Git/Vercel/APK 中。后续升级必须沿用该密钥、增加 versionCode；换电脑前应安全备份。详见 [交付记录](../docs/deployment-delivery.md)。
 
 ## 结构与行为
 

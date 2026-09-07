@@ -32,11 +32,7 @@ import kotlinx.coroutines.*
     if (!state.checking && state.release == null) { content(); return }
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    var language by rememberSaveable { mutableStateOf(Strings.systemLanguage()) }
-    LaunchedEffect(Unit) {
-        val saved = withContext(Dispatchers.IO) { runCatching { app.store.get("language") }.getOrNull() }
-        if (saved in setOf("zh", "en")) language = saved!!
-    }
+    val language = Strings.systemLanguage()
     val installer = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { /* Cancellation keeps the gate closed. */ }
     var installing by remember { mutableStateOf(false) }
     fun install() {
@@ -69,20 +65,16 @@ import kotlinx.coroutines.*
         if (state.apk == null) offeredPath = null
         else if (offeredPath != state.apk!!.path) { offeredPath = state.apk!!.path; requestInstall() }
     }
-    UpdateScreen(state, language, installing, onLanguage = { language = if (language == "zh") "en" else "zh" },
-        onUpdate = { if (state.apk == null) controller.download() else requestInstall() })
+    UpdateScreen(state, language, installing, onUpdate = { if (state.apk == null) controller.download() else requestInstall() })
 }
 
-@Composable fun UpdateScreen(state: UpdateState, language: String, installing: Boolean = false, onLanguage: () -> Unit, onUpdate: () -> Unit) {
+@Composable fun UpdateScreen(state: UpdateState, language: String, installing: Boolean = false, onUpdate: () -> Unit) {
     fun text(zh: String, en: String) = if (language == "zh") zh else en
     BackHandler { /* No path into ordering until this confirmed update is installed. */ }
     RdvTheme {
         Surface(Modifier.fillMaxSize(), color = RdvColors.Background) {
             Column(Modifier.safeDrawingPadding().verticalScroll(rememberScrollState()).padding(24.dp),
                 verticalArrangement = Arrangement.spacedBy(20.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                    TextButton(onClick = onLanguage) { Text(if (language == "zh") "English" else "中文") }
-                }
                 Text("RDV Order", style = MaterialTheme.typography.titleLarge)
                 if (state.checking) {
                     CircularProgressIndicator(Modifier.size(28.dp))

@@ -4,7 +4,7 @@ Mobile-first ordering system for hotel/restaurant service staff.
 
 This repository contains the production ordering system (Next.js + Postgres + printing).
 
-Native Android client: the signed release APK is `distribution/site/public/releases/rdv-order-0.1.5.apk`, connected to the same production backend. See [delivery record](docs/deployment-delivery.md), [Android builds/tests/signing](android/README.md) and [remaining hotel acceptance](docs/android-acceptance.md). `npm run android:apk` continues to export the separate internal debug build.
+Native Android client: the signed release APK is `distribution/site/public/releases/rdv-order-0.1.6.apk`, connected to the same production backend. See [delivery record](docs/deployment-delivery.md), [Android builds/tests/signing](android/README.md) and [remaining hotel acceptance](docs/android-acceptance.md). `npm run android:apk` continues to export the separate internal debug build.
 
 Version 0.1.3 adds mandatory updates on cold start; existing 0.1.2 installations need one manual upgrade. See [in-app updates and release workflow](docs/android-in-app-updates.md).
 
