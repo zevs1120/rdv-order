@@ -14,7 +14,7 @@
 - Obtain the new backend root URL after Vercel project deployment; resolve target Android devices from available context, asking only for information that cannot be established. APK installation for the user's hotel is the requested delivery; no separate store-distribution decision is needed. Do not invent connection details or claim physical printing is tested.
 - Server/printing secrets must never be embedded in the APK or documentation. Build artifacts, local toolchains, signing stores and machine-specific configuration are ignored by Git.
 - Before a commit follow `CONTRIBUTING.md`: run `npm run verify`; additionally run relevant Android build, unit tests and lint for Android changes. Reuse an unchanged passing web baseline across adjacent Android-only scopes; rerun if web source changes. Do not mark unperformed device/printing checks as passed.
-- No production deployment, production test orders or print jobs are implied by implementation/testing authorization. Use isolated fixtures/test environments for automated tests.
+- The latest user explicitly authorized handling GitHub pushes/branch integration, Vercel project creation/linking, production environment configuration and deployment end to end. This supersedes earlier deployment-preparation-only limits. Use isolated fixtures for automated business tests; do not drain or clear the existing historical print queue as part of deployment.
 - Native client now lives in `android/`; `npm run android:verify` runs resource parity, JVM tests, lint and APK build. `ANDROID_SERIAL=<isolated-device> npm run android:verify -- --device` additionally runs device tests. Always specify a serial for installs/device commands; multiple AVDs may be connected.
 - `npm run android:apk` exports signed debug `artifacts/android/rdv-order-0.1.1-internal.apk` plus SHA/signature/alignment/metadata. Internal package `com.rdv.order.test`, min API 26, target/compile 36. Production `com.rdv.order` requires a pinned HTTPS origin and local signing configuration; neither has been supplied.
 - Current local evidence: web verify 94 tests + build (includes 8 PostgreSQL WASM order/print integration tests and 9 optional dispatcher tests); Android 30 JVM + 13 API-35 device tests, lint/build. See `docs/android-progress.md` for exact boundaries and `docs/android-acceptance.md` for remaining parity/CRUD/CSV/physical print/device acceptance. Do not call this production-ready or equate fixture callbacks with actual printing.
@@ -30,3 +30,9 @@
 ## Completion reporting
 
 Report APK location, build type, supported Android baseline, exact tests performed, remaining release blockers and commit IDs. An internal test APK is not an approved production replacement. Keep this file and progress documentation current as decisions arrive.
+
+## Active deployment setup (2026-09-07)
+
+- Vercel project `rdv-order` created in the existing `renfei-zhaos-projects` scope. Local `.vercel/` is ignored. Existing local DB/XPYUN settings are being copied only to production secret variables, not Preview. No credentials are recorded here.
+- Read-only database checks succeeded: schema tables present, existing data retained. The DB hostname identifies ap-southeast-1, so function region is sin1 (Singapore). Historical pending queue is not touched.
+- GitHub remote main is an ancestor of the reviewed implementation. Production branch will be main after fast-forward and push. Preview deployments are disabled until isolated data/provider configuration exists.

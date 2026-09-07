@@ -53,6 +53,8 @@ Optional fallback provider:
 - `PRINT_FORCE_SINGLE_COPY=true`
 
 ## 3) Pre-Deploy Check
+The authorized Vercel setup uses production-only secrets and the Singapore function region matching the database. No optional dispatcher or cron is activated. The existing historical queue is retained; deploying the app alone does not drain it.
+
 ```bash
 npm run check:print-env
 ```

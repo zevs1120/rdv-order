@@ -60,6 +60,8 @@ The owner has a Vercel account and previously used this software there; the curr
 
 `vercel.json` installs with `npm ci --include=dev` and builds with `npm run verify` so each deployment runs types, tests and the Next build. Node 22.x is pinned in `package.json`. Production-branch pushes deploy production; other branches normally create previews. Keep preview data and printers isolated. This does not automatically deploy an unpushed local commit.
 
+The configured function region is `sin1` (Singapore), matching the existing database region. The `rdv-order` project is now created and linked to GitHub; production variables are configured as secrets. Preview deployments are disabled until isolated data is configured. Production uses the stable production domain with application login; Vercel standard protection remains on deployment-specific/preview URLs.
+
 New orders automatically trigger their own queued kitchen print through Next.js `after()`. Failed jobs retain the original retry/clear controls. No always-on service or cron is needed; the optional `worker:print` utility remains off. The restored trigger has isolated regression coverage; physical printing must still be verified after deployment.
 
 ## Quality Baseline
