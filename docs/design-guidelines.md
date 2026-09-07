@@ -2,6 +2,8 @@
 
 ## Native Android
 
+Cold-start updates use the same native theme, a scrollable safe-area page, bilingual text, version, progress and one download/install action. Every confirmed newer release blocks ordering; there is no skip action. Permission/installation cancellation returns to the same page. Foregrounding during service does not trigger another check. See `android-in-app-updates.md`.
+
 Compose uses the existing brand/background/text colors, rounded bordered cards, centered global titles, the three physical table columns, left menu categories and fixed bottom actions. System safe areas, keyboard and back behavior are native adaptations. Components are in `android/app/src/main/java/com/rdv/order/ui/Components.kt`; shared translations are generated from web sources. Do not replace these screens with a stock Material navigation redesign. See `android-acceptance.md` for the remaining visual comparisons on actual devices.
 
 ## Principles

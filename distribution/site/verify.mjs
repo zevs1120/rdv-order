@@ -3,6 +3,11 @@ import { createHash } from 'node:crypto';
 import assert from 'node:assert/strict';
 const read = path => readFileSync(new URL(path, import.meta.url));
 const release = JSON.parse(read('./public/release.json'));
+assert.match(release.version, /^\d+\.\d+\.\d+$/);
+assert.ok(Number.isSafeInteger(release.versionCode) && release.versionCode > 0);
+assert.equal(release.file, `/releases/rdv-order-${release.version}.apk`);
+assert.ok(Number.isSafeInteger(release.bytes) && release.bytes > 0 && release.bytes <= 50 * 1024 * 1024);
+assert.match(release.sha256, /^[a-f0-9]{64}$/);
 assert.match(release.file, /^\/releases\/rdv-order-\d+\.\d+\.\d+\.apk$/);
 const apk = read('./public' + release.file);
 assert.equal(apk.length, release.bytes, 'APK size changed');
@@ -23,4 +28,5 @@ for (const match of page.matchAll(/<[^>]+data-en="[^"]*"[^>]*>/g)) {
 }
 const config = JSON.parse(read('./vercel.json'));
 assert.equal(config.rewrites.find(r => r.source === '/rdv-order.apk')?.destination, release.file);
+assert.ok(config.headers.find(r => r.source === '/release.json')?.headers.some(h => h.key === 'Cache-Control' && h.value === 'no-store'), 'Update checks must not use stale CDN metadata');
 console.log(`Verified RDV Order ${release.version}: APK checksum, size, page, assets, translations, staff placeholder and stable download URL.`);

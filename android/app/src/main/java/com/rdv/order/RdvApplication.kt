@@ -3,8 +3,19 @@ package com.rdv.order
 import android.app.Application
 import com.rdv.order.data.*
 import com.rdv.order.ui.Strings
+import com.rdv.order.update.*
+import java.io.File
+import kotlinx.coroutines.*
 
 class RdvApplication : Application() {
+    val updateClient by lazy { UpdateClient(File(cacheDir, "updates")) { file, release -> verifyUpdatePackage(this, file, release) } }
+    val updates by lazy {
+        val preferences = getSharedPreferences("rdv_updates", MODE_PRIVATE)
+        UpdateController(BuildConfig.VERSION_CODE, CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate),
+            latest = updateClient::latest, download = updateClient::download,
+            readKnown = { preferences.getString("required", null) },
+            saveKnown = { value -> preferences.edit().putString("required", value).apply() })
+    }
     val store by lazy { SecureStore(this) }
     val strings by lazy { Strings(this) }
     var endpoint: String = BuildConfig.API_BASE_URL

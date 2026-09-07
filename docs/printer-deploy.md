@@ -102,3 +102,6 @@ Local verification: 9 dispatcher tests use isolated fetches and controlled timin
 ## 后台自定义域名（0.1.2）
 
 `order.resortdejavu.cn` 绑定同一 `rdv-order` 生产项目。APK 0.1.2 预置新地址，替代原 .vercel.app 地址的网络访问路径；原 API、数据库、环境变量和打印队列规则不变。经理实际登录后，无代理访问新域名的打印健康返回 ready=true，历史 pending=108。未向打印机发送测试单，详见 [android-custom-domain-fix.md](android-custom-domain-fix.md)。
+# Android update distribution
+
+Native 0.1.3 adds cold-start application updates from the existing download site. This adds no printer environment variables, scheduler or server-side print changes. APK/metadata deployment and verification are described in [android-in-app-updates.md](android-in-app-updates.md).

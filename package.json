@@ -21,7 +21,8 @@
     "precommit:baseline": "npm run verify",
     "android:resources": "node scripts/android/sync-resources.mjs",
     "android:verify": "bash scripts/android/verify.sh",
-    "android:apk": "bash scripts/android/package.sh"
+    "android:apk": "bash scripts/android/package.sh",
+    "android:stage-release": "node scripts/android/stage-release.mjs"
   },
   "dependencies": {
     "jose": "^5.9.4",

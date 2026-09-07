@@ -124,3 +124,13 @@ D3 已明确为自有酒店安装 APK；D1 已改为核对原 Vercel 部署与�
 ## 0.1.2 登录超时修复（最新）
 
 用户实际安装后报告登录超时。优先复现旧 .vercel.app 地址直连超时，后台绑定 `https://order.resortdejavu.cn` 后，7 项真实 API 直连检查通过。正式 APK 更新到 0.1.2 / versionCode 3，同签名覆盖安装；专用 API 35 模拟器无代理升级后保留旧登录态，加载全部 11 个实际桌台。JVM 33 项（新增 3 项域名升级存储隔离测试）、设备 13 项、Web 94 项及发布构建/lint 通过。下载页改为新版，详见 [修复记录](android-custom-domain-fix.md)。旧 0.1.1 的代理验证不再作为实际网络可用证据；用户手机需安装新版复验。
+# 2026-09-08 — 0.1.3 应用内更新
+
+本轮在冷启动入口加入独立更新模块，生产代码约 300 行，无新增运行依赖、后台服务或业务 API。每个正式新版强制更新；首次检查失败放行、已确认要求持久化；下载重试、系统安装权限/取消、包大小/哈希/包名/版本/证书验证均保留更新门槛。详见 `android-in-app-updates.md`。
+
+- 正式签名 APK：`distribution/site/public/releases/rdv-order-0.1.3.apk`；`com.rdv.order`，0.1.3 / code 4，Android 8.0+（min 26 / target 36），R8 release，1,521,277 字节。SHA-256：`f798cebfbd5b96b8c57aaf634c16e0ad2676dc3bea0751ed266557d39b1ed264`。证书与公开 0.1.2 相同，16 KiB ZIP 对齐通过。
+- `npm run verify`：94 项网页测试、类型检查和生产构建通过；未修改网页业务源码、DB、订单或打印逻辑。
+- Android：44 项 JVM 测试（新增更新 11 项），debug/release lint、debug/release 构建通过。`ANDROID_SERIAL=emulator-5580 npm run android:verify -- --device`：15 项 API-35 设备测试通过；包括 2 项更新 UI 测试。
+- `ANDROID_SERIAL=emulator-5580 bash scripts/android/test-release.sh`：另 2 项真实签名 APK 设备测试通过，验证 0.1.2 → 0.1.3 包身份/哈希，以及错误版本/包名/证书拒绝和 FileProvider 的可读范围。
+- `npm run android:stage-release` 和下载站构建校验通过；旧版本未覆盖。完整公开下载/安装验证待本次部署完成后补录。模拟器专用低版本更新测试包位于忽略的 `.tools/update-fixture-build/`，与原始 0.1.2 不同（包含当前更新器），不得发布或混称原始 0.1.2 已支持更新。
+- 酒店实际设备网络、厂商安装器、物理打印和原有业务验收仍需现场确认；本轮未发送业务订单、未操作历史打印队列。

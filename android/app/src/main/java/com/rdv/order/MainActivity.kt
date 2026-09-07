@@ -19,6 +19,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.rdv.order.ui.*
+import com.rdv.order.update.UpdateGate
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -26,6 +27,7 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         val app = application as RdvApplication
         setContent {
+          UpdateGate(app) {
             var configured by remember { mutableStateOf(app.endpoint.isNotBlank()) }
             if (!configured) ConnectionSetup(app) { configured = true }
             else {
@@ -47,6 +49,7 @@ class MainActivity : ComponentActivity() {
                 }
                 RdvRoot(model, online)
             }
+          }
         }
     }
 }

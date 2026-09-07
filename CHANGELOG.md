@@ -5,6 +5,10 @@ All notable changes to this project are documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
+### Android 0.1.3 — in-app updates
+- Added one bounded cold-start version check, mandatory updates for every newer published APK, download progress/retry, package verification and Android installation confirmation. Previously confirmed requirements persist across restarts; a failed first check does not prevent ordering.
+- Added local signed-release staging to verify identity, version, certificate and alignment, then update APK/download metadata together. No business API or printing changes.
+
 ### Team app downloads
 - Replaced the download page with a single-screen bilingual Ordering app / Staff app selector, using the hotel's wordmark, cream/green palette and a light capsule treatment inspired by Taboo. Preserved the signed 0.1.2 APK and added an unpublished staff placeholder.
 - Removed feature descriptions, login/configuration explanations, platform disclaimers and installation steps at the user's request. Added keyboard tab navigation and build guards for the placeholder, local assets and translations.
