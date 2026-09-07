@@ -1,0 +1,64 @@
+{
+  "groups": [
+    {
+      "value": "breakfast",
+      "labelZh": "早餐",
+      "labelEn": "Breakfast"
+    },
+    {
+      "value": "lunch_dinner",
+      "labelZh": "午晚餐",
+      "labelEn": "Lunch/Dinner"
+    },
+    {
+      "value": "cocktail",
+      "labelZh": "鸡尾酒",
+      "labelEn": "Cocktail"
+    },
+    {
+      "value": "set_menu",
+      "labelZh": "套餐",
+      "labelEn": "Package"
+    }
+  ],
+  "categories": {
+    "breakfast": [
+      "Breakfast Set",
+      "Eggs",
+      "Bread",
+      "Coffee",
+      "Juice"
+    ],
+    "lunch_dinner": [
+      "Filipino Food",
+      "Soup",
+      "Salad",
+      "Pasta",
+      "Rice",
+      "Dessert"
+    ],
+    "cocktail": [
+      "Classic",
+      "Signature",
+      "Mocktail",
+      "Beer",
+      "Wine",
+      "Spirits"
+    ],
+    "set_menu": [
+      "套餐"
+    ]
+  },
+  "sort": [
+    0,
+    10,
+    20,
+    30,
+    40,
+    50,
+    100,
+    200,
+    500,
+    999
+  ]
+}

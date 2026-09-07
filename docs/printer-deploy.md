@@ -2,9 +2,13 @@
 
 ## Print Behavior (Current)
 - Order submit prints **kitchen copy only** (single printer target by default).
-- Order submit stores the order first, then wakes the print worker in the background.
+- Current `app/api/orders/route.ts` atomically stores orders/items/print jobs; it does **not** directly wake the worker. Verify the actual deployment's dispatch scheduler/worker before relying on queue progress.
 - Guest copy is printed only when staff explicitly triggers `Print Receipt` in order bill panel.
 - Default is single copy (`PRINT_FORCE_SINGLE_COPY=true`) to reduce duplicate print risk.
+
+## Native Android client
+
+The native APK calls the existing ordering, bill-printing, health, queue and dispatch endpoints. No direct Bluetooth/USB printer path or embedded provider credentials are added. The new read-only request-status endpoint does not create print jobs. APK compilation and fixture tests cannot establish physical printing; follow `android-acceptance.md` and record queue/provider/paper outcomes separately. Android build/signing instructions are in `../android/README.md`.
 
 ## 1) Select Provider
 - `PRINT_PROVIDER=cloud`

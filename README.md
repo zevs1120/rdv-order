@@ -4,6 +4,8 @@ Mobile-first ordering system for hotel/restaurant service staff.
 
 This repository contains the production ordering system (Next.js + Postgres + printing).
 
+Native Android client: see [android/README.md](android/README.md) for building the internal APK, tests and signing. `npm run android:verify` checks the native app; `npm run android:apk` exports a signed debug APK to `artifacts/android/`. Store acceptance is tracked in [docs/android-acceptance.md](docs/android-acceptance.md); the internal APK is not yet a production replacement.
+
 ## What This System Does
 - Staff login with account + PIN
 - Table board: open table, merge/unmerge, close, checkout

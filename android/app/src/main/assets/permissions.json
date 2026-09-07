@@ -1,0 +1,92 @@
+{
+  "order.create": {
+    "zh": "点餐",
+    "zhDesc": "创建新订单并提交到打印队列",
+    "en": "Create order"
+  },
+  "order.return_item": {
+    "zh": "退菜",
+    "zhDesc": "对未结账订单执行退菜",
+    "en": "Return item"
+  },
+  "order.cancel": {
+    "zh": "取消单",
+    "zhDesc": "整单取消并记录原因",
+    "en": "Cancel order"
+  },
+  "order.adjust_charge": {
+    "zh": "改价/费用",
+    "zhDesc": "添加折扣、服务费或税费",
+    "en": "Adjust charges"
+  },
+  "order.split_merge": {
+    "zh": "分单并单",
+    "zhDesc": "执行分单、并单操作",
+    "en": "Split/Merge order"
+  },
+  "order.delete": {
+    "zh": "删单",
+    "zhDesc": "彻底删除订单（不可恢复）",
+    "en": "Delete order"
+  },
+  "cashier.reverse_checkout": {
+    "zh": "反结账",
+    "zhDesc": "已结账订单回滚到可编辑状态",
+    "en": "Reverse checkout"
+  },
+  "cashier.close_shift": {
+    "zh": "日结交班",
+    "zhDesc": "查看并提交日结数据、编辑收费规则",
+    "en": "Shift close"
+  },
+  "kitchen.view": {
+    "zh": "厨房查看",
+    "zhDesc": "历史兼容权限，当前业务不使用",
+    "en": "Kitchen view (legacy)"
+  },
+  "kitchen.update": {
+    "zh": "厨房更新",
+    "zhDesc": "历史兼容权限，当前业务不使用",
+    "en": "Kitchen update (legacy)"
+  },
+  "kitchen.rush": {
+    "zh": "厨房催菜",
+    "zhDesc": "历史兼容权限，当前业务不使用",
+    "en": "Kitchen rush (legacy)"
+  },
+  "report.orders": {
+    "zh": "订单查看",
+    "zhDesc": "查看订单列表和订单明细",
+    "en": "View orders"
+  },
+  "report.finance": {
+    "zh": "收入查看",
+    "zhDesc": "查看收入统计",
+    "en": "View revenue"
+  },
+  "report.ops": {
+    "zh": "运营查看",
+    "zhDesc": "查看运营指标与热销",
+    "en": "View operations"
+  },
+  "menu.manage": {
+    "zh": "菜单管理",
+    "zhDesc": "新增、编辑、删除菜品与过敏原标记",
+    "en": "Manage menu"
+  },
+  "rbac.manage": {
+    "zh": "权限管理",
+    "zhDesc": "修改角色权限开关",
+    "en": "Manage RBAC"
+  },
+  "device.view": {
+    "zh": "设备查看",
+    "zhDesc": "查看打印设备状态与告警",
+    "en": "View devices"
+  },
+  "device.manage": {
+    "zh": "设备管理",
+    "zhDesc": "管理设备配置和策略",
+    "en": "Manage devices"
+  }
+}

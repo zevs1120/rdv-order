@@ -11,6 +11,10 @@
 - Server/printing secrets must never be embedded in the APK or documentation. Build artifacts, local toolchains, signing stores and machine-specific configuration are ignored by Git.
 - Before a commit follow `CONTRIBUTING.md`: run `npm run verify`; additionally run relevant Android build, unit tests and lint for Android changes. Reuse an unchanged passing web baseline across adjacent Android-only scopes; rerun if web source changes. Do not mark unperformed device/printing checks as passed.
 - No production deployment, production test orders or print jobs are implied by implementation/testing authorization. Use isolated fixtures/test environments for automated tests.
+- Native client now lives in `android/`; `npm run android:verify` runs resource parity, JVM tests, lint and APK build. `ANDROID_SERIAL=<isolated-device> npm run android:verify -- --device` additionally runs device tests. Always specify a serial for installs/device commands; multiple AVDs may be connected.
+- `npm run android:apk` exports signed debug `artifacts/android/rdv-order-0.1.0-internal.apk` plus SHA/signature/alignment/metadata. Internal package `com.rdv.order.test`, min API 26, target/compile 36. Production `com.rdv.order` requires a pinned HTTPS origin and local signing configuration; neither has been supplied.
+- Current local evidence: web verify 67 tests + build; Android 29 JVM + 12 API-35 device tests, lint/build. See `docs/android-progress.md` for exact boundaries and `docs/android-acceptance.md` for remaining parity/CRUD/CSV/physical print/device acceptance. Do not call this production-ready or equate fixture callbacks with actual printing.
+- Low-height native ordering content scrolls while cart/submit remain visible. Device screenshot tests must assert actual visibility and capture the whole display (dialogs use separate windows); a passing synthetic click alone previously missed clipped landscape controls.
 
 ## Completion reporting
 

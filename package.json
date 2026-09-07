@@ -11,7 +11,10 @@
     "test": "VITE_CJS_IGNORE_WARNING=true vitest run",
     "test:watch": "VITE_CJS_IGNORE_WARNING=true vitest",
     "verify": "npm run lint && npm run test && npm run build",
-    "precommit:baseline": "npm run verify"
+    "precommit:baseline": "npm run verify",
+    "android:resources": "node scripts/android/sync-resources.mjs",
+    "android:verify": "bash scripts/android/verify.sh",
+    "android:apk": "bash scripts/android/package.sh"
   },
   "dependencies": {
     "jose": "^5.9.4",

@@ -6,6 +6,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 ### Added
+- Native Kotlin / Compose Android internal APK with ordering and management screens, encrypted local drafts and submission recovery, shared resource generation, JVM/device tests and repeatable build/verification/packaging scripts. Store acceptance and release signing remain pending.
+- Authenticated owner-scoped read-only `/api/orders/request-status` for recovering committed orders after lost responses; existing order/pricing/printing writes are unchanged.
 - Revenue CSV export from Manage → Revenue with natural-month range selection (single month or month range).
 - New export API endpoint: `/api/manage/income/export`.
 - Documentation: `docs/revenue-export.md`.
@@ -62,6 +64,3 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [2026-02-15]
 ### Added
 - Initial MVP baseline for login, tables, order, summary, serverless APIs.
-# Android migration — 2026-09-07
-
-- Add an authenticated, owner-scoped read-only order request-status API so clients can recover a committed order after a lost response, including after checkout. Existing submission, pricing and printing behavior is unchanged.

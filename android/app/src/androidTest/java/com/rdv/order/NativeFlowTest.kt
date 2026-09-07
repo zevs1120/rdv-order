@@ -1,0 +1,185 @@
+package com.rdv.order
+
+import android.graphics.Bitmap
+import androidx.compose.ui.test.*
+import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.test.ext.junit.runners.AndroidJUnit4
+import androidx.test.platform.app.InstrumentationRegistry
+import androidx.test.espresso.Espresso
+import com.rdv.order.data.*
+import com.rdv.order.ui.*
+import java.io.File
+import org.junit.*
+import org.junit.Assert.*
+import org.junit.runner.RunWith
+
+@RunWith(AndroidJUnit4::class)
+class NativeFlowTest {
+    @get:Rule val compose = createComposeRule()
+    private lateinit var vm: RdvViewModel
+    private lateinit var transport: FixtureTransport
+    @Before fun setup() {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        transport = FixtureTransport()
+        val store = TestStore()
+        val repository = RdvRepository(transport, store, { "https://isolated-fixture.invalid" })
+        compose.setContent { vm = androidx.compose.runtime.remember { RdvViewModel(repository, Strings(context), store) }; RdvRoot(vm) }
+        compose.waitUntil(10_000) { ::vm.isInitialized && vm.state.value.ready }
+    }
+    private fun login(user: String = "waiter") {
+        compose.onNodeWithTag("username").performTextInput(user)
+        compose.onNodeWithTag("pin").performTextInput("fixture-pin")
+        compose.onNodeWithTag("login").performScrollTo().assertIsDisplayed().performClick()
+        compose.waitUntil(10_000) { !vm.state.value.busy && vm.state.value.screen != Screen.LOGIN && !vm.state.value.loading }
+    }
+    private fun openTable() {
+        compose.onNodeWithTag("table-01").performClick()
+        compose.onNodeWithText("Confirm Open").performClick()
+        compose.waitUntil(10_000) { vm.state.value.screen == Screen.ORDER && vm.state.value.menu != null && !vm.state.value.busy && !vm.state.value.loading }
+        val add = compose.onNodeWithTag("add-${transport.rice.id}")
+        repeat(5) {
+            if (!add.isDisplayed()) compose.onNodeWithTag("order-content-scroll").performTouchInput { swipeUp() }
+        }
+        add.performScrollTo().assertIsDisplayed()
+        compose.onNodeWithTag("submit").assertIsDisplayed()
+    }
+    @Test fun waiterCanOpenOrderPrintAndCheckoutWithoutChangingTheFlow() {
+        login()
+        compose.onNodeWithTag("table-01").assertExists()
+        openTable()
+        compose.onNodeWithTag("add-${transport.rice.id}").performClick()
+        compose.waitUntil { vm.state.value.sheet == "cart" }
+        // Existing behavior: adding an ordinary dish immediately opens the basket.
+        assertEquals(1, vm.state.value.draft!!.lines.single().qty)
+        compose.onAllNodesWithText("Submit Order").onLast().performClick()
+        compose.waitUntil(10_000) { vm.state.value.bill != null && !vm.state.value.busy }
+        assertTrue(vm.state.value.draft!!.lines.isEmpty())
+        assertEquals(80L, vm.state.value.bill!!.totalAmount)
+        compose.onNodeWithText("Print Receipt").performClick()
+        compose.waitUntil { vm.state.value.message.isNotEmpty() }
+        assertTrue(transport.calls.any { it.path == "/api/tables/print-bill" && it.method == "POST" })
+        compose.onNodeWithText("Done").performClick()
+        compose.onNodeWithText("Checkout + Close").performClick()
+        compose.onNodeWithText("Done").performClick()
+        compose.waitUntil(10_000) { vm.state.value.screen == Screen.TABLES && !vm.state.value.busy }
+        assertEquals("idle", vm.state.value.tables.first { it.tableNo == "01" }.status)
+    }
+    @Test fun uncertainSubmitKeepsBasketAndRetryResolvesExactlyOneOrder() {
+        login(); openTable()
+        transport.loseFirstSubmitResponse = true
+        compose.onNodeWithTag("add-${transport.rice.id}").performClick()
+        compose.onAllNodesWithText("Submit Order").onLast().performClick()
+        compose.waitUntil { !vm.state.value.busy && vm.state.value.error.isNotEmpty() }
+        assertEquals(1, vm.state.value.draft!!.lines.size)
+        compose.onAllNodesWithText("Submit Order").onLast().performClick()
+        compose.waitUntil(10_000) { !vm.state.value.busy && vm.state.value.bill != null }
+        assertEquals(1, transport.calls.count { it.path == "/api/orders" })
+        assertTrue(transport.calls.any { it.path == "/api/orders/request-status" })
+        assertEquals(80L, vm.state.value.bill!!.totalAmount)
+    }
+    @Test fun seafoodMethodQuantityAndLanguageRemainConsistent() {
+        login(); openTable()
+        compose.onNodeWithText("Seasonal").performClick()
+        compose.onNodeWithTag("add-${transport.fish.id}").performClick()
+        compose.waitUntil { vm.state.value.sheet == "note" }
+        compose.onNodeWithText("+").performClick()
+        compose.onNodeWithText("Braised").performClick()
+        compose.onNodeWithTag("note-input").performTextInput("no chilli")
+        compose.onNodeWithText("Apply").performClick()
+        compose.waitUntil { vm.state.value.sheet.isEmpty() }
+        val fish = vm.state.value.draft!!.lines.single()
+        assertEquals(2, fish.qty)
+        assertEquals("Braised; no chilli", fish.note)
+        compose.onNodeWithContentDescription("切换到中文").performClick()
+        compose.waitUntil { vm.state.value.lang == "zh" }
+        compose.onNodeWithText("石斑鱼").assertExists()
+        assertEquals("Braised; no chilli", vm.state.value.draft!!.lines.single().note)
+    }
+    @Test fun managerRetainsAllSevenManagementEntries() {
+        login("manager")
+        assertEquals(Screen.ORDERS, vm.state.value.screen)
+        compose.onNodeWithText("More").performClick()
+        listOf("Orders", "Revenue", "Fees", "Hot Items", "Devices", "Access", "Menu").forEach { compose.onNodeWithText(it).assertExists() }
+        compose.onNodeWithText("Revenue").performClick()
+        compose.waitUntil(10_000) { !vm.state.value.loading && vm.state.value.management.number("totalAmount") == 600.0 }
+        compose.onNodeWithText("₱600").assertExists()
+    }
+    @Test fun closingOrdinaryNoteSavesTypedTextAfterDismissingTheKeyboard() {
+        login(); openTable()
+        compose.onNodeWithTag("add-${transport.rice.id}").performClick()
+        compose.onNodeWithText(vm.text("order.noteAction")).performClick()
+        compose.onNodeWithTag("note-input").performTextInput("onion")
+        Espresso.pressBack()
+        compose.waitForIdle()
+        if (vm.state.value.sheet == "note") Espresso.pressBack()
+        compose.waitUntil { vm.state.value.sheet.isEmpty() }
+        assertEquals("no onion", vm.state.value.draft!!.lines.single().note)
+    }
+    @Test fun waiterHasOrdersOnlyInManagement() {
+        login()
+        compose.onNodeWithText("More").performClick()
+        compose.onNodeWithText("Orders").assertExists()
+        listOf("Revenue", "Fees", "Hot Items", "Devices", "Access", "Menu").forEach { compose.onNodeWithText(it).assertDoesNotExist() }
+    }
+    @Test fun managerModulesLoadAsNativeScreensWithoutErrors() {
+        login("manager")
+        val targets = listOf("Fees" to Screen.FEES, "Hot Items" to Screen.HOT, "Devices" to Screen.DEVICES, "Access" to Screen.RBAC, "Menu" to Screen.MENU)
+        targets.forEach { (label, target) ->
+            compose.onNodeWithText("More").performClick()
+            compose.onNodeWithText(label).performClick()
+            compose.waitUntil(10_000) { vm.state.value.screen == target && !vm.state.value.loading }
+            assertEquals("Error loading $target", "", vm.state.value.error)
+            assertTrue(vm.state.value.management.isNotEmpty())
+        }
+    }
+    @Test fun tableDraftSurvivesLeavingTheOrderScreen() {
+        login(); openTable()
+        compose.onNodeWithTag("add-${transport.rice.id}").performClick()
+        Espresso.pressBack()
+        compose.waitUntil { vm.state.value.sheet.isEmpty() }
+        compose.onNodeWithText("Tables").performClick()
+        compose.waitUntil { !vm.state.value.loading }
+        compose.onNodeWithTag("table-01").performClick()
+        compose.waitUntil { vm.state.value.screen == Screen.ORDER && !vm.state.value.busy }
+        assertEquals(transport.rice.id, vm.state.value.draft!!.lines.single().item.id)
+    }
+    @Test fun deviceControlsRemainAvailableWhenHealthIsCollapsedAndClearRequiresConfirmation() {
+        login("manager")
+        compose.onNodeWithText("More").performClick()
+        compose.onNodeWithText("Devices").performClick()
+        compose.waitUntil { !vm.state.value.loading && vm.state.value.screen == Screen.DEVICES }
+        compose.onNodeWithText(vm.text("common.collapse")).performClick()
+        compose.onNodeWithText(vm.text("devices.testKitchen")).performScrollTo().performClick()
+        compose.waitUntil { !vm.state.value.busy && !vm.state.value.loading }
+        assertEquals(1, transport.calls.count { it.path == "/api/print/self-test" && it.method == "POST" })
+        compose.onNodeWithText(vm.text("devices.clearQueue")).performScrollTo().performClick()
+        assertFalse(transport.calls.any { it.path == "/api/print/queue" })
+        compose.onNodeWithText(vm.text("common.cancel")).performClick()
+        assertFalse(transport.calls.any { it.path == "/api/print/queue" })
+        compose.onNodeWithText(vm.text("devices.clearQueue")).performClick()
+        compose.onNodeWithText(vm.text("common.done")).performClick()
+        compose.waitUntil { !vm.state.value.busy && !vm.state.value.loading }
+        assertEquals(1, transport.calls.count { it.path == "/api/print/queue" && it.method == "DELETE" })
+    }
+    @Test fun captureNativeScreensForReview() {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        File(context.filesDir, "android-evidence").listFiles()?.filter { it.extension == "png" }?.forEach { it.delete() }
+        fun capture(name: String) {
+            compose.waitForIdle()
+            compose.mainClock.advanceTimeBy(500)
+            compose.waitForIdle()
+            // Dialog window fades run on Android's clock, outside Compose's test clock.
+            InstrumentationRegistry.getInstrumentation().uiAutomation.waitForIdle(500, 5_000)
+            File(context.filesDir, "android-evidence").mkdirs()
+            File(context.filesDir, "android-evidence/$name.png").outputStream().use { stream ->
+                requireNotNull(InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot())
+                    .compress(Bitmap.CompressFormat.PNG, 100, stream)
+            }
+        }
+        capture("login-en")
+        login(); capture("tables-en"); openTable(); capture("order-en")
+        compose.onNodeWithTag("add-${transport.rice.id}").performClick(); capture("cart-en")
+        Espresso.pressBack(); compose.waitUntil { vm.state.value.sheet.isEmpty() }
+        compose.onNodeWithContentDescription("切换到中文").performClick(); capture("order-zh")
+    }
+}

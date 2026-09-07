@@ -1,5 +1,9 @@
 # Design Guidelines
 
+## Native Android
+
+Compose uses the existing brand/background/text colors, rounded bordered cards, centered global titles, the three physical table columns, left menu categories and fixed bottom actions. System safe areas, keyboard and back behavior are native adaptations. Components are in `android/app/src/main/java/com/rdv/order/ui/Components.kt`; shared translations are generated from web sources. Do not replace these screens with a stock Material navigation redesign. See `android-acceptance.md` for the remaining visual comparisons on actual devices.
+
 ## Principles
 1. Mobile-first, one-hand operation.
 2. Keep business flow fast (open table -> add dish -> submit).

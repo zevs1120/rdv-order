@@ -1,5 +1,9 @@
 # Design Schema
 
+## Native Android migration
+
+`android/app/src/main/java/com/rdv/order/ui/` implements native counterparts to login, tables, ordering and seven management modules. Managers enter Orders after login; waiters enter Tables. Existing web cashier/ops routes redirect to Revenue; summary has no normal navigation entry. Native business screens retain the table columns, category/menu/cart regions, role entry points, ordinary Add → cart, seafood Add → note, and server action order. Internal builds add a one-time test-server setup page; release binds the origin at build time. CSV uses Android's save-file picker. Visual and business equivalence remain subject to `android-acceptance.md`.
+
 ## Navigation Information Architecture
 
 ```mermaid
