@@ -7,7 +7,7 @@ function setLanguage(lang) {
   document.title = lang === 'zh' ? '团队应用 · Resort Déjà Vu' : 'Team Apps · Resort Déjà Vu';
   document.querySelectorAll('[data-en]').forEach(node => { node.textContent = node.dataset[lang]; });
   document.querySelectorAll('[data-label-en]').forEach(node => { node.setAttribute('aria-label', node.dataset[lang === 'zh' ? 'labelZh' : 'labelEn']); });
-  toggle.textContent = lang === 'zh' ? 'English' : '中文';
+  toggle.textContent = lang === 'zh' ? 'EN' : '中';
   toggle.setAttribute('aria-label', lang === 'zh' ? 'Switch to English' : '切换到中文');
 }
 
