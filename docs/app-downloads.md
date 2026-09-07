@@ -7,14 +7,14 @@
 - Vercel 项目：`rdv-downloads`，现有账号 `renfei-zhaos-projects`。
 - GitHub：`zevs1120/rdv-order`，Production Branch `main`，Root Directory `distribution/site`。
 - 静态输出：`public`；不安装依赖，构建执行 `node verify.mjs`。无数据库、JWT 或打印环境变量。
-- 网页根路径 `/`；版本安装包 `/releases/rdv-order-0.1.1.apk`；固定最新包入口 `/rdv-order.apk`；机器可读版本 `/release.json`。
-- Vercel 为该子域名提供 HTTPS。原点餐后台、APK 内置 API 网址、酒店官网及邮件记录不变。
+- 网页根路径 `/`；版本安装包 `/releases/rdv-order-0.1.2.apk`；固定最新包入口 `/rdv-order.apk`；机器可读版本 `/release.json`。
+- Vercel 为该子域名提供 HTTPS。原点餐后台、酒店官网及邮件记录不变；APK 自 0.1.2 起使用后台子域名。
 
 DNSPod 新增 `download` CNAME → `12f9a96e363566ac.vercel-dns-017.com`（TTL 600）；另新增 `_vercel` TXT 完成这个子域名的所有权验证。保留原有全部记录，不转移根域名、不替换官网。
 
 ## 当前安装包
 
-`0.1.1` / versionCode 2，`com.rdv.order`，Android 8.0+，1,504,361 字节（1.44 MiB）。SHA-256：`352d4cd072009b1236cefd922c83b37ec8de9a667647f681879a6effbfca837f`。发布的是上次交付的同一个长期签名 APK；仅改变获取方式。
+`0.1.2` / versionCode 3，`com.rdv.order`，Android 8.0+，1,504,361 字节（1.44 MiB）。SHA-256：`1e014e6525f8294bf8708e3766fe4bce2ac35ed61189a3c46d1c6084c4affbb6`。0.1.2 使用后台自定义域名 `https://order.resortdejavu.cn`，修复旧 Vercel 地址在用户网络登录超时的问题。沿用原签名，直接覆盖安装；旧 0.1.1 文件仍保留但不再是默认下载。
 
 版本文件使用不可变缓存；最新入口和 release.json 不缓存。APK 使用 Android 安装包 MIME 与 attachment 响应头。页面可在 JavaScript 禁用时直接下载英文版本；语言切换是渐进增强。没有第三方脚本、字体或统计。
 

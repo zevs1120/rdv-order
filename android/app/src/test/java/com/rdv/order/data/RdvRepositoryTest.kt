@@ -32,6 +32,43 @@ private class RecordingTransport : Transport {
 class RdvRepositoryTest {
     private val dish = MenuItem("dish-uuid", "Rice", 80)
     private val draft = Draft("01", "2026-09-07T00:00:00Z", lines = listOf(CartLine(dish, 2, "no onion")))
+    @Test fun `hotel custom domain upgrade preserves session drafts and menu cache`() = runBlocking {
+        val store = MemoryStore(); val oldApi = RecordingTransport(); val newApi = RecordingTransport()
+        val old = RdvRepository(oldApi, store, { "https://rdv-order-renfei-zhaos-projects.vercel.app" })
+        val session = old.login("staff-a", "test"); old.saveDraft(draft)
+        oldApi.handler = { "{\"items\":[],\"shift\":\"lunch\"}" }; old.menu("lunch")
+        val upgraded = RdvRepository(newApi, store, { "https://order.resortdejavu.cn" })
+        assertEquals(session, upgraded.restoreSession())
+        assertEquals(draft.lines, upgraded.loadDraft(TableInfo("01", guestCount = 2, openedAt = draft.openedAt)).lines)
+        assertNotNull(upgraded.cachedMenu("lunch"))
+        assertTrue(newApi.calls.isEmpty())
+        upgraded.logout(); assertNull(old.restoreSession())
+    }
+    @Test fun `domain upgrade retains uncertain submission key and uses new transport for recovery`() = runBlocking {
+        val store = MemoryStore(); val oldApi = RecordingTransport(); val newApi = RecordingTransport()
+        val old = RdvRepository(oldApi, store, { "https://rdv-order-renfei-zhaos-projects.vercel.app" }, newKey = { "persisted-before-upgrade" })
+        old.login("staff-a", "test"); oldApi.handler = { throw IOException("lost response") }
+        assertTrue(runCatching { old.submit(draft) }.isFailure)
+        val original = oldApi.calls.last()
+        val upgraded = RdvRepository(newApi, store, { "https://order.resortdejavu.cn" }, newKey = { error("must retain key") })
+        upgraded.restoreSession()
+        newApi.handler = { if (it.path.endsWith("request-status")) "{\"found\":false}" else "{\"orderId\":\"saved\",\"deduped\":true}" }
+        assertEquals("saved", upgraded.submit(draft).orderId)
+        assertEquals(original.key, newApi.calls.last().key)
+        assertEquals(original.body, newApi.calls.last().body)
+        assertEquals(1, oldApi.calls.count { it.path == "/api/orders" })
+    }
+    @Test fun `custom domain alias does not share sessions or drafts with unrelated origins or users`() = runBlocking {
+        val store = MemoryStore(); val api = RecordingTransport()
+        val old = RdvRepository(api, store, { "https://rdv-order-renfei-zhaos-projects.vercel.app" })
+        old.login("staff-a", "test"); old.saveDraft(draft)
+        val other = RdvRepository(api, store, { "https://another.resortdejavu.cn" })
+        assertNull(other.restoreSession()); other.login("staff-a", "test")
+        assertTrue(other.loadDraft(TableInfo("01", guestCount = 2, openedAt = draft.openedAt)).lines.isEmpty())
+        val upgraded = RdvRepository(api, store, { "https://order.resortdejavu.cn" })
+        upgraded.login("staff-b", "test")
+        assertTrue(upgraded.loadDraft(TableInfo("01", guestCount = 2, openedAt = draft.openedAt)).lines.isEmpty())
+    }
     @Test fun `lost response retries with original persisted key and payload after repository recreation`() = runBlocking {
         val store = MemoryStore(); val transport = RecordingTransport()
         var created = 0

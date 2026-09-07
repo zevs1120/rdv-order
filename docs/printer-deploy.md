@@ -98,3 +98,7 @@ Local verification: 9 dispatcher tests use isolated fetches and controlled timin
 ## APK 下载入口
 
 新增静态下载项目 `rdv-downloads`（GitHub 同仓库，根目录 `distribution/site`），子域名 `download.resortdejavu.cn`。该项目只提供安装包，不连接数据库或打印服务；现有 `rdv-order` 后端与 APK 内置接口地址保持不变。更新说明见 [app-downloads.md](app-downloads.md)。
+
+## 后台自定义域名（0.1.2）
+
+`order.resortdejavu.cn` 绑定同一 `rdv-order` 生产项目。APK 0.1.2 预置新地址，替代原 .vercel.app 地址的网络访问路径；原 API、数据库、环境变量和打印队列规则不变。经理实际登录后，无代理访问新域名的打印健康返回 ready=true，历史 pending=108。未向打印机发送测试单，详见 [android-custom-domain-fix.md](android-custom-domain-fix.md)。

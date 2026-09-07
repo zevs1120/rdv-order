@@ -4,7 +4,7 @@ Mobile-first ordering system for hotel/restaurant service staff.
 
 This repository contains the production ordering system (Next.js + Postgres + printing).
 
-Native Android client: the signed release APK is `artifacts/android/release/rdv-order-0.1.1.apk`, connected to the same production backend. See [delivery record](docs/deployment-delivery.md), [Android builds/tests/signing](android/README.md) and [remaining hotel acceptance](docs/android-acceptance.md). `npm run android:apk` continues to export the separate internal debug build.
+Native Android client: the signed release APK is `distribution/site/public/releases/rdv-order-0.1.2.apk`, connected to the same production backend. See [delivery record](docs/deployment-delivery.md), [Android builds/tests/signing](android/README.md) and [remaining hotel acceptance](docs/android-acceptance.md). `npm run android:apk` continues to export the separate internal debug build.
 
 ## What This System Does
 - Staff login with account + PIN
@@ -19,7 +19,7 @@ Native Android client: the signed release APK is `artifacts/android/release/rdv-
 - Database: PostgreSQL (Neon/Supabase compatible)
 - Auth: JWT (`jose`)
 - Testing: Vitest
-- Deploy: Vercel + GitHub; production is live at https://rdv-order-renfei-zhaos-projects.vercel.app
+- Deploy: Vercel + GitHub; production is live at https://order.resortdejavu.cn
 
 ## Quick Start
 
@@ -56,7 +56,7 @@ npm run dev
 
 ### 5) Vercel + GitHub deployment
 
-The project is deployed in the existing Vercel account and linked to `zevs1120/rdv-order`, production branch `main`. Open [the hotel ordering system](https://rdv-order-renfei-zhaos-projects.vercel.app). Production environment variables have been configured; no re-import is needed. See [deployment runbook](docs/hotel-first-deployment.md) and [verified delivery record](docs/deployment-delivery.md).
+The project is deployed in the existing Vercel account and linked to `zevs1120/rdv-order`, production branch `main`. Open [the hotel ordering system](https://order.resortdejavu.cn). Production environment variables have been configured; no re-import is needed. See [deployment runbook](docs/hotel-first-deployment.md) and [verified delivery record](docs/deployment-delivery.md).
 
 `vercel.json` installs with `npm ci --include=dev` and builds with `npm run verify` so each deployment runs types, tests and the Next build. Node 22.x is pinned in `package.json`. Production-branch pushes deploy production; other branches normally create previews. Keep preview data and printers isolated. This does not automatically deploy an unpushed local commit.
 
@@ -95,3 +95,5 @@ All docs must be derived from repository code (routes, schema, pages, components
 ## Android app downloads
 
 Employees can use [download.resortdejavu.cn](https://download.resortdejavu.cn) to download the signed APK and read bilingual installation instructions. The independent static Vercel project `rdv-downloads` uses `distribution/site` from the same GitHub main branch. See [download publishing and updates](docs/app-downloads.md). Its build checks the release APK checksum and links; it has no backend secrets.
+
+Android 0.1.2 switches the embedded API origin to the verified custom domain `order.resortdejavu.cn`. Users on 0.1.1 must download the newer APK and install over the existing app; binding a domain cannot update an already installed APK. See [custom-domain fix](docs/android-custom-domain-fix.md).

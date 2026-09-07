@@ -4,7 +4,7 @@
   "installCommand": "echo Static download site: no dependencies",
   "buildCommand": "node verify.mjs",
   "outputDirectory": "public",
-  "rewrites": [{"source": "/rdv-order.apk", "destination": "/releases/rdv-order-0.1.1.apk"}],
+  "rewrites": [{"source": "/rdv-order.apk", "destination": "/releases/rdv-order-0.1.2.apk"}],
   "headers": [
     {"source": "/(.*)", "headers": [
       {"key": "X-Content-Type-Options", "value": "nosniff"},

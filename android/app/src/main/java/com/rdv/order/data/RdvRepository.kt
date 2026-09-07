@@ -21,14 +21,20 @@ class RdvRepository(val api: Transport, private val store: KeyValueStore, privat
     val isManager get() = session?.role == "manager"
     private fun digest(raw: String) = MessageDigest.getInstance("SHA-256").digest(raw.toByteArray())
         .joinToString("") { "%02x".format(it) }
-    private fun sessionKey() = "session:${digest(origin())}"
+    // These two verified origins serve the same hotel backend. Preserve the 0.1.1
+    // storage namespace on upgrade; the HTTP transport still uses the new origin.
+    private fun storageOrigin() = when (val value = origin()) {
+        "https://order.resortdejavu.cn" -> "https://rdv-order-renfei-zhaos-projects.vercel.app"
+        else -> value
+    }
+    private fun sessionKey() = "session:${digest(storageOrigin())}"
     private fun scope(): String {
         val token = session?.token ?: error("未登录")
         // This claim is used only for local storage namespacing. Authorization remains server-side.
         val userId = runCatching {
             RdvJson.parseToJsonElement(String(Base64.getUrlDecoder().decode(token.split('.')[1]))).jsonObject.text("userId")
         }.getOrDefault("").ifEmpty { digest(token) }
-        return digest("${origin()}|$userId")
+        return digest("${storageOrigin()}|$userId")
     }
     private fun workspaceKey(table: String) = "workspace:${scope()}:$table"
     suspend fun restoreSession(): Session? = withContext(Dispatchers.IO) {
@@ -53,14 +59,14 @@ class RdvRepository(val api: Transport, private val store: KeyValueStore, privat
         api.request("/api/tables/merge", "POST", jsonBody("primaryTable" to primary, "secondaryTable" to secondary, "guestCount" to guests), timeoutMs = 7_000, retries = 1).text).session
 
     suspend fun cachedMenu(shift: String): MenuResponse? = withContext(Dispatchers.IO) {
-        store.get("menu:${digest(origin())}:$shift")?.let { raw ->
+        store.get("menu:${digest(storageOrigin())}:$shift")?.let { raw ->
             val cached = RdvJson.decodeFromString<CachedMenu>(raw)
             cached.response.takeIf { clock() - cached.savedAt in 0..14L * 24 * 60 * 60 * 1000 }
         }
     }
     suspend fun menu(shift: String): MenuResponse {
         val result = RdvJson.decodeFromString<MenuResponse>(api.request("/api/menu", query = mapOf("shift" to shift), authenticated = false, timeoutMs = 5_000).text)
-        withContext(Dispatchers.IO) { store.put("menu:${digest(origin())}:$shift", RdvJson.encodeToString(CachedMenu(result, clock()))) }
+        withContext(Dispatchers.IO) { store.put("menu:${digest(storageOrigin())}:$shift", RdvJson.encodeToString(CachedMenu(result, clock()))) }
         return result
     }
     private fun readWorkspace(default: Draft, storageKey: String = workspaceKey(default.tableNo)): Workspace = store.get(storageKey)

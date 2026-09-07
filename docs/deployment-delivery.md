@@ -1,5 +1,7 @@
 # 酒店点餐软件部署与 APK 交付记录
 
+**最新修复：0.1.2 已改用 `https://order.resortdejavu.cn`。当前下载见 [下载页](https://download.resortdejavu.cn)，域名与升级证据见 [修复记录](android-custom-domain-fix.md)。下文 0.1.1 是首次交付历史。**
+
 日期：2026-09-07。迁移对象仍是本目录的同一个酒店点餐系统；网页与原生 Android 使用同一后台、账号、数据库和打印配置。
 
 ## 已完成

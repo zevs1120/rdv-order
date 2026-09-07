@@ -5,6 +5,10 @@ All notable changes to this project are documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
+### Android 0.1.2 — custom backend domain
+- Bound the existing backend to order.resortdejavu.cn and pinned the signed versionCode 3 APK to it, addressing reported login timeouts reaching the old Vercel origin.
+- Preserved old local session/draft/cache/uncertain-submission storage for this verified domain alias; added three upgrade/isolation regression tests. Updated the public download page and stable APK link.
+
 ### APK downloads
 - Added a bilingual static Android download page and verified signed release artifact, with a separate Git-linked Vercel project for download.resortdejavu.cn.
 
