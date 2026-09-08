@@ -1,14 +1,24 @@
 {
   "name": "RDV Order",
-  "version": "1.0.0",
-  "versionCode": 8,
+  "version": "1.1.0",
+  "versionCode": 9,
   "minAndroid": "8.0",
   "apiOrigin": "https://order.resortdejavu.cn",
-  "file": "/releases/rdv-order-1.0.0.apk",
-  "bytes": 1592129,
-  "sha256": "bd9295dbfae3b631bbebd2dccd52be41eb005c0b87481132e62ab6c80b98c503",
+  "file": "/releases/rdv-order-1.1.0.apk",
+  "bytes": 1608565,
+  "sha256": "9c634275e7bd4998726d42eb38a96bdebaf8e926ce24d1d06950223412090992",
   "notes": {
-    "zh": "1.0 界面与体验升级。\n点餐、做法、购物车及管理页统一为简洁分区，圆形加号让加菜更直接。\n设置改为可拖动的悬浮按钮，新增版本与更新管理。\n精简日期筛选、菜单新增和重复提示，保留熟悉的点餐与确认顺序。\n减少重复加载、查询和计算，优化响应速度、请求取消与缓存处理，保留草稿和订单防重保护。",
-    "en": "1.0 interface and experience update.\nCleaner ordering, preparation, cart and management screens, with a round plus button for adding dishes.\nDraggable settings button and new version/update management.\nSimpler date filters and menu creation, with fewer repeated prompts and the familiar ordering flow preserved.\nReduced repeated loading, queries and processing; improved response speed, cancellation and caching while retaining drafts and duplicate-order protection."
-  }
+    "zh": "更新菜单价格与菜品编号，支持套餐及饮品选择；优化断网自动恢复、菜单和管理界面，新增增量更新支持。",
+    "en": "Updated menu prices and dish codes, with meal and drink choices. Improved connection recovery, menu and management screens, and added incremental update support."
+  },
+  "deltas": [
+    {
+      "format": "rdv-copy-add-v1",
+      "baseVersionCode": 8,
+      "baseSha256": "bd9295dbfae3b631bbebd2dccd52be41eb005c0b87481132e62ab6c80b98c503",
+      "file": "/releases/rdv-order-1.1.0-from-8.rdvdelta",
+      "bytes": 1269076,
+      "sha256": "5d8da3a9402f3cbd551580c3e5cc038544e0682689f088d5e9564142c490cc34"
+    }
+  ]
 }

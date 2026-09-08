@@ -19,6 +19,6 @@ User authorized a fast, comprehensive check of every change since 1.0.0, fixes a
 
 ## Coordinated publication
 
-In progress: additive migration 024, compatible backend/web first, mandatory signed APK second, transactional catalog activation last. The release requires two ordered publication steps so an APK never depends on a missing connectivity endpoint/new schema. Staff artifacts/configuration and historical APKs are preserved.
+Migration 024 applied successfully (152 existing dishes assigned codes; required choices still inactive). Source commit `c597db7` pushed; both GitHub/Vercel statuses succeeded. Backend deployment `EfjDAir3T1DyVjiJhSJSaVFURn9g` is Ready and bound to `order.resortdejavu.cn`; direct HTTPS `/api/connectivity` returned the expected service JSON. Initial transient Account blocked status resolved automatically. An unnecessary CLI fallback was rejected before deployment by its file-count bound; no CLI deployment replaced the Git build. Fresh isolated catalog preview matches all 182 exported registry entries. APK publication and catalog activation are the remaining steps. The release requires two ordered publication steps so an APK never depends on a missing connectivity endpoint/new schema. Staff artifacts/configuration and historical APKs are preserved.
 
 Hotel devices should restart and complete the mandatory upgrade before selecting the new required choices. Physical hotel-network/printer acceptance remains on site; emulator/fixture results do not claim real kitchen paper output.
