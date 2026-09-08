@@ -1,5 +1,6 @@
 "use client";
 
+import { useConnectionRefresh } from "../../lib/use-connection-refresh";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { apiFetchJson } from "../../lib/client-api";
@@ -16,7 +17,14 @@ export default function SummaryPage() {
   const [data, setData] = useState<any>(null);
   const [error, setError] = useState("");
 
+  const [loading, setLoading] = useState(false);
+  const [requested, setRequested] = useState(false);
+  useConnectionRefresh(loadSummary, requested && !loading);
+
   async function loadSummary() {
+    if (loading) return;
+    setLoading(true);
+    setRequested(true);
     setError("");
     const params = new URLSearchParams();
     if (from) params.set("from", from);
@@ -29,7 +37,7 @@ export default function SummaryPage() {
       setData(body);
     } catch (err: any) {
       setError(err.message || t("summary.loadFailed", "Failed to load summary"));
-    }
+    } finally { setLoading(false); }
   }
 
   return (

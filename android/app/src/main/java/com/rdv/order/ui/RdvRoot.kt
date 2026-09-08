@@ -17,7 +17,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.*
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 
-@Composable fun RdvRoot(vm: RdvViewModel, online: Boolean = true) {
+@Composable fun RdvRoot(vm: RdvViewModel) {
     val state by vm.state.collectAsStateWithLifecycle()
     val subpage = state.screen !in setOf(Screen.LOGIN, Screen.TABLES)
     BackHandler(enabled = subpage || state.sheet.isNotEmpty() || state.busy) { vm.back() }
@@ -28,7 +28,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
                 Surface(color = Color.White, shadowElevation = if (linearSettings) 0.dp else 1.dp) {
                     BoxWithConstraints(Modifier.statusBarsPadding().fillMaxWidth().heightIn(min = 56.dp).padding(horizontal = 4.dp), contentAlignment = Alignment.Center) {
                         if (state.screen == Screen.TABLES) {
-                            TablesToolbar(vm, state, online)
+                            TablesToolbar(vm, state)
                         } else {
                         val title = when (state.screen) {
                             Screen.LOGIN -> ""
@@ -39,7 +39,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
                             else -> vm.text("manage.${state.screen.name.lowercase()}")
                         }
                         val hasRefresh = state.screen in setOf(Screen.TABLES, Screen.ORDERS, Screen.FEES, Screen.DEVICES, Screen.RBAC, Screen.MENU)
-                        val sideWidth = 16.dp + 44.dp * (1 + (if (hasRefresh) 1 else 0) + (if (state.screen in setOf(Screen.TABLES, Screen.ORDER)) 1 else 0))
+                        val sideWidth = 8.dp + 44.dp * (1 + (if (hasRefresh) 1 else 0) + (if (state.screen in setOf(Screen.TABLES, Screen.ORDER)) 1 else 0))
                         Text(title, Modifier.width((maxWidth - sideWidth * 2).coerceAtLeast(64.dp)), textAlign = androidx.compose.ui.text.style.TextAlign.Center,
                             fontSize = 16.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
@@ -52,8 +52,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
                         }
                         if (state.screen == Screen.ORDER) RdvToolbarButton(onClick = { vm.sheet("actions") }, modifier = Modifier.size(44.dp), enabled = !state.busy) { Icon(Icons.Outlined.MoreVert, vm.either("操作", "Actions")) }
                         RdvToolbarButton(onClick = vm::toggleLanguage, modifier = Modifier.size(44.dp)) { Icon(Icons.Outlined.Language, if (state.lang == "zh") "Switch to English" else "切换到中文") }
-                        Icon(Icons.Outlined.Circle, vm.text(if (online) "network.online" else "network.offline"),
-                            Modifier.padding(end = 8.dp).size(8.dp), tint = if (online) RdvColors.Success else RdvColors.Danger)
+
                         }
                         }
                     }
@@ -84,18 +83,11 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
     }
 }
 
-@Composable private fun TablesToolbar(vm: RdvViewModel, state: UiState, online: Boolean) {
+@Composable private fun TablesToolbar(vm: RdvViewModel, state: UiState) {
     Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            Text(vm.text("tables.title"), fontSize = 16.sp, lineHeight = 20.sp, fontWeight = FontWeight.SemiBold,
+        Text(vm.text("tables.title"), modifier = Modifier.weight(1f), fontSize = 16.sp, lineHeight = 20.sp, fontWeight = FontWeight.SemiBold,
                 maxLines = 1, overflow = TextOverflow.Ellipsis)
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
-                Icon(Icons.Outlined.Circle, null, Modifier.size(8.dp), tint = if (online) RdvColors.Success else RdvColors.Danger)
-                Text(vm.text(if (online) "network.online" else "network.offline"),
-                    fontSize = 12.sp, lineHeight = 16.sp, color = RdvColors.Secondary)
-            }
-        }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
             RdvToolbarButton(onClick = vm::refresh, modifier = Modifier.size(48.dp), enabled = !state.busy && !state.loading) {
                 Icon(Icons.Outlined.Refresh, vm.text("common.refresh"))

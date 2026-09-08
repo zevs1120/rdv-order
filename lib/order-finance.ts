@@ -15,7 +15,7 @@ export async function getOrderFinance(orderId: string) {
     total_amount: number;
   }>(
     `WITH item_amount AS (
-       SELECT o.id AS order_id, COALESCE(SUM(oi.qty * mi.price), 0)::int AS item_amount
+       SELECT o.id AS order_id, COALESCE(SUM(oi.qty * COALESCE(oi.unit_price, mi.price)), 0)::int AS item_amount
        FROM orders o
        LEFT JOIN order_items oi ON oi.order_id = o.id
        LEFT JOIN menu_items mi ON mi.id = oi.menu_item_id

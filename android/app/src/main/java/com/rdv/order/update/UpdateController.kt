@@ -15,6 +15,7 @@ data class UpdateState(
     val failed: Boolean = false,
     val latestRelease: AppRelease? = null,
     val checkFailed: Boolean = false,
+    val initialCheckComplete: Boolean = false,
 )
 
 /** One automatic check per process; an explicit Settings check may run again. */
@@ -30,6 +31,7 @@ class UpdateController(
     val state = mutable.asStateFlow()
     private var started = false
     fun start(manual: Boolean = false) {
+        if (state.value.downloading || state.value.apk != null) return
         if (started && (!manual || state.value.checking)) return
         started = true
         mutable.update { it.copy(checking = true) }
@@ -49,7 +51,8 @@ class UpdateController(
                 checkFailed = true
             }
             withContext(Dispatchers.IO) { runCatching { saveKnown(required?.encode()) } }
-            mutable.value = UpdateState(checking = false, release = required, latestRelease = latestRelease, checkFailed = checkFailed)
+            mutable.value = UpdateState(checking = false, release = required, latestRelease = latestRelease,
+                checkFailed = checkFailed, initialCheckComplete = true)
         }
     }
     fun download() {

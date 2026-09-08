@@ -1,5 +1,7 @@
 "use client";
 
+import { useConnectionRefresh } from "../../lib/use-connection-refresh";
+
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { apiFetchJson, getStoredAuth } from "../../lib/client-api";
@@ -87,6 +89,8 @@ export default function TablesPage() {
     window.addEventListener(RDV_TOPBAR_ACTION_EVENT, onTopbarAction as EventListener);
     return () => window.removeEventListener(RDV_TOPBAR_ACTION_EVENT, onTopbarAction as EventListener);
   }, []);
+
+  useConnectionRefresh(loadTables, !loadingTables && !submitting && !openingTable);
 
   async function loadTables() {
     if (typeof window !== "undefined") {

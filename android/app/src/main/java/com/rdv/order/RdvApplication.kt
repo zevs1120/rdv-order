@@ -8,7 +8,10 @@ import java.io.File
 import kotlinx.coroutines.*
 
 class RdvApplication : Application() {
-    val updateClient by lazy { UpdateClient(File(cacheDir, "updates")) { file, release -> verifyUpdatePackage(this, file, release) } }
+    val updateClient by lazy {
+        UpdateClient(File(cacheDir, "updates"), installedApk = { File(applicationInfo.sourceDir) },
+            installedVersionCode = BuildConfig.VERSION_CODE) { file, release -> verifyUpdatePackage(this, file, release) }
+    }
     val updates by lazy {
         val preferences = getSharedPreferences("rdv_updates", MODE_PRIVATE)
         UpdateController(BuildConfig.VERSION_CODE, CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate),
@@ -20,8 +23,13 @@ class RdvApplication : Application() {
     val strings by lazy { Strings(this) }
     var endpoint: String = BuildConfig.API_BASE_URL
         private set
+    private val connectionScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+    private val api: ApiClient by lazy {
+        ApiClient({ endpoint }, { if (this::repositoryReady.isInitialized) repositoryReady.session?.token.orEmpty() else "" },
+            connection = { connection })
+    }
+    val connection: ConnectionMonitor by lazy { ConnectionMonitor(connectionScope) { api.checkConnectivity() } }
     val repository: RdvRepository by lazy {
-        val api = ApiClient({ endpoint }, { if (this::repositoryReady.isInitialized) repositoryReady.session?.token.orEmpty() else "" })
         RdvRepository(api, store, { endpoint }).also { repositoryReady = it }
     }
     private lateinit var repositoryReady: RdvRepository

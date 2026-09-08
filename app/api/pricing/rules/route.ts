@@ -83,7 +83,7 @@ async function applyRuleToOpenOrders(
   await client.query(
     `WITH order_base AS (
        SELECT o.id AS order_id,
-              COALESCE(SUM(oi.qty * mi.price), 0)::int AS item_amount
+              COALESCE(SUM(oi.qty * COALESCE(oi.unit_price, mi.price)), 0)::int AS item_amount
      FROM orders o
      LEFT JOIN order_items oi ON oi.order_id = o.id
      LEFT JOIN menu_items mi ON mi.id = oi.menu_item_id

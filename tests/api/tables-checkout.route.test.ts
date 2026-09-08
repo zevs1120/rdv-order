@@ -54,7 +54,7 @@ describe("tables checkout api", () => {
       if (sql.includes("FROM pricing_rules") && sql.includes("charge_type = 'tax'")) {
         return { rows: [] };
       }
-      if (sql.includes("WHERE oi.order_id = $1") && sql.includes("SUM(oi.qty * mi.price)")) {
+      if (sql.includes("WHERE oi.order_id = $1") && sql.includes("SUM(oi.qty * COALESCE(oi.unit_price, mi.price))")) {
         return { rows: [{ item_amount: 450, charge_amount: 0 }] };
       }
       if (sql.includes("WITH order_total AS")) {

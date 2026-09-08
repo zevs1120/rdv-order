@@ -62,7 +62,7 @@ describe("order return-item api", () => {
       if (sql.includes("DELETE FROM order_charges")) {
         return { rows: [] };
       }
-      if (sql.includes("SUM(oi.qty * mi.price)")) {
+      if (sql.includes("SUM(oi.qty * COALESCE(oi.unit_price, mi.price))")) {
         return { rows: [{ item_amount: 450 }] };
       }
       if (sql.includes("FROM pricing_rules") && sql.includes("is_active = true")) {

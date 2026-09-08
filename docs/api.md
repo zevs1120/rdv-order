@@ -1,5 +1,9 @@
 # API Reference
 
+## Configurable menu and internal codes (2026-09-08, pending rollout)
+
+Requires migration 024. `GET /api/menu` adds `code`, `option_groups`, `is_complimentary` per item and `searchItems` for global exact numeric search. Shared beverages may belong to breakfast via `available_shifts` without duplicate IDs. `POST /api/orders` items accept `choices: { [groupId]: optionId }`; the server requires exactly one valid selection per group, derives/saves prices and printable labels, and returns 400 for invalid choices. Choices participate in deduplication; no client price is accepted. Bill/order-detail items include `order_item_id`. Return-item accepts `orderItemId` to target one variant; ambiguous legacy returns return 409. Split/merge copy price/choice snapshots. See `menu-september-2026.md` for coordinated rollout and evidence.
+
 ## Read-path optimization (2026-09-08 local batch)
 
 Public response shapes, authorization and write/printing endpoints are unchanged. `/api/menu` reads items and subcategories concurrently after resolving the main category, preserving item-first category ordering and the missing-table fallback. `/api/manage/income` supplies daily rows and total count/amount through one SQL aggregation with window totals, keeping paid/closed, cancellation, merge and date filters unchanged. This removes duplicate aggregation and gives totals/details one database snapshot. Both clients benefit. Evidence: `performance-2026-09-08.md`.
@@ -152,3 +156,7 @@ No database migration or existing endpoint behavior change is required.
 ## Source of Truth
 - API implementation paths: `app/api/**/route.ts`
 - Permission logic: `lib/permissions.ts`
+
+## Pending connection probe (2026-09-08, source only)
+
+`GET /api/connectivity` is public and returns HTTP 200 with `{ "service": "rdv-order" }`. The route is dynamic and sends `Cache-Control: no-store, max-age=0`. It performs no database, authentication or printer operations. Clients use it only to confirm access to the hotel origin, not to certify business/printing health. Deploy this additive endpoint before the future native connectivity-recovery release. Verification is deferred to the combined release per user instruction; see `docs/pending-connection-recovery.md`.

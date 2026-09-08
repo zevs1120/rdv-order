@@ -3,6 +3,7 @@
 import { Suspense, useEffect, type ReactNode } from "react";
 import { usePathname } from "next/navigation";
 import TopBar from "./top-bar";
+import ConnectionDialog from "./connection-dialog";
 import SettingsFab from "./settings-fab";
 
 type Props = {
@@ -41,6 +42,7 @@ export default function AppShell({ children }: Props) {
       >
         <main className="app-main">{children}</main>
       </div>
+      <ConnectionDialog />
       {showSettingsButton ? <SettingsFab /> : null}
     </div>
   );

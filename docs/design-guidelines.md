@@ -1,5 +1,7 @@
 # Design Guidelines
 
+Menu choices (2026-09-08, pending rollout): preserve the existing order screen and sheet patterns in web/native. Number search is exact across sections; never prefix dish names/tickets with codes. Configurable dishes open a scrollable required-selection sheet with concrete drink names, a visible selected state, and disabled Add until complete. Free unit prices are blank; the cart still shows a zero total. Distinct choices remain separate cart lines with readable labels. Desktop/mobile fixture screenshots: `outputs/menu-september-2026/`; rollout and check boundaries: `menu-september-2026.md`.
+
 1.0.0 release refinement: remove the redundant Settings instruction in both languages on web and native; module entries stand on their own. User-facing update notes state the actual interface, navigation and performance changes without promises of zero crashes. See `release-1.0.0.md`.
 
 ## Performance cleanup (2026-09-08 local batch)
@@ -114,3 +116,15 @@ Source: `components/ui/*` + `styles/ui.css`.
 The independent download page is a single-screen team app selector. Use the hotel's real RDV wordmark (optimized locally from `rdv-website/public/rdv-logo.png`), warm cream `#f4ecdf`, deep green `#21483d`, and system serif typography. The lightly raised top bar and segmented capsule borrow the restrained surface treatment of the Taboo website; only hover transitions remain, respecting reduced motion.
 
 Show only the brand bar, Ordering app / Staff app tabs, app icon/name, download button and release metadata. The staff panel is an unpublished placeholder labelled “制作中 / In the making” with no download link. Per the user's explicit direction, omit feature introductions, account/PIN/backend explanations, platform disclaimers and installation steps. English/Chinese switching preserves the selected app. Arrow keys, Home and End operate tabs with a single tab stop and associated hidden panels. Allow zoom or unusually short screens to scroll rather than clipping controls; ordinary desktop and portrait mobile layouts fit one screen. Backend, APK and native screens are unchanged.
+
+## Pending connectivity UI revision (2026-09-08, source only)
+
+App-level Online/Offline/Weak labels and status dots are removed globally from web/native headers. Table titles use a single vertically centered line; other header titles reserve the space occupied by their tools. Printer/device management state remains visible as business information.
+
+Confirmed connection failures use one centered modal with a Retry button and automatic background retries while the app is in the foreground. The modal closes on successful connectivity, does not dismiss on outside tap/Back/Escape, and uses the app's Chinese/English selection. Normal operation and brief recovered interruptions show no network UI. Do not replace this modal with a header banner. Implementation and deliberately deferred UI checks: `docs/pending-connection-recovery.md`.
+
+## Settings list navigation (2026-09-08, pending batch)
+
+Web `/manage` and native `MoreScreen` now render one full-width entry per row, replacing the two-column button grid. Labels align to the start edge, with a muted trailing chevron and one fine divider per row. Each row is at least 60px/60dp tall and the page scrolls on shorter screens. Existing module order, labels, role filtering and navigation destinations are preserved. No new requests, dependencies, fonts, image packages, timers or animation loops were added; web reuses the existing chevron SVG and native uses the installed vector icon set. Obsolete grid styles were removed.
+
+The local development page at `http://127.0.0.1:3105/manage` was opened through the normal manager login and visually inspected in Chinese and English, with all eight entries present. It is left open in the Codex browser for user confirmation. This is a web preview, not a native APK preview; Android source parity is implemented but no Android build/device check was performed. No automated tests, type check, packaging, version change, commit or publishing in this pass. An existing Orders read failed during the post-login redirect; no business write or printing was performed and this unrelated backend/query issue remains for the combined batch.

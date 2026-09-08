@@ -1,6 +1,8 @@
 import { readFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import assert from 'node:assert/strict';
+import { readdirSync } from 'node:fs';
+import { restoreApkDelta } from './apk-delta.mjs';
 const read = path => readFileSync(new URL(path, import.meta.url));
 const release = JSON.parse(read('./public/release.json'));
 const staffRelease = JSON.parse(read('./public/staff-release.json'));
@@ -15,6 +17,24 @@ assert.match(release.file, /^\/releases\/rdv-order-\d+\.\d+\.\d+\.apk$/);
 const apk = read('./public' + release.file);
 assert.equal(apk.length, release.bytes, 'APK size changed');
 assert.equal(createHash('sha256').update(apk).digest('hex'), release.sha256, 'APK checksum mismatch');
+assert.ok(Array.isArray(release.deltas || []) && (release.deltas || []).length <= 4);
+for (const delta of release.deltas || []) {
+  assert.equal(delta.format, 'rdv-copy-add-v1');
+  assert.ok(Number.isInteger(delta.baseVersionCode) && delta.baseVersionCode > 0 && delta.baseVersionCode < release.versionCode);
+  assert.equal(delta.file, `/releases/rdv-order-${release.version}-from-${delta.baseVersionCode}.rdvdelta`);
+  assert.match(delta.baseSha256, /^[a-f0-9]{64}$/);
+  assert.match(delta.sha256, /^[a-f0-9]{64}$/);
+  assert.ok(Number.isSafeInteger(delta.bytes) && delta.bytes > 0 && delta.bytes < release.bytes);
+  const patch = read('./public' + delta.file);
+  assert.equal(patch.length, delta.bytes);
+  assert.equal(createHash('sha256').update(patch).digest('hex'), delta.sha256);
+  const base = readdirSync(new URL('./public/releases/', import.meta.url))
+    .filter(name => /^rdv-order-\d+\.\d+\.\d+\.apk$/.test(name))
+    .map(name => read('./public/releases/' + name))
+    .find(bytes => createHash('sha256').update(bytes).digest('hex') === delta.baseSha256);
+  assert.ok(base, 'Delta base APK must be retained');
+  assert.ok(restoreApkDelta(base, patch).equals(apk), 'Delta does not reproduce the full signed APK');
+}
 const page = read('./public/index.html').toString();
 const language = read('./public/language.js').toString();
 assert.ok(page.includes(`href="${release.file}"`), 'Download button points to wrong APK');

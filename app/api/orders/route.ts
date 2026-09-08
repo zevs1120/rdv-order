@@ -43,7 +43,7 @@ export async function POST(req: Request) {
     }>(
       `WITH input_items AS (
          SELECT *
-         FROM UNNEST($4::uuid[], $5::int[], $6::text[]) AS x(menu_item_id, qty, note)
+         FROM UNNEST($4::uuid[], $5::int[], $6::text[], $8::jsonb[]) AS x(menu_item_id, qty, note, choices)
        ),
        session_ok AS (
          SELECT 1
@@ -69,8 +69,8 @@ export async function POST(req: Request) {
          RETURNING id, (xmax = 0) AS inserted
        ),
        inserted_items AS (
-         INSERT INTO order_items (order_id, menu_item_id, qty, note)
-         SELECT co.id, ii.menu_item_id, ii.qty, NULLIF(ii.note, '')
+         INSERT INTO order_items (order_id, menu_item_id, qty, note, choices)
+         SELECT co.id, ii.menu_item_id, ii.qty, NULLIF(ii.note, ''), ii.choices
          FROM created_order co
          JOIN input_items ii ON co.inserted = true
          RETURNING 1
@@ -95,7 +95,8 @@ export async function POST(req: Request) {
         itemIds,
         qtyList,
         noteList.map((note) => note || ""),
-        uniqueItemIds.length
+        uniqueItemIds.length,
+        items.map((item) => JSON.stringify(item.choices || {}))
       ]
     );
 
@@ -134,6 +135,9 @@ export async function POST(req: Request) {
       dedupeReason: deduped ? "idempotency" : "none"
     });
   } catch (err: any) {
+    if (err.message === 'INVALID_CHOICES') {
+      return NextResponse.json({ error: '请选择菜品选项后重试 / Please select the dish options and try again' }, { status: 400 });
+    }
     if (err.message === "UNAUTHORIZED") {
       return NextResponse.json({ error: "未登录" }, { status: 401 });
     }

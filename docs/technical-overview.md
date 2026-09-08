@@ -1,5 +1,9 @@
 # Technical Overview
 
+## Menu schema 024 (pending rollout)
+
+`menu_items` adds immutable sequence-assigned `code`, JSON `option_groups` and `is_complimentary`. `order_items` adds `choices` and `unit_price`; an insert trigger validates required choices, snapshots price and adds printable choice labels to notes. Legacy prices are frozen at migration time before repricing; earlier price history cannot be reconstructed. All accounting/printing paths prefer saved prices. Catalog refresh preserves unmatched active employee dishes, checks a durable code registry and rolls back on mapping drift. Details: `menu-september-2026.md`.
+
 ## Stack
 - Next.js 15 App Router (`app/`)
 - React 18 + TypeScript

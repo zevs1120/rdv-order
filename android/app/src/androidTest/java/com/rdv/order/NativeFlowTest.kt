@@ -18,12 +18,19 @@ class NativeFlowTest {
     @get:Rule val compose = createComposeRule()
     private lateinit var vm: RdvViewModel
     private lateinit var transport: FixtureTransport
+    private lateinit var connection: ConnectionMonitor
+    private var connectionFails = false
     @Before fun setup() {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         transport = FixtureTransport()
         val store = TestStore()
         val repository = RdvRepository(transport, store, { "https://isolated-fixture.invalid" })
-        compose.setContent { vm = androidx.compose.runtime.remember { RdvViewModel(repository, Strings(context), store) }; RdvRoot(vm) }
+        compose.setContent {
+            val scope = androidx.compose.runtime.rememberCoroutineScope()
+            connection = androidx.compose.runtime.remember { ConnectionMonitor(scope) { if (connectionFails) error("Offline fixture") } }
+            vm = androidx.compose.runtime.remember { RdvViewModel(repository, Strings(context), store) }
+            RdvRoot(vm); ConnectionRecovery(vm, connection)
+        }
         compose.waitUntil(10_000) { ::vm.isInitialized && vm.state.value.ready }
     }
     private fun login(user: String = "waiter") {
@@ -42,6 +49,27 @@ class NativeFlowTest {
         }
         add.performScrollTo().assertIsDisplayed()
         compose.onNodeWithTag("submit").assertIsDisplayed()
+    }
+    @Test fun connectionDialogRecoversWithoutLosingDraftOrReplayingWrites() {
+        login(); openTable()
+        compose.onNodeWithTag("add-${transport.rice.id}").performClick()
+        val draft = vm.state.value.draft
+        val writes = transport.calls.count { it.method != "GET" }
+        compose.runOnIdle { connectionFails = true; connection.setForeground(true); connection.retry() }
+        compose.waitUntil { !connection.state.value.checking }
+        compose.runOnIdle { connection.retry() }
+        compose.waitUntil(5000) { connection.state.value.disconnected }
+        compose.onNodeWithText("Unable to connect").assertIsDisplayed()
+        compose.onNodeWithText("Retry").assertIsDisplayed()
+        InstrumentationRegistry.getInstrumentation().sendKeyDownUpSync(android.view.KeyEvent.KEYCODE_BACK)
+        compose.onNodeWithText("Unable to connect").assertIsDisplayed()
+        compose.runOnIdle { connectionFails = false }
+        compose.onNodeWithText("Retry").performClick()
+        compose.waitUntil(5000) { !connection.state.value.disconnected }
+        compose.onNodeWithText("Unable to connect").assertDoesNotExist()
+        assertEquals(draft, vm.state.value.draft)
+        assertEquals(writes, transport.calls.count { it.method != "GET" })
+        compose.runOnIdle { connection.setForeground(false) }
     }
     @Test fun waiterCanOpenOrderPrintAndCheckoutWithoutChangingTheFlow() {
         login()
@@ -177,6 +205,38 @@ class NativeFlowTest {
         compose.waitUntil { !vm.state.value.busy && !vm.state.value.loading }
         assertEquals(1, transport.calls.count { it.path == "/api/print/queue" && it.method == "DELETE" })
     }
+    @Test fun menuCodesAndRequiredChoicesKeepSeparateFreeDrinksAndVariantPrices() {
+        login(); openTable()
+        compose.onNodeWithTag("menu-search").performTextReplacement("161")
+        compose.onNodeWithTag("add-${transport.freeBreakfast.id}").performScrollTo().performClick()
+        compose.onNodeWithText("Add to order").assertIsNotEnabled()
+        compose.onNodeWithTag("choice-beverage-tea").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithTag("choice-beverage-coke_zero").performScrollTo().assertIsDisplayed().performClick()
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        File(context.filesDir, "android-evidence").mkdirs()
+        InstrumentationRegistry.getInstrumentation().uiAutomation.waitForIdle(500, 5000)
+        File(context.filesDir, "android-evidence/menu-choice.png").outputStream().use {
+            requireNotNull(InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot()).compress(Bitmap.CompressFormat.PNG, 100, it)
+        }
+        compose.onNodeWithText("Add to order").performClick()
+        assertEquals(0L, com.rdv.order.domain.OrderRules.total(vm.state.value.draft!!.lines))
+        Espresso.pressBack()
+        compose.onNodeWithTag("add-${transport.freeBreakfast.id}").performScrollTo().performClick()
+        compose.onNodeWithTag("choice-beverage-coke").performScrollTo().performClick()
+        compose.onNodeWithText("Add to order").performClick()
+        assertEquals(2, vm.state.value.draft!!.lines.size)
+        Espresso.pressBack()
+        compose.onNodeWithTag("menu-search").performTextReplacement("018")
+        compose.onNodeWithTag("add-${transport.chop.id}").performScrollTo().performClick()
+        compose.onNodeWithTag("choice-protein-pork").performScrollTo().performClick()
+        compose.onNodeWithText("Add to order · ₱450").performClick()
+        assertEquals(450L, com.rdv.order.domain.OrderRules.total(vm.state.value.draft!!.lines))
+        compose.onAllNodesWithText("Submit Order").onLast().performClick()
+        compose.waitUntil(10000) { !vm.state.value.busy && vm.state.value.bill != null }
+        assertEquals(450L, vm.state.value.bill!!.totalAmount)
+        assertTrue(vm.state.value.bill!!.items.any { it.note == "Beverage: Coke Zero" })
+    }
+
     @Test fun captureNativeScreensForReview() {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         File(context.filesDir, "android-evidence").listFiles()?.filter { it.extension == "png" }?.forEach { it.delete() }

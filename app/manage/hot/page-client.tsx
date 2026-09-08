@@ -1,5 +1,7 @@
 "use client";
 
+import { useConnectionRefresh } from "../../../lib/use-connection-refresh";
+
 import DatePresets from "../../components/date-presets";
 
 import { useEffect, useMemo, useState } from "react";
@@ -32,6 +34,10 @@ export default function ManageHotPage() {
     () => items.reduce((sum, item) => sum + (Number(item.qty) || 0), 0),
     [items]
   );
+
+  useConnectionRefresh(() => {
+    if (fromDate && toDate && fromDate <= toDate) void loadHotItems(new Date(`${fromDate}T00:00:00`), new Date(`${toDate}T23:59:59`));
+  }, !loading);
 
   async function loadHotItems(from: Date, to: Date) {
     setLoading(true);

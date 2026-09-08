@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { getStoredAuth } from "../../../lib/client-api";
+import { useConnectionRefresh } from "../../../lib/use-connection-refresh";
+import { apiFetchJson, getStoredAuth } from "../../../lib/client-api";
 import { useI18n } from "../../components/i18n-provider";
 import { Button, Card } from "../../../components/ui";
 import packageInfo from "../../../package.json";
@@ -19,9 +20,7 @@ export default function UpdatesPage() {
     setChecking(true);
     setFailed(false);
     try {
-      const response = await fetch("/api/app-release", { cache: "no-store", signal: AbortSignal.timeout(7000) });
-      if (!response.ok) throw new Error("Unavailable");
-      setRelease(await response.json());
+      setRelease(await apiFetchJson<Release>("/api/app-release", { cache: "no-store", timeoutMs: 7000, retries: 0, useAuth: false }));
     } catch {
       setFailed(true);
       setRelease(null);
@@ -32,6 +31,7 @@ export default function UpdatesPage() {
     if (!auth.token || !["manager", "waiter"].includes(auth.role)) { router.replace("/"); return; }
     void check();
   }, [check, router]);
+  useConnectionRefresh(check, failed && !checking);
   const text = (zh: string, en: string) => lang === "zh" ? zh : en;
   return (
     <div className="stack">
@@ -43,7 +43,7 @@ export default function UpdatesPage() {
       <Card className="stack">
         <h3>{text("Android APP", "Android app")}</h3>
         <div role="status">{checking ? text("正在检查更新…", "Checking for updates…") : failed
-          ? text("暂时无法获取版本，请重试。", "Unable to check the version. Please retry.")
+          ? text("暂时无法获取版本，重新进入此页会再次检查。", "Version unavailable. Reopen this page to check again.")
           : text("已获取最新发布版本", "Latest published release retrieved")}</div>
         {release && <>
           <div>{text("最新版本", "Latest version")} · v{release.version} ({release.versionCode})</div>
@@ -51,7 +51,9 @@ export default function UpdatesPage() {
           <a href={release.url}>{text("下载最新 APP", "Download latest app")}</a>
         </>}
         <div className="muted">{text("已安装版本及是否需要更新，请在 APP 的更新管理中查看。", "See Updates in the app for its installed version and update status.")}</div>
-        <Button onClick={() => void check()} disabled={checking}>{text("检查更新", "Check for updates")}</Button>
+        <Button disabled>{checking ? text("正在检查更新…", "Checking for updates…") : failed
+          ? text("暂时无法确认版本", "Version status unavailable")
+          : text("已获取最新发布版本", "Latest published release retrieved")}</Button>
       </Card>
     </div>
   );

@@ -1,7 +1,9 @@
+import { choiceKey, type MenuChoices } from './menu-options';
 export type OrderItemInput = {
   menuItemId: string;
   qty: number;
   note: string | null;
+  choices?: MenuChoices;
 };
 
 const UUID_V4_LIKE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -18,6 +20,11 @@ export function parseItems(raw: unknown): OrderItemInput[] {
     const qty = Number((item as { qty?: unknown })?.qty);
     const noteRaw = String((item as { note?: unknown })?.note || "").trim();
     const note = noteRaw || null;
+    const rawChoices = (item as { choices?: unknown })?.choices;
+    if (rawChoices != null && (typeof rawChoices !== 'object' || Array.isArray(rawChoices))) throw new Error('INVALID_ITEMS');
+    const choices = (rawChoices || {}) as MenuChoices;
+    if (Object.keys(choices).length > 8 || Object.entries(choices).some(([key, value]) =>
+      !/^[a-z0-9_-]{1,40}$/.test(key) || typeof value !== 'string' || !/^[a-z0-9_-]{1,40}$/.test(value))) throw new Error('INVALID_ITEMS');
 
     if (!UUID_V4_LIKE.test(menuItemId)) {
       throw new Error("INVALID_ITEMS");
@@ -29,12 +36,12 @@ export function parseItems(raw: unknown): OrderItemInput[] {
       throw new Error("INVALID_ITEMS");
     }
 
-    const key = `${menuItemId}::${normalizeNote(note)}`;
+    const key = `${menuItemId}::${choiceKey(choices)}::${normalizeNote(note)}`;
     const existing = merged.get(key);
     if (existing) {
       merged.set(key, { ...existing, qty: existing.qty + qty });
     } else {
-      merged.set(key, { menuItemId, qty, note });
+      merged.set(key, { menuItemId, qty, note, ...(Object.keys(choices).length ? { choices } : {}) });
     }
   }
 
@@ -51,7 +58,7 @@ function normalizeNote(value: string | null) {
 
 export function buildItemSignature(items: OrderItemInput[]) {
   return items
-    .map((item) => `${item.menuItemId}:${item.qty}:${normalizeNote(item.note)}`)
+    .map((item) => `${item.menuItemId}:${item.qty}:${normalizeNote(item.note)}${item.choices ? ':' + choiceKey(item.choices) : ''}`)
     .sort()
     .join("|");
 }

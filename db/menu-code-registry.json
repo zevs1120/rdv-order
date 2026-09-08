@@ -1,0 +1,1094 @@
+[
+  {
+    "code": 1,
+    "name": "Chinese Wonton Set",
+    "menu_group": "breakfast",
+    "is_complimentary": false
+  },
+  {
+    "code": 2,
+    "name": "Chinese Congee Set",
+    "menu_group": "breakfast",
+    "is_complimentary": false
+  },
+  {
+    "code": 3,
+    "name": "Chinese Noodle Soup",
+    "menu_group": "breakfast",
+    "is_complimentary": false
+  },
+  {
+    "code": 4,
+    "name": "Pancake Breakfast",
+    "menu_group": "breakfast",
+    "is_complimentary": false
+  },
+  {
+    "code": 5,
+    "name": "Waffle Breakfast",
+    "menu_group": "breakfast",
+    "is_complimentary": false
+  },
+  {
+    "code": 6,
+    "name": "Fruit Oatmeal",
+    "menu_group": "breakfast",
+    "is_complimentary": false
+  },
+  {
+    "code": 7,
+    "name": "Yogurt Parfait",
+    "menu_group": "breakfast",
+    "is_complimentary": false
+  },
+  {
+    "code": 8,
+    "name": "Continental Breakfast",
+    "menu_group": "breakfast",
+    "is_complimentary": false
+  },
+  {
+    "code": 9,
+    "name": "Filipino Breakfast",
+    "menu_group": "breakfast",
+    "is_complimentary": false
+  },
+  {
+    "code": 10,
+    "name": "Chicken Curry",
+    "menu_group": "lunch_dinner",
+    "is_complimentary": false
+  },
+  {
+    "code": 11,
+    "name": "Caramelized Chicken",
+    "menu_group": "lunch_dinner",
+    "is_complimentary": false
+  },
+  {
+    "code": 12,
+    "name": "Dory en Blanc",
+    "menu_group": "lunch_dinner",
+    "is_complimentary": false
+  },
+  {
+    "code": 13,
+    "name": "Beef Jalapeno",
+    "menu_group": "lunch_dinner",
+    "is_complimentary": false
+  },
+  {
+    "code": 14,
+    "name": "Chicken Tomato Stew",
+    "menu_group": "lunch_dinner",
+    "is_complimentary": false
+  },
+  {
+    "code": 15,
+    "name": "Chicken Royal",
+    "menu_group": "lunch_dinner",
+    "is_complimentary": false
+  },
+  {
+    "code": 16,
+    "name": "Sweet & Sour Chicken",
+    "menu_group": "lunch_dinner",
+    "is_complimentary": false
+  },
+  {
+    "code": 17,
+    "name": "Chicken Schnitzel",
+    "menu_group": "lunch_dinner",
+    "is_complimentary": false
+  },
+  {
+    "code": 18,
+    "name": "Chop Suey",
+    "menu_group": "lunch_dinner",
+    "is_complimentary": false
+  },
+  {
+    "code": 19,
+    "name": "Chicken Garlic Mushroom",
+    "menu_group": "lunch_dinner",
+    "is_complimentary": false
+  },
+  {
+    "code": 20,
+    "name": "Shrimp Tempura",
+    "menu_group": "lunch_dinner",
+    "is_complimentary": false
+  },
+  {
+    "code": 21,
+    "name": "Pork Hamonado",
+    "menu_group": "lunch_dinner",
+    "is_complimentary": false
+  },
+  {
+    "code": 22,
+    "name": "Beef Bulalo",
+    "menu_group": "lunch_dinner",
+    "is_complimentary": false
+  },
+  {
+    "code": 23,
+    "name": "Shrimp Sinigang",
+    "menu_group": "lunch_dinner",
+    "is_complimentary": false
+  },
+  {
+    "code": 24,
+    "name": "Rice Platter",
+    "menu_group": "lunch_dinner",
+    "is_complimentary": false
+  },
+  {
+    "code": 25,
+    "name": "Plain Rice",
+    "menu_group": "lunch_dinner",
+    "is_complimentary": false
+  },
+  {
+    "code": 26,
+    "name": "Garlic Rice",
+    "menu_group": "lunch_dinner",
+    "is_complimentary": false
+  },
+  {
+    "code": 27,
+    "name": "Garlic Shrimp Pasta",
+    "menu_group": "lunch_dinner",
+    "is_complimentary": false
+  },
+  {
+    "code": 28,
+    "name": "Chicken Alfredo Pasta",
+    "menu_group": "lunch_dinner",
+    "is_complimentary": false
+  },
+  {
+    "code": 29,
+    "name": "Calamari Pasta",
+    "menu_group": "lunch_dinner",
+    "is_complimentary": false
+  },
+  {
+    "code": 30,
+    "name": "Tuna Pesto Pasta",
+    "menu_group": "lunch_dinner",
+    "is_complimentary": false
+  },
+  {
+    "code": 31,
+    "name": "Carbonara",
+    "menu_group": "lunch_dinner",
+    "is_complimentary": false
+  },
+  {
+    "code": 32,
+    "name": "Classic Spaghetti",
+    "menu_group": "lunch_dinner",
+    "is_complimentary": false
+  },
+  {
+    "code": 33,
+    "name": "Hotdog Sandwich",
+    "menu_group": "lunch_dinner",
+    "is_complimentary": false
+  },
+  {
+    "code": 34,
+    "name": "Club Sandwich",
+    "menu_group": "lunch_dinner",
+    "is_complimentary": false
+  },
+  {
+    "code": 35,
+    "name": "Bruschetta",
+    "menu_group": "lunch_dinner",
+    "is_complimentary": false
+  },
+  {
+    "code": 36,
+    "name": "Dejavu Hamburger",
+    "menu_group": "lunch_dinner",
+    "is_complimentary": false
+  },
+  {
+    "code": 37,
+    "name": "Lumpia",
+    "menu_group": "lunch_dinner",
+    "is_complimentary": false
+  },
+  {
+    "code": 38,
+    "name": "Calamares",
+    "menu_group": "lunch_dinner",
+    "is_complimentary": false
+  },
+  {
+    "code": 39,
+    "name": "Chinese Smashed Cucumber",
+    "menu_group": "lunch_dinner",
+    "is_complimentary": false
+  },
+  {
+    "code": 40,
+    "name": "Mouth Watering Chicken",
+    "menu_group": "lunch_dinner",
+    "is_complimentary": false
+  },
+  {
+    "code": 41,
+    "name": "Deviled Egg",
+    "menu_group": "lunch_dinner",
+    "is_complimentary": false
+  },
+  {
+    "code": 42,
+    "name": "Marinated Peanuts",
+    "menu_group": "lunch_dinner",
+    "is_complimentary": false
+  },
+  {
+    "code": 43,
+    "name": "Sweet Dressed Tomatoes",
+    "menu_group": "lunch_dinner",
+    "is_complimentary": false
+  },
+  {
+    "code": 44,
+    "name": "French Fries",
+    "menu_group": "lunch_dinner",
+    "is_complimentary": false
+  },
+  {
+    "code": 45,
+    "name": "Hot Pot Soup Base",
+    "menu_group": "lunch_dinner",
+    "is_complimentary": false
+  },
+  {
+    "code": 46,
+    "name": "Beef Roll",
+    "menu_group": "lunch_dinner",
+    "is_complimentary": false
+  },
+  {
+    "code": 47,
+    "name": "Seafood Tofu",
+    "menu_group": "lunch_dinner",
+    "is_complimentary": false
+  },
+  {
+    "code": 48,
+    "name": "Sausage (Hotpot)",
+    "menu_group": "lunch_dinner",
+    "is_complimentary": false
+  },
+  {
+    "code": 49,
+    "name": "Dipping Sauce",
+    "menu_group": "lunch_dinner",
+    "is_complimentary": false
+  },
+  {
+    "code": 50,
+    "name": "Beef Tongue",
+    "menu_group": "lunch_dinner",
+    "is_complimentary": false
+  },
+  {
+    "code": 51,
+    "name": "Lobster Roll",
+    "menu_group": "lunch_dinner",
+    "is_complimentary": false
+  },
+  {
+    "code": 52,
+    "name": "Chikuwa",
+    "menu_group": "lunch_dinner",
+    "is_complimentary": false
+  },
+  {
+    "code": 53,
+    "name": "Squid Roll",
+    "menu_group": "lunch_dinner",
+    "is_complimentary": false
+  },
+  {
+    "code": 54,
+    "name": "Radish",
+    "menu_group": "lunch_dinner",
+    "is_complimentary": false
+  },
+  {
+    "code": 55,
+    "name": "Luncheon Meat",
+    "menu_group": "lunch_dinner",
+    "is_complimentary": false
+  },
+  {
+    "code": 56,
+    "name": "Vermicelli",
+    "menu_group": "lunch_dinner",
+    "is_complimentary": false
+  },
+  {
+    "code": 57,
+    "name": "Potato",
+    "menu_group": "lunch_dinner",
+    "is_complimentary": false
+  },
+  {
+    "code": 58,
+    "name": "Shrimp (Hotpot)",
+    "menu_group": "lunch_dinner",
+    "is_complimentary": false
+  },
+  {
+    "code": 59,
+    "name": "Beef Skewer",
+    "menu_group": "lunch_dinner",
+    "is_complimentary": false
+  },
+  {
+    "code": 60,
+    "name": "Cheese Fish Tofu",
+    "menu_group": "lunch_dinner",
+    "is_complimentary": false
+  },
+  {
+    "code": 61,
+    "name": "Sausage (BBQ)",
+    "menu_group": "lunch_dinner",
+    "is_complimentary": false
+  },
+  {
+    "code": 62,
+    "name": "Chicken Thigh",
+    "menu_group": "lunch_dinner",
+    "is_complimentary": false
+  },
+  {
+    "code": 63,
+    "name": "Fish Ball",
+    "menu_group": "lunch_dinner",
+    "is_complimentary": false
+  },
+  {
+    "code": 64,
+    "name": "Shrimp (BBQ)",
+    "menu_group": "lunch_dinner",
+    "is_complimentary": false
+  },
+  {
+    "code": 65,
+    "name": "Eggplant",
+    "menu_group": "lunch_dinner",
+    "is_complimentary": false
+  },
+  {
+    "code": 66,
+    "name": "Potato Slice",
+    "menu_group": "lunch_dinner",
+    "is_complimentary": false
+  },
+  {
+    "code": 67,
+    "name": "Steamed Fish",
+    "menu_group": "lunch_dinner",
+    "is_complimentary": false
+  },
+  {
+    "code": 68,
+    "name": "Hong Shao Yu",
+    "menu_group": "lunch_dinner",
+    "is_complimentary": false
+  },
+  {
+    "code": 69,
+    "name": "Mapo Tofu",
+    "menu_group": "lunch_dinner",
+    "is_complimentary": false
+  },
+  {
+    "code": 70,
+    "name": "Stir-fried Pork with Chillies",
+    "menu_group": "lunch_dinner",
+    "is_complimentary": false
+  },
+  {
+    "code": 71,
+    "name": "Suan Cai Yu",
+    "menu_group": "lunch_dinner",
+    "is_complimentary": false
+  },
+  {
+    "code": 72,
+    "name": "Braised Beef Brisket",
+    "menu_group": "lunch_dinner",
+    "is_complimentary": false
+  },
+  {
+    "code": 73,
+    "name": "Sichuan Spicy Chicken Cubes",
+    "menu_group": "lunch_dinner",
+    "is_complimentary": false
+  },
+  {
+    "code": 74,
+    "name": "Pan-fried Tofu",
+    "menu_group": "lunch_dinner",
+    "is_complimentary": false
+  },
+  {
+    "code": 75,
+    "name": "Dumplings (8 pcs)",
+    "menu_group": "lunch_dinner",
+    "is_complimentary": false
+  },
+  {
+    "code": 76,
+    "name": "Steamed Egg Soup",
+    "menu_group": "lunch_dinner",
+    "is_complimentary": false
+  },
+  {
+    "code": 77,
+    "name": "Chinese Style Prawns",
+    "menu_group": "lunch_dinner",
+    "is_complimentary": false
+  },
+  {
+    "code": 78,
+    "name": "Braised Chicken",
+    "menu_group": "lunch_dinner",
+    "is_complimentary": false
+  },
+  {
+    "code": 79,
+    "name": "Braised Pork",
+    "menu_group": "lunch_dinner",
+    "is_complimentary": false
+  },
+  {
+    "code": 80,
+    "name": "Chicken in Soy Bean Sauce",
+    "menu_group": "lunch_dinner",
+    "is_complimentary": false
+  },
+  {
+    "code": 81,
+    "name": "Wok-seared Lettuce",
+    "menu_group": "lunch_dinner",
+    "is_complimentary": false
+  },
+  {
+    "code": 82,
+    "name": "Morning Glory w/ Garlic",
+    "menu_group": "lunch_dinner",
+    "is_complimentary": false
+  },
+  {
+    "code": 83,
+    "name": "Dry-fried Green Beans",
+    "menu_group": "lunch_dinner",
+    "is_complimentary": false
+  },
+  {
+    "code": 84,
+    "name": "Stir-fried Cabbage w/ Chili",
+    "menu_group": "lunch_dinner",
+    "is_complimentary": false
+  },
+  {
+    "code": 85,
+    "name": "Stir-fried Beef w/ Onion",
+    "menu_group": "lunch_dinner",
+    "is_complimentary": false
+  },
+  {
+    "code": 86,
+    "name": "Stir-fried Eggs w/ Tomato Onion Cucumber",
+    "menu_group": "lunch_dinner",
+    "is_complimentary": false
+  },
+  {
+    "code": 87,
+    "name": "Stir-fried Potatoes w/ Chili",
+    "menu_group": "lunch_dinner",
+    "is_complimentary": false
+  },
+  {
+    "code": 88,
+    "name": "Braised Eggplant",
+    "menu_group": "lunch_dinner",
+    "is_complimentary": false
+  },
+  {
+    "code": 89,
+    "name": "Peking Zha Jiang Noodle",
+    "menu_group": "lunch_dinner",
+    "is_complimentary": false
+  },
+  {
+    "code": 90,
+    "name": "San Mig Pilsen",
+    "menu_group": "lunch_dinner",
+    "is_complimentary": false
+  },
+  {
+    "code": 91,
+    "name": "San Mig Light",
+    "menu_group": "lunch_dinner",
+    "is_complimentary": false
+  },
+  {
+    "code": 92,
+    "name": "Stallion",
+    "menu_group": "lunch_dinner",
+    "is_complimentary": false
+  },
+  {
+    "code": 93,
+    "name": "Coke",
+    "menu_group": "lunch_dinner",
+    "is_complimentary": false
+  },
+  {
+    "code": 94,
+    "name": "Coke Zero",
+    "menu_group": "lunch_dinner",
+    "is_complimentary": false
+  },
+  {
+    "code": 95,
+    "name": "Sprite",
+    "menu_group": "lunch_dinner",
+    "is_complimentary": false
+  },
+  {
+    "code": 96,
+    "name": "Royal",
+    "menu_group": "lunch_dinner",
+    "is_complimentary": false
+  },
+  {
+    "code": 97,
+    "name": "Mango Juice",
+    "menu_group": "lunch_dinner",
+    "is_complimentary": false
+  },
+  {
+    "code": 98,
+    "name": "Pineapple Juice",
+    "menu_group": "lunch_dinner",
+    "is_complimentary": false
+  },
+  {
+    "code": 99,
+    "name": "Pineapple Orange Juice",
+    "menu_group": "lunch_dinner",
+    "is_complimentary": false
+  },
+  {
+    "code": 100,
+    "name": "Four Seasons Juice",
+    "menu_group": "lunch_dinner",
+    "is_complimentary": false
+  },
+  {
+    "code": 101,
+    "name": "Mango Shake",
+    "menu_group": "lunch_dinner",
+    "is_complimentary": false
+  },
+  {
+    "code": 102,
+    "name": "Watermelon Shake",
+    "menu_group": "lunch_dinner",
+    "is_complimentary": false
+  },
+  {
+    "code": 103,
+    "name": "Banana Shake",
+    "menu_group": "lunch_dinner",
+    "is_complimentary": false
+  },
+  {
+    "code": 104,
+    "name": "Coke Zero (Vanilla)",
+    "menu_group": "lunch_dinner",
+    "is_complimentary": false
+  },
+  {
+    "code": 105,
+    "name": "Coke (Jack Daniels)",
+    "menu_group": "lunch_dinner",
+    "is_complimentary": false
+  },
+  {
+    "code": 106,
+    "name": "Grande (San Mig)",
+    "menu_group": "lunch_dinner",
+    "is_complimentary": false
+  },
+  {
+    "code": 107,
+    "name": "Red Horse (Liter)",
+    "menu_group": "lunch_dinner",
+    "is_complimentary": false
+  },
+  {
+    "code": 108,
+    "name": "Black Coffee",
+    "menu_group": "lunch_dinner",
+    "is_complimentary": false
+  },
+  {
+    "code": 109,
+    "name": "Espresso",
+    "menu_group": "lunch_dinner",
+    "is_complimentary": false
+  },
+  {
+    "code": 110,
+    "name": "Latte",
+    "menu_group": "lunch_dinner",
+    "is_complimentary": false
+  },
+  {
+    "code": 111,
+    "name": "Americano",
+    "menu_group": "lunch_dinner",
+    "is_complimentary": false
+  },
+  {
+    "code": 112,
+    "name": "英式早餐茶",
+    "menu_group": "lunch_dinner",
+    "is_complimentary": false
+  },
+  {
+    "code": 113,
+    "name": "Grouper",
+    "menu_group": "lunch_dinner",
+    "is_complimentary": false
+  },
+  {
+    "code": 114,
+    "name": "Hairtail",
+    "menu_group": "lunch_dinner",
+    "is_complimentary": false
+  },
+  {
+    "code": 115,
+    "name": "Parrot Fish",
+    "menu_group": "lunch_dinner",
+    "is_complimentary": false
+  },
+  {
+    "code": 116,
+    "name": "Crab",
+    "menu_group": "lunch_dinner",
+    "is_complimentary": false
+  },
+  {
+    "code": 117,
+    "name": "Mantis",
+    "menu_group": "lunch_dinner",
+    "is_complimentary": false
+  },
+  {
+    "code": 118,
+    "name": "Tiger Prawn",
+    "menu_group": "lunch_dinner",
+    "is_complimentary": false
+  },
+  {
+    "code": 119,
+    "name": "Long Island Iced Tea",
+    "menu_group": "cocktail",
+    "is_complimentary": false
+  },
+  {
+    "code": 120,
+    "name": "Cuba Libre",
+    "menu_group": "cocktail",
+    "is_complimentary": false
+  },
+  {
+    "code": 121,
+    "name": "Gin & Tonic",
+    "menu_group": "cocktail",
+    "is_complimentary": false
+  },
+  {
+    "code": 122,
+    "name": "Caipirinha",
+    "menu_group": "cocktail",
+    "is_complimentary": false
+  },
+  {
+    "code": 123,
+    "name": "Mojito",
+    "menu_group": "cocktail",
+    "is_complimentary": false
+  },
+  {
+    "code": 124,
+    "name": "Margarita",
+    "menu_group": "cocktail",
+    "is_complimentary": false
+  },
+  {
+    "code": 125,
+    "name": "Pina Colada",
+    "menu_group": "cocktail",
+    "is_complimentary": false
+  },
+  {
+    "code": 126,
+    "name": "Sex on the Beach",
+    "menu_group": "cocktail",
+    "is_complimentary": false
+  },
+  {
+    "code": 127,
+    "name": "Mai Tai",
+    "menu_group": "cocktail",
+    "is_complimentary": false
+  },
+  {
+    "code": 128,
+    "name": "Rhum Coke",
+    "menu_group": "cocktail",
+    "is_complimentary": false
+  },
+  {
+    "code": 129,
+    "name": "Mango Daiquiri",
+    "menu_group": "cocktail",
+    "is_complimentary": false
+  },
+  {
+    "code": 130,
+    "name": "Amaretto Sour",
+    "menu_group": "cocktail",
+    "is_complimentary": false
+  },
+  {
+    "code": 131,
+    "name": "Screwdriver",
+    "menu_group": "cocktail",
+    "is_complimentary": false
+  },
+  {
+    "code": 132,
+    "name": "Sidecar",
+    "menu_group": "cocktail",
+    "is_complimentary": false
+  },
+  {
+    "code": 133,
+    "name": "Blue Lagoon",
+    "menu_group": "cocktail",
+    "is_complimentary": false
+  },
+  {
+    "code": 134,
+    "name": "Tequila Sunrise",
+    "menu_group": "cocktail",
+    "is_complimentary": false
+  },
+  {
+    "code": 135,
+    "name": "Aperol Spritz",
+    "menu_group": "cocktail",
+    "is_complimentary": false
+  },
+  {
+    "code": 136,
+    "name": "Whiskey Sour",
+    "menu_group": "cocktail",
+    "is_complimentary": false
+  },
+  {
+    "code": 137,
+    "name": "Manila Dawn",
+    "menu_group": "cocktail",
+    "is_complimentary": false
+  },
+  {
+    "code": 138,
+    "name": "Spice Voyage",
+    "menu_group": "cocktail",
+    "is_complimentary": false
+  },
+  {
+    "code": 139,
+    "name": "Pacific Crossing",
+    "menu_group": "cocktail",
+    "is_complimentary": false
+  },
+  {
+    "code": 140,
+    "name": "Acapulco Sunset",
+    "menu_group": "cocktail",
+    "is_complimentary": false
+  },
+  {
+    "code": 141,
+    "name": "Sugarlandia (Don Papa Signature)",
+    "menu_group": "cocktail",
+    "is_complimentary": false
+  },
+  {
+    "code": 142,
+    "name": "Flan de Cebu",
+    "menu_group": "cocktail",
+    "is_complimentary": false
+  },
+  {
+    "code": 143,
+    "name": "Silent Passage (Mocktail)",
+    "menu_group": "cocktail",
+    "is_complimentary": false
+  },
+  {
+    "code": 144,
+    "name": "Coral Bay Moon",
+    "menu_group": "cocktail",
+    "is_complimentary": false
+  },
+  {
+    "code": 145,
+    "name": "Balete Whisper",
+    "menu_group": "cocktail",
+    "is_complimentary": false
+  },
+  {
+    "code": 146,
+    "name": "White Sands",
+    "menu_group": "cocktail",
+    "is_complimentary": false
+  },
+  {
+    "code": 147,
+    "name": "The Healer's Remedy",
+    "menu_group": "cocktail",
+    "is_complimentary": false
+  },
+  {
+    "code": 148,
+    "name": "Crimson Enchanter (Don Papa Signature)",
+    "menu_group": "cocktail",
+    "is_complimentary": false
+  },
+  {
+    "code": 149,
+    "name": "Mango Sticky Rice",
+    "menu_group": "cocktail",
+    "is_complimentary": false
+  },
+  {
+    "code": 150,
+    "name": "Starlit Shores (Mocktail)",
+    "menu_group": "cocktail",
+    "is_complimentary": false
+  },
+  {
+    "code": 151,
+    "name": "套餐 A",
+    "menu_group": "set_menu",
+    "is_complimentary": false
+  },
+  {
+    "code": 152,
+    "name": "套餐 B",
+    "menu_group": "set_menu",
+    "is_complimentary": false
+  },
+  {
+    "code": 153,
+    "name": "Corn Tortilla Chips",
+    "menu_group": "lunch_dinner",
+    "is_complimentary": false
+  },
+  {
+    "code": 154,
+    "name": "Garlic Butter Prawns",
+    "menu_group": "lunch_dinner",
+    "is_complimentary": false
+  },
+  {
+    "code": 155,
+    "name": "Spanish Seafood Paella",
+    "menu_group": "lunch_dinner",
+    "is_complimentary": false
+  },
+  {
+    "code": 156,
+    "name": "Crispy Chicken",
+    "menu_group": "lunch_dinner",
+    "is_complimentary": false
+  },
+  {
+    "code": 157,
+    "name": "Garlic Squid",
+    "menu_group": "lunch_dinner",
+    "is_complimentary": false
+  },
+  {
+    "code": 158,
+    "name": "Kung Pao Chicken",
+    "menu_group": "lunch_dinner",
+    "is_complimentary": false
+  },
+  {
+    "code": 159,
+    "name": "Wontons",
+    "menu_group": "lunch_dinner",
+    "is_complimentary": false
+  },
+  {
+    "code": 160,
+    "name": "Fried Rice",
+    "menu_group": "lunch_dinner",
+    "is_complimentary": false
+  },
+  {
+    "code": 161,
+    "name": "Chinese Wonton Set",
+    "menu_group": "breakfast",
+    "is_complimentary": true
+  },
+  {
+    "code": 162,
+    "name": "Chinese Congee Set",
+    "menu_group": "breakfast",
+    "is_complimentary": true
+  },
+  {
+    "code": 163,
+    "name": "Chinese Noodle Soup",
+    "menu_group": "breakfast",
+    "is_complimentary": true
+  },
+  {
+    "code": 164,
+    "name": "Pancake Breakfast",
+    "menu_group": "breakfast",
+    "is_complimentary": true
+  },
+  {
+    "code": 165,
+    "name": "Waffle Breakfast",
+    "menu_group": "breakfast",
+    "is_complimentary": true
+  },
+  {
+    "code": 166,
+    "name": "Sandwich Set",
+    "menu_group": "breakfast",
+    "is_complimentary": false
+  },
+  {
+    "code": 167,
+    "name": "Sandwich Set",
+    "menu_group": "breakfast",
+    "is_complimentary": true
+  },
+  {
+    "code": 168,
+    "name": "Fruit Oatmeal",
+    "menu_group": "breakfast",
+    "is_complimentary": true
+  },
+  {
+    "code": 169,
+    "name": "Yogurt Parfait",
+    "menu_group": "breakfast",
+    "is_complimentary": true
+  },
+  {
+    "code": 170,
+    "name": "Continental Breakfast",
+    "menu_group": "breakfast",
+    "is_complimentary": true
+  },
+  {
+    "code": 171,
+    "name": "Filipino Breakfast",
+    "menu_group": "breakfast",
+    "is_complimentary": true
+  },
+  {
+    "code": 172,
+    "name": "Tea Egg",
+    "menu_group": "breakfast",
+    "is_complimentary": false
+  },
+  {
+    "code": 173,
+    "name": "Fried Egg",
+    "menu_group": "breakfast",
+    "is_complimentary": false
+  },
+  {
+    "code": 174,
+    "name": "Wontons",
+    "menu_group": "breakfast",
+    "is_complimentary": false
+  },
+  {
+    "code": 175,
+    "name": "Bacon",
+    "menu_group": "breakfast",
+    "is_complimentary": false
+  },
+  {
+    "code": 176,
+    "name": "Pan-fried Mantou",
+    "menu_group": "breakfast",
+    "is_complimentary": false
+  },
+  {
+    "code": 177,
+    "name": "Chinese Crepe",
+    "menu_group": "breakfast",
+    "is_complimentary": false
+  },
+  {
+    "code": 178,
+    "name": "Steamed Mantou",
+    "menu_group": "breakfast",
+    "is_complimentary": false
+  },
+  {
+    "code": 179,
+    "name": "Toast",
+    "menu_group": "breakfast",
+    "is_complimentary": false
+  },
+  {
+    "code": 180,
+    "name": "Instant Black Coffee",
+    "menu_group": "breakfast",
+    "is_complimentary": false
+  },
+  {
+    "code": 181,
+    "name": "Espresso",
+    "menu_group": "breakfast",
+    "is_complimentary": false
+  },
+  {
+    "code": 182,
+    "name": "Tea",
+    "menu_group": "breakfast",
+    "is_complimentary": false
+  }
+]

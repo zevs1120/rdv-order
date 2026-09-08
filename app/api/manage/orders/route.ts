@@ -53,16 +53,17 @@ export async function GET(req: Request) {
        item_data AS (
          SELECT oi.order_id,
                 COALESCE(SUM(oi.qty), 0)::int AS item_qty,
-                COALESCE(SUM(oi.qty * mi.price), 0)::int AS item_amount,
+                COALESCE(SUM(oi.qty * COALESCE(oi.unit_price, mi.price)), 0)::int AS item_amount,
                 COALESCE(
                   json_agg(
                     json_build_object(
                       'menu_item_id', mi.id,
+                      'order_item_id', oi.id,
                       'name', mi.name,
                       'qty', oi.qty,
                       'note', oi.note,
-                      'unit_price', mi.price,
-                      'amount', oi.qty * mi.price
+                      'unit_price', COALESCE(oi.unit_price, mi.price),
+                      'amount', oi.qty * COALESCE(oi.unit_price, mi.price)
                     )
                     ORDER BY mi.name ASC
                   ) FILTER (WHERE oi.id IS NOT NULL),

@@ -1,8 +1,11 @@
 "use client";
 
+import { beginConnectionRequest, connectionResponded, connectionFailed } from "../../../lib/connection";
+import { useConnectionRefresh } from "../../../lib/use-connection-refresh";
+
 import DatePresets from "../../components/date-presets";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { apiFetchJson, getStoredAuth } from "../../../lib/client-api";
 import { useI18n } from "../../components/i18n-provider";
@@ -65,6 +68,7 @@ export default function ManageIncomePage() {
   const [exporting, setExporting] = useState(false);
   const [exportError, setExportError] = useState("");
   const [toastMessage, setToastMessage] = useState("");
+  const incomeRequestRef = useRef<AbortController | null>(null);
 
 
   useEffect(() => {
@@ -73,7 +77,14 @@ export default function ManageIncomePage() {
     return () => window.clearTimeout(timer);
   }, [toastMessage]);
 
+  useConnectionRefresh(() => {
+    if (fromDate && toDate && fromDate <= toDate) void loadIncome(new Date(`${fromDate}T00:00:00`), new Date(`${toDate}T23:59:59`));
+  }, !loading && !exporting);
+
   async function loadIncome(from: Date, to: Date) {
+    incomeRequestRef.current?.abort();
+    const controller = new AbortController();
+    incomeRequestRef.current = controller;
     setLoading(true);
     setError("");
     try {
@@ -85,12 +96,14 @@ export default function ManageIncomePage() {
 
       const body = await apiFetchJson<{ orderCount: number; totalAmount: number; byDay: IncomeDay[] }>(
         `/api/manage/income?from=${encodeURIComponent(from.toISOString())}&to=${encodeURIComponent(to.toISOString())}`,
-        { timeoutMs: 6000, retries: 1 }
+        { timeoutMs: 6000, retries: 1, signal: controller.signal }
       );
+      if (controller.signal.aborted || getStoredAuth().token !== token) return;
       setOrderCount(body.orderCount || 0);
       setTotalAmount(body.totalAmount || 0);
       setByDay(body.byDay || []);
     } catch (err: any) {
+      if (controller.signal.aborted) return;
       if (err.message === "未登录" || err.message === "Not signed in") {
         router.replace("/");
         return;
@@ -101,7 +114,10 @@ export default function ManageIncomePage() {
       }
       setError(err.message || t("income.loadFailed", "Failed to load revenue"));
     } finally {
-      setLoading(false);
+      if (incomeRequestRef.current === controller) {
+        incomeRequestRef.current = null;
+        setLoading(false);
+      }
     }
   }
 
@@ -115,6 +131,7 @@ export default function ManageIncomePage() {
     setStartMonth(currentMonth);
     setEndMonth(currentMonth);
     void loadIncome(r.from, r.to);
+    return () => { incomeRequestRef.current?.abort(); incomeRequestRef.current = null; };
   }, []);
 
   async function applyPreset(next: PresetKey) {
@@ -186,6 +203,8 @@ export default function ManageIncomePage() {
 
     setExporting(true);
     setExportError("");
+    const connectionRequest = beginConnectionRequest();
+    let receivedResponse = false;
     try {
       const params = new URLSearchParams({
         fromMonth: exportValidation.fromMonth,
@@ -198,8 +217,11 @@ export default function ManageIncomePage() {
         headers: {
           Authorization: `Bearer ${token}`
         },
-        cache: "no-store"
+        cache: "no-store",
+        signal: AbortSignal.timeout(20000)
       });
+      receivedResponse = true;
+      connectionResponded(connectionRequest);
 
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
@@ -222,6 +244,7 @@ export default function ManageIncomePage() {
       setToastMessage(t("income.exportReady", "Export ready"));
       setExportSheetOpen(false);
     } catch (err: any) {
+      if (!receivedResponse || err?.name === "AbortError" || err instanceof TypeError) connectionFailed(connectionRequest);
       const reason = localizeExportError(err?.message || t("income.exportFailed", "Export failed"), lang);
       setExportError(reason);
       setToastMessage(`${t("income.exportFailed", "Export failed")}: ${reason}`);

@@ -1,5 +1,6 @@
 "use client";
 
+import { beginConnectionRequest, connectionResponded, connectionFailed } from "./connection";
 import { safeStorageGet } from "./browser-storage";
 
 type ApiFetchOptions = Omit<RequestInit, "body"> & {
@@ -15,7 +16,8 @@ type ApiFetchOptions = Omit<RequestInit, "body"> & {
 export const NETWORK_POLICY = {
   timeoutMs: 5500,
   retriesGet: 2,
-  retriesWrite: 1,
+  // Writes only retry when their call site explicitly opts in.
+  retriesWrite: 0,
   backoffBaseMs: 220
 } as const;
 
@@ -293,14 +295,8 @@ export async function apiFetchJson<T>(url: string, options: ApiFetchOptions = {}
     for (let attempt = 0; attempt <= retryCount; attempt += 1) {
       if (externalSignal?.aborted) throw new DOMException("Request cancelled", "AbortError");
       if (attempt > 0) await delay(backoffMs(attempt - 1), externalSignal);
-      if (typeof navigator !== "undefined" && navigator.onLine === false) {
-        throw new Error(
-          lang === "zh"
-            ? "设备离线，请检查网络后重试"
-            : "Device offline. Check network and retry."
-        );
-      }
 
+      const connectionRequest = beginConnectionRequest();
       const controller = new AbortController();
       const onAbort = () => controller.abort();
       externalSignal?.addEventListener("abort", onAbort, { once: true });
@@ -314,6 +310,8 @@ export async function apiFetchJson<T>(url: string, options: ApiFetchOptions = {}
           signal: controller.signal
         });
 
+        // Menu responses may come from the service worker cache; they cannot prove connectivity.
+        if (!url.split("?")[0].endsWith("/api/menu")) connectionResponded(connectionRequest);
         const data = await response.json().catch((error) => {
           if (response.ok) throw error; // An invalid success payload is not a successful order/read.
           return {};
@@ -329,6 +327,7 @@ export async function apiFetchJson<T>(url: string, options: ApiFetchOptions = {}
         throw new HttpResponseError(response.status, readErrorMessage(data, `Request failed (${response.status})`, lang));
       } catch (err: any) {
         if (externalSignal?.aborted) throw new DOMException("Request cancelled", "AbortError");
+        if (!(err instanceof HttpResponseError) && !(err instanceof SyntaxError)) connectionFailed(connectionRequest);
         if (err instanceof HttpResponseError && !isRetryableStatus(err.status)) throw err;
         // Do not replay a successful write merely because its response was malformed.
         if (err instanceof SyntaxError) throw new Error(lang === "zh" ? "服务器响应无效，请刷新确认" : "Invalid server response. Refresh to confirm.");

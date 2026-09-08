@@ -1,5 +1,7 @@
 "use client";
 
+import { useConnectionRefresh } from "../../../lib/use-connection-refresh";
+
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { apiFetchJson, getStoredAuth } from "../../../lib/client-api";
@@ -61,6 +63,8 @@ export default function ManageRbacPage() {
     }
     return { waiter, manager };
   }, [rows]);
+
+  useConnectionRefresh(loadRows, !loading && !updatingKey);
 
   async function loadRows() {
     setLoading(true);

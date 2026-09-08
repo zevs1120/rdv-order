@@ -13,11 +13,11 @@ beforeEach(() => {
 describe("menu reads", () => {
   it("starts independent reads together and preserves dish-first category ordering", async () => {
     let finishItems!: (value: unknown) => void;
-    mocks.query.mockImplementation((sql: string) => sql.includes("FROM menu_items")
+    mocks.query.mockImplementation((sql: string) => sql.includes('ORDER BY code NULLS LAST') ? Promise.resolve({ rows: [] }) : sql.includes("FROM menu_items")
       ? new Promise((resolve) => { finishItems = resolve; })
       : Promise.resolve({ rows: [{ name: "Rice" }, { name: "Empty" }] }));
     const pending = GET(new Request("http://localhost/api/menu?shift=lunch"));
-    await vi.waitFor(() => expect(mocks.query).toHaveBeenCalledTimes(2));
+    await vi.waitFor(() => expect(mocks.query).toHaveBeenCalledTimes(3));
     finishItems({ rows: [{ id: "one", category: "Rice" }, { id: "two", category: "Fish" }] });
     const body = await (await pending).json();
     expect(body.subcategories).toEqual(["Rice", "Fish", "Empty"]);

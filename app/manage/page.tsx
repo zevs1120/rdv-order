@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { getStoredAuth } from "../../lib/client-api";
 import { useI18n } from "../components/i18n-provider";
-import { Button, Card } from "../../components/ui";
+import { SvgIcon } from "../../components/ui/svg-icon";
 
 type Entry = {
   href: string;
@@ -44,26 +44,25 @@ export default function ManageIndexPage() {
 
   const entries = useMemo(() => {
     if (role === "manager") return MANAGER_ENTRIES;
-    return WAITER_ENTRIES;
+    return role === "waiter" ? WAITER_ENTRIES : [];
   }, [role]);
 
   return (
     <div className="stack manage-home-screen">
       <div className="manage-home-scroll stack">
-        <Card className="more-grid-card">
-          <div className="more-grid">
-            {entries.map((entry) => (
-              <Button
-                key={entry.href}
-                variant="secondary"
-                className="more-grid-btn"
-                onClick={() => router.push(entry.href)}
-              >
-                {lang === "en" ? entry.labelEn : entry.labelZh}
-              </Button>
-            ))}
-          </div>
-        </Card>
+        <nav className="settings-menu" aria-label={lang === "en" ? "Settings" : "设置"}>
+          {entries.map((entry) => (
+            <button
+              key={entry.href}
+              type="button"
+              className="settings-menu-row"
+              onClick={() => router.push(entry.href)}
+            >
+              <span>{lang === "en" ? entry.labelEn : entry.labelZh}</span>
+              <SvgIcon name="chevron-left" className="settings-menu-chevron" />
+            </button>
+          ))}
+        </nav>
       </div>
     </div>
   );

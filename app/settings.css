@@ -183,19 +183,50 @@
   box-shadow: none;
 }
 
-/* Preserve the existing two-column / narrow one-column entry layout and hit areas. */
-.app-shell--settings .more-grid-card {
-  border: 0 !important;
+/* Settings navigation: full-width rows, quiet dividers, no card or button frames. */
+.settings-menu {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  padding: 0 8px;
 }
 
-.app-shell--settings .more-grid-btn {
-  border: 1px solid var(--settings-control-line);
-  font-weight: 600;
+.app-shell--settings .settings-menu-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  width: 100%;
+  min-height: 60px;
+  padding: 16px 8px;
+  border: 0;
+  border-bottom: 1px solid var(--settings-line);
+  background: transparent;
+  color: var(--text-primary);
+  text-align: left;
+  font-size: 15px;
+  font-weight: 500;
+  line-height: 24px;
+  box-shadow: none;
+  transition: none;
 }
 
-.app-shell--settings .more-grid-btn:hover {
+.app-shell--settings .settings-menu-row:hover:not(:disabled),
+.app-shell--settings .settings-menu-row:active:not(:disabled) {
   color: var(--brand);
   background: color-mix(in srgb, var(--brand) 4%, transparent);
+  box-shadow: none;
+  transform: none;
+}
+
+.settings-menu-row > span:first-child { min-width: 0; }
+.settings-menu-chevron {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 16px;
+  color: var(--text-secondary);
+  opacity: .65;
+  transform: rotate(180deg);
 }
 
 .app-shell--settings .manage-preset {

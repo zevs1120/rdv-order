@@ -12,12 +12,12 @@ export async function GET(req: Request) {
   const includeEmptyShiftItems = Boolean(majorCategory?.include_empty_shift_items);
   const effectiveShift = majorCategory?.key || shift;
   const baseSql = `
-    SELECT id, name, price, category, description, menu_group, item_type, allergens
+    SELECT id, name, price, category, description, menu_group, item_type, allergens, code, option_groups, is_complimentary
     FROM menu_items
     WHERE is_active = true
       AND is_temporary = false
       AND COALESCE(category, '') NOT IN ('热菜', '主食', '饮品', 'Hot Dish', 'Staple', 'Drink', 'Drinks')
-      AND menu_group = $1
+      AND (menu_group = $1 OR ($2 = 'breakfast' AND $2 = ANY(available_shifts)))
   `;
 
   const menuRequest = includeEmptyShiftItems
@@ -49,7 +49,9 @@ export async function GET(req: Request) {
     if (err?.code !== "42P01") throw err;
     return { rows: [] };
   });
-  const [menuResult, subRows] = await Promise.all([menuRequest, subcategoryRequest]);
+  const allMenuRequest = pool.query(`SELECT id, name, price, category, description, menu_group, item_type, allergens, code, option_groups, is_complimentary
+    FROM menu_items WHERE is_active AND NOT is_temporary ORDER BY code NULLS LAST, sort_order, name`);
+  const [menuResult, subRows, allMenu] = await Promise.all([menuRequest, subcategoryRequest, allMenuRequest]);
   const { rows } = menuResult;
 
   const categories: string[] = [];
@@ -73,7 +75,7 @@ export async function GET(req: Request) {
   }
 
   return NextResponse.json(
-    { items: rows, subcategories: categories, shift: effectiveShift, menuGroup: mapped, majorCategories },
+    { items: rows, searchItems: allMenu.rows, subcategories: categories, shift: effectiveShift, menuGroup: mapped, majorCategories },
     {
       headers: {
         "Cache-Control": "public, max-age=60, stale-while-revalidate=240"

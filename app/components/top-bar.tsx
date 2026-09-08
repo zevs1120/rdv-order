@@ -1,10 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState, type CSSProperties } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useI18n } from "./i18n-provider";
 import { SvgIcon } from "../../components/ui/svg-icon";
-import { createDebounced } from "../../lib/scheduler";
 import {
   dispatchTopbarAction,
   RDV_TOPBAR_STATE_EVENT,
@@ -12,29 +11,6 @@ import {
   type TopbarActionDetail,
   type TopbarStateDetail
 } from "../../lib/topbar-events";
-
-type NetState = "online" | "weak" | "offline";
-
-function detectWeakConnection() {
-  if (typeof navigator === "undefined") return false;
-  const nav = navigator as Navigator & {
-    connection?: {
-      effectiveType?: string;
-      saveData?: boolean;
-      rtt?: number;
-      downlink?: number;
-      addEventListener?: (type: "change", cb: () => void) => void;
-      removeEventListener?: (type: "change", cb: () => void) => void;
-    };
-  };
-  const connection = nav.connection;
-  if (!connection) return false;
-  if (connection.saveData) return true;
-  if (connection.effectiveType === "slow-2g" || connection.effectiveType === "2g") return true;
-  if (typeof connection.rtt === "number" && connection.rtt > 380) return true;
-  if (typeof connection.downlink === "number" && connection.downlink > 0 && connection.downlink < 1.2) return true;
-  return false;
-}
 
 type BarMeta = {
   title: string;
@@ -108,48 +84,7 @@ export default function TopBar() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const { lang, setLang, t } = useI18n();
-  const [online, setOnline] = useState(true);
-  const [weak, setWeak] = useState(false);
   const [routeState, setRouteState] = useState<TopbarStateDetail | null>(null);
-
-  useEffect(() => {
-    const applyOnlineSnapshot = () => {
-      setOnline(true);
-      setWeak(detectWeakConnection());
-    };
-    const applyOfflineSnapshot = () => {
-      setOnline(false);
-      setWeak(false);
-    };
-    const onOnline = createDebounced(applyOnlineSnapshot, 120);
-    const onOffline = createDebounced(applyOfflineSnapshot, 100);
-    const onConnChange = createDebounced(() => {
-      if (!navigator.onLine) return;
-      setWeak(detectWeakConnection());
-    }, 140);
-
-    setOnline(navigator.onLine);
-    setWeak(navigator.onLine && detectWeakConnection());
-    window.addEventListener("online", onOnline);
-    window.addEventListener("offline", onOffline);
-
-    const nav = navigator as Navigator & {
-      connection?: {
-        addEventListener?: (type: "change", cb: () => void) => void;
-        removeEventListener?: (type: "change", cb: () => void) => void;
-      };
-    };
-    nav.connection?.addEventListener?.("change", onConnChange);
-
-    return () => {
-      window.removeEventListener("online", onOnline);
-      window.removeEventListener("offline", onOffline);
-      nav.connection?.removeEventListener?.("change", onConnChange);
-      onOnline.cancel();
-      onOffline.cancel();
-      onConnChange.cancel();
-    };
-  }, []);
 
   useEffect(() => {
     setRouteState(null);
@@ -164,33 +99,21 @@ export default function TopBar() {
     return () => window.removeEventListener(RDV_TOPBAR_STATE_EVENT, onState as EventListener);
   }, []);
 
-  const netState = useMemo<NetState>(() => {
-    if (!online) return "offline";
-    if (weak) return "weak";
-    return "online";
-  }, [online, weak]);
-
-  const barMeta = useMemo(
-    () => resolveBarMeta(pathname, lang, searchParams),
-    [lang, pathname, searchParams]
-  );
-  const netText = t(`network.${netState}`, netState === "online" ? "Online" : netState === "weak" ? "Weak" : "Offline");
+  const barMeta = resolveBarMeta(pathname, lang, searchParams);
   const isTables = pathname === "/tables";
   const isOrder = pathname === "/order";
   const tablesSelectMode = isTables && routeState?.route === "tables" ? Boolean(routeState.selectMode) : false;
   const tablesSelectDisabled = isTables && routeState?.route === "tables" ? Boolean(routeState.disableMultiSelect) : false;
   const refreshAction = resolveRefreshAction(pathname);
+  const extraTools = Number(Boolean(refreshAction)) + Number(isOrder);
+  const toolsWidth = 44 * (1 + extraTools) + 10 * extraTools;
 
   return (
     <div className={`topbar-shell${isTables ? " topbar-shell--tables" : ""}`}>
-      <div className="topbar-shell__inner">
+      <div className="topbar-shell__inner" style={{ "--topbar-tools-width": `${toolsWidth}px` } as CSSProperties}>
         {isTables ? (
           <div className="topbar-table-heading">
             <div className="topbar-title">{barMeta.title}</div>
-            <div className={`topbar-table-status topbar-status-dot--${netState}`} role="status" aria-live="polite" aria-atomic="true">
-              <SvgIcon name="circle" />
-              <span>{netText}</span>
-            </div>
           </div>
         ) : (
           <>
@@ -270,12 +193,7 @@ export default function TopBar() {
           >
             <SvgIcon name="globe" className="topbar-icon" />
           </button>
-          {!isTables && <span
-            role="img"
-            className={`topbar-status-dot topbar-status-dot--${netState}`}
-            aria-label={netText}
-            title={netText}
-          ><SvgIcon name="circle" /></span>}
+
         </div>
       </div>
     </div>

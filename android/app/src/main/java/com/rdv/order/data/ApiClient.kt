@@ -2,6 +2,8 @@ package com.rdv.order.data
 
 import java.io.IOException
 import java.util.concurrent.TimeUnit
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -30,6 +32,7 @@ class ApiClient(
     private val allowLocalHttp: Boolean = false,
     private val client: OkHttpClient = OkHttpClient.Builder()
         .retryOnConnectionFailure(false).followRedirects(false).followSslRedirects(false).build(),
+    private val connection: (() -> ConnectionMonitor)? = null,
 ) : Transport {
     override suspend fun request(path: String, method: String, body: JsonElement?, query: Map<String, String>,
         idempotencyKey: String?, timeoutMs: Long, retries: Int, authenticated: Boolean): ApiResponse {
@@ -45,9 +48,12 @@ class ApiClient(
             method(method, payload)
         }.build()
         for (attempt in 0..retries) {
+            val monitor = connection?.invoke()
+            val sequence = monitor?.beginRequest()
             try {
                 val call = client.newCall(request).apply { timeout().timeout(timeoutMs, TimeUnit.MILLISECONDS) }
                 val incoming = call.await()
+                sequence?.let { monitor?.responded(it) }
                 return incoming.use { response -> withContext(Dispatchers.IO) {
                     val text = response.body?.string().orEmpty()
                     if (!response.isSuccessful) {
@@ -58,6 +64,8 @@ class ApiClient(
                         ?.let { Regex("filename=\"?([^\";]+)").find(it)?.groupValues?.get(1) })
                 } }
             } catch (error: IOException) {
+                currentCoroutineContext().ensureActive()
+                if (error !is ApiException) sequence?.let { monitor?.failed(it) }
                 // Never replay a validation/auth failure. Write retry behavior is explicit at each call site.
                 val retryable = error !is ApiException || error.status == 408 || error.status == 429 || error.status >= 500
                 if (attempt == retries || !retryable) throw error
@@ -65,6 +73,16 @@ class ApiClient(
             }
         }
         error("Unreachable")
+    }
+    suspend fun checkConnectivity() {
+        val url = validateOrigin(origin(), allowLocalHttp).toHttpUrl().newBuilder().encodedPath("/api/connectivity").build()
+        val request = Request.Builder().url(url).header("Cache-Control", "no-store").get().build()
+        client.newCall(request).apply { timeout().timeout(4500, TimeUnit.MILLISECONDS) }.await().use { response ->
+            withContext(Dispatchers.IO) {
+                if (!response.isSuccessful || RdvJson.parseToJsonElement(response.body?.string().orEmpty())
+                        .jsonObject["service"]?.jsonPrimitive?.content != "rdv-order") throw IOException("Unreachable")
+            }
+        }
     }
     companion object {
         fun validateOrigin(value: String, allowLocalHttp: Boolean = false): String {

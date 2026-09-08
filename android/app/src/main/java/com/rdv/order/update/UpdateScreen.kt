@@ -29,7 +29,8 @@ import kotlinx.coroutines.*
     val controller = remember { app.updates }
     val state by controller.state.collectAsStateWithLifecycle()
     LaunchedEffect(controller) { controller.start() }
-    if (!state.checking && state.release == null) { content(); return }
+    // Keep Settings mounted during its check; remounting would re-trigger the entry check.
+    if (state.release == null && (!state.checking || state.initialCheckComplete)) { content(); return }
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val language = Strings.systemLanguage()

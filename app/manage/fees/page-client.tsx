@@ -1,5 +1,7 @@
 "use client";
 
+import { useConnectionRefresh } from "../../../lib/use-connection-refresh";
+
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { apiFetchJson, getStoredAuth } from "../../../lib/client-api";
@@ -37,6 +39,9 @@ export default function ManageFeesPage() {
     () => rules.filter((rule) => rule.is_active).length,
     [rules]
   );
+
+  // Rules are edited in place. Only recover an initial failed load automatically.
+  useConnectionRefresh(loadRules, !loading && !saving && !deletingId && rules.length === 0);
 
   async function loadRules() {
     setLoading(true);

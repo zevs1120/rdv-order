@@ -9,19 +9,21 @@ object OrderRules {
         require(draft.tableNo.isNotBlank()) { "缺少桌号" }
         require(draft.lines.isNotEmpty()) { "请选择菜品" }
         require(draft.lines.all { it.qty > 0 && it.item.id.isNotBlank() }) { "菜品参数无效" }
+        require(draft.lines.all { MenuOptions.complete(it.item, it.choices) }) { "请选择菜品选项 / Please select dish options" }
         return SubmitPayload(draft.tableNo, draft.guests, draft.shift,
-            draft.lines.map { SubmitItem(it.item.id, it.qty, it.note?.trim()?.take(120)?.ifEmpty { null }) })
+            draft.lines.map { SubmitItem(it.item.id, it.qty, it.note?.trim()?.take(120)?.ifEmpty { null }, it.choices.toSortedMap()) })
     }
 
     /** Delimiters are JSON-encoded so note text cannot collide with item boundaries. */
     fun fingerprint(payload: SubmitPayload): String = RdvJson.encodeToString(
         payload.copy(guestCount = 0, shift = "", items = payload.items
             .map { it.copy(note = it.note?.trim()?.lowercase(Locale.ROOT)?.ifEmpty { null }) }
-            .sortedWith(compareBy({ it.menuItemId }, { it.qty }, { it.note ?: "" })))
+            .map { it.copy(choices = it.choices.toSortedMap()) }
+            .sortedWith(compareBy({ it.menuItemId }, { it.qty }, { it.note ?: "" }, { it.choices.toString() })))
     )
 
     fun total(lines: List<CartLine>): Long = lines.fold(0L) { total, line ->
-        Math.addExact(total, Math.multiplyExact(line.item.price, line.qty.toLong()))
+        Math.addExact(total, Math.multiplyExact(MenuOptions.price(line.item, line.choices), line.qty.toLong()))
     }
 
     fun addNote(existing: String?, mode: String, input: String): String? {
@@ -37,6 +39,18 @@ object OrderRules {
         }
         return accepted.joinToString("; ").ifEmpty { null }
     }
+}
+
+object MenuOptions {
+    fun complete(item: MenuItem, choices: Map<String, String>) = choices.size == item.optionGroups.size &&
+        item.optionGroups.all { g -> g.options.any { it.id == choices[g.id] } }
+    fun price(item: MenuItem, choices: Map<String, String>): Long = if (item.isComplimentary) 0 else
+        item.price + item.optionGroups.sumOf { g -> g.options.find { it.id == choices[g.id] }?.priceDelta ?: 0 }
+    fun labels(item: MenuItem, choices: Map<String, String>, lang: String): String = item.optionGroups.mapNotNull { g ->
+        g.options.find { it.id == choices[g.id] }?.let { o ->
+            "${if (lang == "zh") g.zh ?: g.en else g.en}: ${if (lang == "zh") o.zh ?: o.en else o.en}"
+        }
+    }.joinToString("; ")
 }
 
 data class CookingMethod(val key: String, val zh: String, val en: String, val aliases: List<String> = emptyList())

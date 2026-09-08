@@ -37,7 +37,7 @@ import kotlin.math.roundToLong
     val categories = selection.categories
     val selected = selection.selected
     val visible = selection.items
-    val quantities = remember(draft.lines) { draft.lines.associate { it.item.id to it.qty } }
+    val quantities = remember(draft.lines) { draft.lines.groupBy { it.item.id }.mapValues { it.value.sumOf { line -> line.qty } } }
     var confirm by rememberSaveable { mutableStateOf("") }
     LaunchedEffect(selected) { if (selected != draft.category && !state.busy) vm.category(selected) }
     BoxWithConstraints(Modifier.fillMaxSize()) {
@@ -50,7 +50,7 @@ import kotlin.math.roundToLong
                 Text("${vm.either("桌号", "Table")} ${draft.tableNo}", fontWeight = FontWeight.Bold, fontSize = 17.sp)
                 Text("${draft.guests} ${vm.either("人", "Guests")}", color = RdvColors.Brand)
             }
-            RdvField(vm.text("order.searchPlaceholder"), draft.keyword, vm::keyword, Modifier.testTag("menu-search"), enabled = !state.busy)
+            RdvField(vm.either("输入菜名或编号", "Dish name or code"), draft.keyword, vm::keyword, Modifier.testTag("menu-search"), enabled = !state.busy)
         }
         Surface(color = RdvColors.OrderSection, shape = RectangleShape) {
             Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -97,7 +97,7 @@ import kotlin.math.roundToLong
                                     Text(vm.localized(item.category ?: item.description.orEmpty()), color = RdvColors.Secondary, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                                     FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                                         val unit = Seafood.config(item.name)?.unit
-                                        Text("₱${item.price}" + if (unit == null) "" else "/${if (unit == "pcs" && state.lang == "zh") "只" else unit}",
+                                        if (!item.isComplimentary) Text("₱${item.price}" + if (unit == null) (if (item.optionGroups.any { g -> g.options.any { it.priceDelta > 0 } }) "+" else "") else "/${if (unit == "pcs" && state.lang == "zh") "只" else unit}",
                                             Modifier.align(Alignment.CenterVertically), fontSize = if (unit == null) 28.sp else 21.sp, fontWeight = FontWeight.Bold)
                                         FilledIconButton(onClick = { vm.add(item) }, enabled = !state.busy,
                                             modifier = Modifier.size(48.dp).testTag("add-${item.id}"), shape = CircleShape,
@@ -142,18 +142,20 @@ import kotlin.math.roundToLong
             draft.lines.forEach { line ->
                 RdvCard(Modifier.fillMaxWidth()) {
                     Text(vm.localized(line.item.name), fontSize = 16.sp)
-                    Text("₱${line.item.price} · ${vm.either("数量", "Qty")} ${Seafood.quantity(line.item.name, line.qty, state.lang)}", color = RdvColors.Secondary)
+                    Text((if (line.item.isComplimentary) "" else "₱${MenuOptions.price(line.item, line.choices)} · ") + "${vm.either("数量", "Qty")} ${Seafood.quantity(line.item.name, line.qty, state.lang)}", color = RdvColors.Secondary)
+                    if (line.choices.isNotEmpty()) Text(MenuOptions.labels(line.item, line.choices, state.lang))
                     if (!line.note.isNullOrBlank()) Text("${vm.text("order.noteLabel")}: ${line.note}", color = RdvColors.Secondary)
                     FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Stepper(line.qty, { vm.quantity(line.item, it) }, label = Seafood.quantity(line.item.name, line.qty, state.lang), enabled = !state.busy, lang = state.lang)
-                        RdvButton(vm.text("order.noteAction"), { vm.note(line.item) }, secondary = true, enabled = !state.busy)
-                        RdvButton(vm.either("移除", "Remove"), { vm.quantity(line.item, 0) }, secondary = true, danger = true, enabled = !state.busy)
+                        Stepper(line.qty, { vm.quantityLine(line, it) }, label = Seafood.quantity(line.item.name, line.qty, state.lang), enabled = !state.busy, lang = state.lang)
+                        RdvButton(vm.text("order.noteAction"), { vm.note(line.item, line.choices) }, secondary = true, enabled = !state.busy)
+                        RdvButton(vm.either("移除", "Remove"), { vm.quantityLine(line, 0) }, secondary = true, danger = true, enabled = !state.busy)
                     }
                 }
             }
             ErrorPanel(state.error, vm::dismissError, vm.text("common.close"))
         }
         "note" -> state.noteItem?.let { NoteSheet(vm, state, it) }
+        "choices" -> state.noteItem?.let { ChoiceSheet(vm, state, it) }
         "custom" -> CustomDishSheet(vm, state)
         "bill" -> BillSheet(vm, state) { confirm = "checkout" }
     }
@@ -167,9 +169,28 @@ import kotlin.math.roundToLong
         dismissButton = { TextButton(onClick = { confirm = "" }, enabled = !state.busy) { Text(vm.text("common.cancel")) } })
 }
 
+@Composable private fun ChoiceSheet(vm: RdvViewModel, state: UiState, item: MenuItem) {
+    var picks by rememberSaveable(item.id) { mutableStateOf(mapOf<String, String>()) }
+    RdvSheet(vm.localized(item.name), { vm.sheet("") }, state.busy, footer = {
+        RdvButton(vm.either("加入订单", "Add to order") + (if (item.isComplimentary) "" else " · ₱${MenuOptions.price(item, picks)}"),
+            { vm.addConfigured(item, picks) }, enabled = !state.busy && MenuOptions.complete(item, picks))
+    }) {
+        item.optionGroups.forEach { group ->
+            Text(if (state.lang == "zh") group.zh ?: group.en else group.en, fontWeight = FontWeight.Bold)
+            group.options.forEach { option ->
+                val chosen = picks[group.id] == option.id
+                RdvButton((if (chosen) "✓ " else "") + (if (state.lang == "zh") option.zh ?: option.en else option.en) +
+                    (if (!item.isComplimentary && group.options.any { it.priceDelta != 0L }) " · ₱${item.price + option.priceDelta}" else ""),
+                    { picks = picks + (group.id to option.id) }, Modifier.fillMaxWidth().testTag("choice-${group.id}-${option.id}")
+                        .semantics { selected = chosen }, secondary = !chosen, enabled = !state.busy)
+            }
+        }
+    }
+}
+
 @OptIn(ExperimentalLayoutApi::class)
 @Composable private fun NoteSheet(vm: RdvViewModel, state: UiState, item: MenuItem) {
-    val existing = state.draft?.lines?.find { it.item.id == item.id }
+    val existing = state.draft?.lines?.find { it.item.id == item.id && it.choices == state.noteChoices }
     val config = Seafood.config(item.name)
     val parsed = if (config != null) Seafood.parse(existing?.note, config) else "" to ""
     var qty by rememberSaveable(item.id) { mutableIntStateOf((existing?.qty ?: 1).coerceAtLeast(1)) }
@@ -178,12 +199,12 @@ import kotlin.math.roundToLong
     var mode by rememberSaveable(item.id) { mutableStateOf("no") }
     fun save(close: Boolean) {
         if (config != null) vm.quantity(item, qty, Seafood.note(config, method, extra, state.lang))
-        else if (extra.isNotBlank()) { vm.quantity(item, existing?.qty ?: 1, OrderRules.addNote(existing?.note, mode, extra)); extra = "" }
+        else if (extra.isNotBlank()) { vm.quantity(item, existing?.qty ?: 1, OrderRules.addNote(existing?.note, mode, extra), state.noteChoices); extra = "" }
         if (close) vm.sheet("")
     }
     RdvSheet(vm.localized(item.name), { save(true) }, state.busy, footer = {
         RdvButton(if (config != null) vm.either("移除", "Remove") else vm.text("order.noteClear"), {
-            if (config != null) { vm.quantity(item, 0); vm.sheet("") } else { vm.quantity(item, existing?.qty ?: 1, null); extra = "" }
+            if (config != null) { vm.quantity(item, 0); vm.sheet("") } else { vm.quantity(item, existing?.qty ?: 1, null, state.noteChoices); extra = "" }
         }, secondary = true, enabled = !state.busy)
         RdvButton(if (config != null) vm.either("应用", "Apply") else vm.text("order.noteAdd"), { save(config != null) }, enabled = !state.busy)
     }) {

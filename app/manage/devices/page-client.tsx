@@ -1,5 +1,7 @@
 "use client";
 
+import { useConnectionRefresh } from "../../../lib/use-connection-refresh";
+
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { apiFetchJson, getStoredAuth } from "../../../lib/client-api";
@@ -65,6 +67,8 @@ export default function ManageDevicesPage() {
   const [testing, setTesting] = useState("");
   const [clearingQueue, setClearingQueue] = useState(false);
   const [health, setHealth] = useState<PrintHealth | null>(null);
+
+  useConnectionRefresh(loadData, !loading && !updating && !testing && !clearingQueue);
 
   async function loadData() {
     setLoading(true);

@@ -5,6 +5,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
@@ -16,6 +17,14 @@ import com.rdv.order.RdvApplication
     val app = LocalContext.current.applicationContext as RdvApplication
     val update by app.updates.state.collectAsStateWithLifecycle()
     val latest = update.latestRelease
+    var checkedOnEntry by rememberSaveable { mutableStateOf(false) }
+    LaunchedEffect(app) {
+        if (!BuildConfig.DEBUG && !checkedOnEntry) {
+            checkedOnEntry = true
+            app.updates.start(manual = true)
+        }
+    }
+    val hasUpdate = !update.checkFailed && latest != null && latest.versionCode > BuildConfig.VERSION_CODE
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         RdvCard(Modifier.fillMaxWidth()) {
             Text("RDV Order")
@@ -33,8 +42,15 @@ import com.rdv.order.RdvApplication
                 Text(vm.either(it.notes.zh, it.notes.en), color = RdvColors.Secondary)
             }
             if (!BuildConfig.DEBUG) {
-                RdvButton(vm.either("检查更新", "Check for updates"), { app.updates.start(manual = true) },
-                    Modifier.fillMaxWidth(), enabled = !update.checking)
+                val label = when {
+                    update.checking -> vm.either("正在检查更新…", "Checking for updates…")
+                    update.checkFailed || latest == null -> vm.either("暂时无法确认版本", "Version status unavailable")
+                    hasUpdate -> vm.either("检查更新", "Check for updates")
+                    latest.versionCode == BuildConfig.VERSION_CODE -> vm.either("已是最新发布版本", "Already on the latest release")
+                    else -> vm.either("当前版本高于发布版本", "Installed version is newer")
+                }
+                RdvButton(label, { app.updates.start(manual = true) },
+                    Modifier.fillMaxWidth(), enabled = !update.checking && hasUpdate)
             }
         }
     }

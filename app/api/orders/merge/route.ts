@@ -69,11 +69,11 @@ export async function POST(req: Request) {
         [targetOrderId, sourceOrderIds]
       );
 
-      const groupedItems = await client.query<{ menu_item_id: string; note: string | null; qty: number }>(
-        `SELECT menu_item_id, note, SUM(qty)::int AS qty
+      const groupedItems = await client.query<{ menu_item_id: string; note: string | null; qty: number; unit_price: number; choices: unknown }>(
+        `SELECT menu_item_id, note, unit_price, choices, SUM(qty)::int AS qty
          FROM order_items
          WHERE order_id = $1
-         GROUP BY menu_item_id, note`,
+         GROUP BY menu_item_id, note, unit_price, choices`,
         [targetOrderId]
       );
 
@@ -85,9 +85,9 @@ export async function POST(req: Request) {
 
       for (const row of groupedItems.rows) {
         await client.query(
-          `INSERT INTO order_items (order_id, menu_item_id, qty, note)
-           VALUES ($1, $2, $3, $4)`,
-          [targetOrderId, row.menu_item_id, row.qty, row.note]
+          `INSERT INTO order_items (order_id, menu_item_id, qty, note, unit_price, choices)
+           VALUES ($1, $2, $3, $4, $5, $6::jsonb)`,
+          [targetOrderId, row.menu_item_id, row.qty, row.note, row.unit_price, JSON.stringify(row.choices || {})]
         );
       }
 
@@ -118,7 +118,7 @@ export async function POST(req: Request) {
       for (const sourceId of sourceOrderIds) {
         await client.query(
           `INSERT INTO order_events (order_id, event_type, payload, created_by)
-           VALUES ($1, 'merge_out', jsonb_build_object('toOrderId', $2), $3)`,
+           VALUES ($1, 'merge_out', jsonb_build_object('toOrderId', $2::uuid), $3)`,
           [sourceId, targetOrderId, auth.userId]
         );
       }

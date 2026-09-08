@@ -17,7 +17,7 @@ export async function replaceAutoChargesForOrder(
     );
 
     const finance = await client.query<{ item_amount: number }>(
-      `SELECT COALESCE(SUM(oi.qty * mi.price), 0)::int AS item_amount
+      `SELECT COALESCE(SUM(oi.qty * COALESCE(oi.unit_price, mi.price)), 0)::int AS item_amount
        FROM order_items oi
        JOIN menu_items mi ON mi.id = oi.menu_item_id
        WHERE oi.order_id = $1`,

@@ -44,7 +44,7 @@ export async function GET(req: Request) {
               mi.name,
               oi.note,
               SUM(oi.qty)::int AS qty,
-              SUM(oi.qty * mi.price)::int AS amount
+              SUM(oi.qty * COALESCE(oi.unit_price, mi.price))::int AS amount
        FROM orders o
        JOIN order_items oi ON oi.order_id = o.id
        JOIN menu_items mi ON mi.id = oi.menu_item_id
@@ -74,7 +74,7 @@ export async function GET(req: Request) {
                 o.status,
                 o.cancelled_at,
                 o.created_at,
-                COALESCE(SUM(oi.qty * mi.price), 0)::int AS item_amount
+                COALESCE(SUM(oi.qty * COALESCE(oi.unit_price, mi.price)), 0)::int AS item_amount
          FROM orders o
          LEFT JOIN order_items oi ON oi.order_id = o.id
          LEFT JOIN menu_items mi ON mi.id = oi.menu_item_id
@@ -108,9 +108,10 @@ export async function GET(req: Request) {
                   json_agg(
                     json_build_object(
                       'menu_item_id', mi.id,
+                      'order_item_id', oi.id,
                       'name', mi.name,
                       'qty', oi.qty,
-                      'amount', oi.qty * mi.price,
+                      'amount', oi.qty * COALESCE(oi.unit_price, mi.price),
                       'note', oi.note
                     )
                     ORDER BY mi.name ASC
@@ -149,7 +150,7 @@ export async function GET(req: Request) {
        item_total AS (
          SELECT oi.order_id,
                 COALESCE(SUM(oi.qty), 0)::int AS total_qty,
-                COALESCE(SUM(oi.qty * mi.price), 0)::int AS item_amount
+                COALESCE(SUM(oi.qty * COALESCE(oi.unit_price, mi.price)), 0)::int AS item_amount
          FROM order_items oi
          JOIN menu_items mi ON mi.id = oi.menu_item_id
          JOIN filtered_orders fo ON fo.id = oi.order_id

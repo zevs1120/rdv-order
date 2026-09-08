@@ -20,4 +20,10 @@ Version 1.0.0 marks the accumulated interface/performance milestone, not a claim
 
 ## Publication
 
-Source, APK, metadata, stable download rewrite and version label are submitted together. Check both Git-linked Vercel projects against the release commit, then verify public release JSON and APK checksum before announcing the download. Hotel-network/device/physical printer acceptance remains open; it is not replaced by these checks.
+Release source, APK, metadata, stable rewrite and version label were committed and pushed together as `660e69a7eed5af86d831bed31fb9fc7aa0f73925`.
+
+- Both GitHub commit statuses are **success**: `rdv-order` deployment `FeGZDXAK7TWKoZuQXsxd2f7pvJek`; `rdv-downloads` deployment `4WnUnm1QXwg3QzinYVvRgrEkHBC3`. An initial transient “Account is blocked” status on the web project subsequently resolved without account/security changes or another push.
+- Direct HTTPS `https://order.resortdejavu.cn/` returned 200. Public download page links to 1.0.0; public `release.json` reports code 8 and the exact bilingual notes above.
+- Actual public APK downloaded over direct HTTPS: 1,592,129 bytes; SHA-256 matches `bd9295dbfae3b631bbebd2dccd52be41eb005c0b87481132e62ab6c80b98c503`. Initial 40-second transfer timed out partway; one longer retry completed and matched. No further tests were added.
+
+This post-publication evidence is recorded locally without triggering another documentation-only deployment. Hotel-network/device/physical printer acceptance remains open; it is not replaced by these checks.

@@ -94,16 +94,17 @@ import kotlinx.serialization.json.*
         if (state.loading) LinearProgressIndicator(Modifier.fillMaxWidth())
         when (state.screen) {
             Screen.ORDERS -> {
-                val orders = data.rows("orders")
+                val orders = remember(data) { data.rows("orders") }
+                val amount = remember(orders) { orders.sumOf { it.number("amount").toLong() } }
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     StatCard(vm.text("orders.totalCount"), orders.size.toString(), Modifier.weight(1f))
-                    StatCard(vm.text("orders.totalRevenue"), "₱${orders.sumOf { it.number("amount").toLong() }}", Modifier.weight(1f))
+                    StatCard(vm.text("orders.totalRevenue"), "₱$amount", Modifier.weight(1f))
                 }
                 if (orders.isEmpty() && !state.loading) Text(vm.text("orders.empty"))
                 orders.forEach { order -> key(order.text("id")) { OrderManagementCard(vm, state, order) } }
             }
             Screen.HOT -> {
-                val items = data.rows("hotItems")
+                val items = remember(data) { data.rows("hotItems") }
                 if (items.isEmpty() && !state.loading) Text(vm.either("当前时段暂无数据", "No data for this period"))
                 items.forEachIndexed { index, item -> RdvCard(Modifier.fillMaxWidth()) {
                     Text("${index + 1}. ${vm.localized(item.text("name"))}", fontWeight = FontWeight.SemiBold)
@@ -115,10 +116,10 @@ import kotlinx.serialization.json.*
                     StatCard(vm.text("income.orderCount"), data.number("orderCount").toLong().toString(), Modifier.weight(1f))
                     StatCard(vm.text("income.total"), "₱${data.number("totalAmount").toLong()}", Modifier.weight(1f))
                 }
-                val rows = data.rows(if (state.screen == Screen.SUMMARY) "items" else "byDay")
+                val rows = remember(data, state.screen) { data.rows(if (state.screen == Screen.SUMMARY) "items" else "byDay") }
                 if (rows.isEmpty() && !state.loading) Text(vm.either("当前时段暂无收入数据", "No revenue data for this period"))
                 rows.forEach { row -> RdvCard(Modifier.fillMaxWidth()) {
-                    Text(if (state.screen == Screen.SUMMARY) vm.localized(row.text("name")) else dayLabel(row.text("day")))
+                    Text(if (state.screen == Screen.SUMMARY) vm.localized(row.text("name")) else remember(row) { dayLabel(row.text("day")) })
                     Text(if (state.screen == Screen.SUMMARY) "${row.number("qty").toInt()}" else "${vm.either("订单", "Orders")} ${row.number("order_count").toInt()} · ₱${row.number("amount").toLong()}")
                 } }
             }
@@ -137,6 +138,10 @@ private fun dayLabel(value: String) = runCatching { Instant.parse(value).atZone(
     var reason by rememberSaveable { mutableStateOf("") }
     val id = order.text("id")
     val cancelled = order.text("cancelled_at").isNotEmpty()
+    val createdLabel = remember(order) {
+        runCatching { Instant.parse(order.text("created_at")).atZone(ZoneId.systemDefault())
+            .format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")) }.getOrDefault(order.text("created_at"))
+    }
     val status = if (cancelled) vm.either("已取消", "Cancelled") else when (order.text("status")) {
         "submitted" -> vm.either("已提交", "Submitted"); "paid" -> vm.either("已结账", "Paid"); "closed" -> vm.either("已关闭", "Closed"); else -> order.text("status")
     }
@@ -145,8 +150,7 @@ private fun dayLabel(value: String) = runCatching { Instant.parse(value).atZone(
             Column(Modifier.weight(1f)) {
                 Text("${vm.either("桌号", "Table")} ${order.text("table_no")} · #${id.take(8)}", fontWeight = FontWeight.Bold)
                 Text("x${order.number("item_qty").toInt()} · $status · ₱${order.number("amount").toLong()}")
-                Text(runCatching { Instant.parse(order.text("created_at")).atZone(ZoneId.systemDefault())
-                    .format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")) }.getOrDefault(order.text("created_at")), color = RdvColors.Secondary, fontSize = 12.sp)
+                Text(createdLabel, color = RdvColors.Secondary, fontSize = 12.sp)
             }
             RdvButton(vm.text(if (expanded) "orders.hideDetail" else "orders.detail"), { expanded = !expanded }, secondary = true)
         }
@@ -170,7 +174,7 @@ private fun dayLabel(value: String) = runCatching { Instant.parse(value).atZone(
                         Text("₱${item.number("unit_price").toLong()} · ₱${item.number("amount").toLong()}")
                     }
                     if (!cancelled && order.text("status") == "submitted") RdvButton(vm.text("orders.returnDish"), {
-                        vm.manageAction("/api/orders/$id/return-item", body = jsonBody("menuItemId" to item.text("menu_item_id"), "qty" to 1, "reason" to "manual"))
+                        vm.manageAction("/api/orders/$id/return-item", body = jsonBody("menuItemId" to item.text("menu_item_id"), "orderItemId" to item.text("order_item_id"), "qty" to 1, "reason" to "manual"))
                     }, secondary = true, enabled = !state.busy)
                 }
             }

@@ -20,11 +20,14 @@ export async function POST(req: Request, { params }: Params) {
       menuItemId?: unknown;
       qty?: unknown;
       reason?: unknown;
+      orderItemId?: unknown;
     } | null;
 
     const menuItemId = String(body?.menuItemId || "").trim();
     const qty = Number(body?.qty);
     const reason = String(body?.reason || "").trim();
+    const orderItemId = String(body?.orderItemId || '').trim();
+    if (orderItemId && !UUID_V4_LIKE.test(orderItemId)) return NextResponse.json({ error: '无效订单菜品' }, { status: 400 });
 
     if (!id || !menuItemId || !UUID_V4_LIKE.test(id) || !UUID_V4_LIKE.test(menuItemId)) {
       return NextResponse.json({ error: "参数不完整" }, { status: 400 });
@@ -57,13 +60,18 @@ export async function POST(req: Request, { params }: Params) {
          FROM order_items
          WHERE order_id = $1
            AND menu_item_id = $2
+           AND ($3::uuid IS NULL OR id = $3::uuid)
          ORDER BY qty DESC
          FOR UPDATE`,
-        [id, menuItemId]
+        [id, menuItemId, orderItemId || null]
       );
       if (items.rows.length === 0) {
         await client.query("ROLLBACK");
         return NextResponse.json({ error: "该订单无此菜品" }, { status: 404 });
+      }
+      if (!orderItemId && items.rows.length > 1) {
+        await client.query('ROLLBACK');
+        return NextResponse.json({ error: '请选择具体菜品选项 / Select the specific order item' }, { status: 409 });
       }
 
       let left = qty;

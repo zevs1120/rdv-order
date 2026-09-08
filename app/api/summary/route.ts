@@ -28,7 +28,7 @@ export async function GET(req: Request) {
        ),
        item_total AS (
          SELECT oi.order_id,
-                COALESCE(SUM(oi.qty * mi.price), 0)::int AS item_amount
+                COALESCE(SUM(oi.qty * COALESCE(oi.unit_price, mi.price)), 0)::int AS item_amount
          FROM order_items oi
          JOIN menu_items mi ON mi.id = oi.menu_item_id
          JOIN filtered_orders fo ON fo.id = oi.order_id

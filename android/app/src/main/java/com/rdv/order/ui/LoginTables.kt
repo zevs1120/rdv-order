@@ -4,6 +4,9 @@ import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
+import androidx.compose.ui.semantics.Role
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.*
@@ -98,14 +101,21 @@ import kotlinx.coroutines.delay
             Screen.DEVICES to "manage.devices", Screen.RBAC to "manage.rbac", Screen.MENU to "manage.menu"))
         add(Screen.UPDATES to "manage.updates")
     }
-    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        RdvCard {
-            entries.chunked(2).forEach { row ->
-                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    row.forEach { (screen, key) -> RdvButton(vm.text(key), { vm.navigate(screen) }, Modifier.weight(1f).heightIn(min = 72.dp), secondary = true) }
-                    if (row.size == 1) Spacer(Modifier.weight(1f))
-                }
+    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 8.dp)) {
+        entries.forEach { (screen, key) ->
+            Row(
+                Modifier.fillMaxWidth().heightIn(min = 60.dp)
+                    .clickable(enabled = !state.busy, role = Role.Button) { vm.navigate(screen) }
+                    .padding(horizontal = 8.dp, vertical = 16.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                Text(vm.text(key), Modifier.weight(1f), fontSize = 15.sp, lineHeight = 24.sp,
+                    fontWeight = FontWeight.Medium, color = RdvColors.Text, textAlign = TextAlign.Start)
+                Icon(Icons.AutoMirrored.Outlined.KeyboardArrowRight, contentDescription = null,
+                    modifier = Modifier.size(16.dp), tint = RdvColors.Secondary.copy(alpha = .65f))
             }
+            HorizontalDivider(color = RdvColors.Border, thickness = 1.dp)
         }
     }
 }

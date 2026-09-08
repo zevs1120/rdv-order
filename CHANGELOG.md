@@ -6,6 +6,14 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [1.1.0] — 2026-09-08
+
+- Refresh the approved menu prices, immutable global dish codes and required meal/drink choices; preserve employee dishes and snapshot order prices through bills, returns, split/merge, reports and printing.
+- Replace network indicators with confirmed-failure recovery dialogs; resume safe reads automatically while preserving drafts, edits and uncertain writes.
+- Add optional verified APK delta downloads with full-package fallback, automatic checks in Updates, bounded menu caching and cancellation of obsolete report queries.
+- Use a single-row Settings menu on web and Android. Release 1.1.0 / code 9 retains the production origin, certificate and Android 8 minimum.
+- Reuse the completed menu/billing checks; add focused recovery/updater checks and final builds. See `docs/release-1.1.0.md` for evidence and rollout status.
+
 ## [1.0.0] — 2026-09-08
 
 - Refined login, ordering, cart/cooking/note sheets and management screens with flat tonal surfaces, clearer rectangular actions and lightweight official icons. Kept familiar ordering and confirmation flows.

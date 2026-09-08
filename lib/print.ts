@@ -171,7 +171,7 @@ async function buildOrderPayload(orderId: string): Promise<OrderPrintPayload> {
             o.created_at,
             u.username AS waiter_name,
             mi.name AS dish_name,
-            mi.price AS unit_price,
+            COALESCE(oi.unit_price, mi.price) AS unit_price,
             oi.qty,
             mi.category,
             oi.note
@@ -274,8 +274,8 @@ async function buildTableBillPayload(tableNoRaw: string): Promise<TableBillPrint
     `SELECT mi.name,
             oi.note,
             SUM(oi.qty)::int AS qty,
-            mi.price::int AS unit_price,
-            SUM(oi.qty * mi.price)::int AS amount
+            COALESCE(oi.unit_price, mi.price)::int AS unit_price,
+            SUM(oi.qty * COALESCE(oi.unit_price, mi.price))::int AS amount
      FROM orders o
      JOIN order_items oi ON oi.order_id = o.id
      JOIN menu_items mi ON mi.id = oi.menu_item_id
@@ -284,7 +284,7 @@ async function buildTableBillPayload(tableNoRaw: string): Promise<TableBillPrint
        AND o.status IN ('submitted', 'paid')
        AND o.cancelled_at IS NULL
        AND o.merged_into_order_id IS NULL
-     GROUP BY mi.name, oi.note, mi.price
+     GROUP BY mi.name, oi.note, COALESCE(oi.unit_price, mi.price)
      ORDER BY mi.name ASC, oi.note ASC NULLS FIRST`,
     [tableNo, openedAt]
   );

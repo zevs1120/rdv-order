@@ -24,7 +24,7 @@ function parseItems(raw: unknown): SplitItem[] {
   return Array.from(merged.entries()).map(([menuItemId, qty]) => ({ menuItemId, qty }));
 }
 
-type ItemRow = { id: string; menu_item_id: string; qty: number; note: string | null };
+type ItemRow = { id: string; menu_item_id: string; qty: number; note: string | null; unit_price: number; choices: unknown };
 
 export async function POST(req: Request, { params }: Params) {
   try {
@@ -65,7 +65,7 @@ export async function POST(req: Request, { params }: Params) {
       }
 
       const itemRows = await client.query<ItemRow>(
-        `SELECT id, menu_item_id, qty, note
+        `SELECT id, menu_item_id, qty, note, unit_price, choices
          FROM order_items
          WHERE order_id = $1
          ORDER BY qty DESC
@@ -114,18 +114,19 @@ export async function POST(req: Request, { params }: Params) {
              SET qty = qty + $4
              WHERE order_id = $1
                AND menu_item_id = $2
+               AND unit_price = $5 AND choices = $6::jsonb
                AND (
                  (note IS NULL AND $3::text IS NULL)
                  OR note = $3
                )
              RETURNING id`,
-            [targetOrderId, reqItem.menuItemId, row.note, moveQty]
+            [targetOrderId, reqItem.menuItemId, row.note, moveQty, row.unit_price, JSON.stringify(row.choices || {})]
           );
           if (merged.rows.length === 0) {
             await client.query(
-              `INSERT INTO order_items (order_id, menu_item_id, qty, note)
-               VALUES ($1, $2, $3, $4)`,
-              [targetOrderId, reqItem.menuItemId, moveQty, row.note]
+              `INSERT INTO order_items (order_id, menu_item_id, qty, note, unit_price, choices)
+               VALUES ($1, $2, $3, $4, $5, $6::jsonb)`,
+              [targetOrderId, reqItem.menuItemId, moveQty, row.note, row.unit_price, JSON.stringify(row.choices || {})]
             );
           }
           left -= moveQty;
@@ -135,8 +136,8 @@ export async function POST(req: Request, { params }: Params) {
       await client.query(
         `INSERT INTO order_events (order_id, event_type, payload, created_by)
          VALUES
-         ($1, 'split_out', jsonb_build_object('toOrderId', $2, 'items', $3::jsonb), $4),
-         ($2, 'split_in', jsonb_build_object('fromOrderId', $1, 'items', $3::jsonb), $4)`,
+         ($1::uuid, 'split_out', jsonb_build_object('toOrderId', $2::uuid, 'items', $3::jsonb), $4),
+         ($2::uuid, 'split_in', jsonb_build_object('fromOrderId', $1::uuid, 'items', $3::jsonb), $4)`,
         [id, targetOrderId, JSON.stringify(items), auth.userId]
       );
 

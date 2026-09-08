@@ -67,7 +67,7 @@ describe("tables reverse-checkout api", () => {
       if (sql.includes("DELETE FROM order_charges") && sql.includes("source = 'rule_auto'")) {
         return { rows: [] };
       }
-      if (sql.includes("SUM(oi.qty * mi.price)")) {
+      if (sql.includes("SUM(oi.qty * COALESCE(oi.unit_price, mi.price))")) {
         return { rows: [{ item_amount: 480 }] };
       }
       if (sql.includes("FROM pricing_rules") && sql.includes("is_active = true")) {

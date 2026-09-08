@@ -5,6 +5,7 @@ import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import assert from 'node:assert/strict';
+import { createApkDelta, restoreApkDelta } from '../../distribution/site/apk-delta.mjs';
 
 const root = fileURLToPath(new URL('../../', import.meta.url));
 const args = process.argv.slice(2);
@@ -36,10 +37,24 @@ run('zipalign', ['-c', '-P', '16', '4', apk]);
 const bytes = readFileSync(apk);
 const release = { ...current, version: metadata.versionName, versionCode: metadata.versionCode,
   file: `/releases/rdv-order-${metadata.versionName}.apk`, bytes: bytes.length,
-  sha256: createHash('sha256').update(bytes).digest('hex'), notes };
+  sha256: createHash('sha256').update(bytes).digest('hex'), notes, deltas: [] };
 assert.ok(release.bytes <= 50 * 1024 * 1024, 'APK exceeds updater size bound');
 const destination = path.join(site, 'public', release.file);
 assert.ok(!existsSync(destination), 'Never overwrite a versioned APK');
+const base = readFileSync(path.join(site, 'public', current.file));
+assert.equal(createHash('sha256').update(base).digest('hex'), current.sha256, 'Delta base APK changed');
+const patch = createApkDelta(base, bytes);
+assert.ok(restoreApkDelta(base, patch).equals(bytes), 'Delta must reproduce the exact signed APK');
+// Sequential mandatory upgrades use the previous release as their base. Skipped releases retain full fallback.
+const deltaFile = `/releases/rdv-order-${release.version}-from-${current.versionCode}.rdvdelta`;
+const deltaPath = path.join(site, 'public', deltaFile);
+const useDelta = patch.length < bytes.length * 0.9;
+if (useDelta) {
+  assert.ok(!existsSync(deltaPath), 'Never overwrite a versioned delta');
+  release.deltas.push({ format: 'rdv-copy-add-v1', baseVersionCode: current.versionCode,
+    baseSha256: current.sha256, file: deltaFile, bytes: patch.length,
+    sha256: createHash('sha256').update(patch).digest('hex') });
+}
 const pagePath = path.join(site, 'public/index.html');
 const oldPage = readFileSync(pagePath, 'utf8');
 assert.ok(oldPage.includes(current.file) && oldPage.includes(`v${current.version}`));
@@ -50,8 +65,10 @@ const configPath = path.join(site, 'vercel.json');
 const configText = readFileSync(configPath, 'utf8');
 assert.equal(JSON.parse(configText).rewrites.find(rule => rule.source === '/rdv-order.apk').destination, current.file);
 copyFileSync(apk, destination, constants.COPYFILE_EXCL);
+if (useDelta) writeFileSync(deltaPath, patch, { flag: 'wx' });
 writeFileSync(pagePath, page);
 writeFileSync(configPath, configText.replaceAll(current.file, release.file));
 writeFileSync(path.join(site, 'public/release.json'), JSON.stringify(release, null, 2) + '\n');
 console.log(`Staged ${release.version} (${release.versionCode}), ${release.bytes} bytes, SHA-256 ${release.sha256}`);
+console.log(useDelta ? `Delta from code ${current.versionCode}: ${patch.length} bytes; full APK remains available.` : 'Delta savings below 10%; full APK selected.');
 console.log('Run node distribution/site/verify.mjs and commit APK + metadata together before deploying.');

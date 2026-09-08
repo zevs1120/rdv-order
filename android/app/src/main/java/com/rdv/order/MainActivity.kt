@@ -2,7 +2,6 @@ package com.rdv.order
 
 import android.net.ConnectivityManager
 import android.net.Network
-import android.net.NetworkCapabilities
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -15,6 +14,8 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -36,18 +37,48 @@ class MainActivity : ComponentActivity() {
                     override fun <T : ViewModel> create(modelClass: Class<T>): T = RdvViewModel(app.repository, app.strings, app.store) as T
                 })
                 val connectivity = remember { getSystemService(ConnectivityManager::class.java) }
-                fun isOnline(): Boolean = connectivity.getNetworkCapabilities(connectivity.activeNetwork)?.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) == true
-                var online by remember { mutableStateOf(isOnline()) }
-                DisposableEffect(Unit) {
+                DisposableEffect(model) {
+                    var lastNetwork: Network? = null
+                    var lastCapabilities: Pair<Boolean, Boolean>? = null
                     val callback = object : ConnectivityManager.NetworkCallback() {
-                        override fun onAvailable(network: Network) { runOnUiThread { online = isOnline() } }
-                        override fun onLost(network: Network) { runOnUiThread { online = isOnline() } }
-                        override fun onCapabilitiesChanged(network: Network, caps: NetworkCapabilities) { runOnUiThread { online = isOnline() } }
+                        override fun onAvailable(network: Network) { runOnUiThread {
+                            if (lastNetwork != network) {
+                                lastNetwork = network; lastCapabilities = null
+                                app.connection.networkChanged()
+                            }
+                        } }
+                        override fun onLost(network: Network) { runOnUiThread {
+                            if (lastNetwork == network) {
+                                lastNetwork = null; lastCapabilities = null
+                                app.connection.networkChanged()
+                            }
+                        } }
+                        override fun onCapabilitiesChanged(network: Network, caps: android.net.NetworkCapabilities) {
+                            val next = caps.hasCapability(android.net.NetworkCapabilities.NET_CAPABILITY_INTERNET) to
+                                caps.hasCapability(android.net.NetworkCapabilities.NET_CAPABILITY_VALIDATED)
+                            runOnUiThread {
+                                if (network == lastNetwork && lastCapabilities != next) {
+                                    lastCapabilities = next
+                                    app.connection.networkChanged()
+                                }
+                            }
+                        }
+                    }
+                    val observer = LifecycleEventObserver { _, event ->
+                        if (event == Lifecycle.Event.ON_START) app.connection.setForeground(true)
+                        if (event == Lifecycle.Event.ON_STOP) app.connection.setForeground(false)
                     }
                     connectivity.registerDefaultNetworkCallback(callback)
-                    onDispose { connectivity.unregisterNetworkCallback(callback) }
+                    lifecycle.addObserver(observer)
+                    app.connection.setForeground(lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED))
+                    onDispose {
+                        connectivity.unregisterNetworkCallback(callback)
+                        lifecycle.removeObserver(observer)
+                        app.connection.setForeground(false)
+                    }
                 }
-                RdvRoot(model, online)
+                RdvRoot(model)
+                ConnectionRecovery(model, app.connection)
             }
           }
         }

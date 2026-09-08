@@ -71,7 +71,7 @@ export async function POST(req: Request) {
       for (const order of openOrders.rows) {
         const finance = await client.query<{ item_amount: number; charge_amount: number }>(
           `SELECT
-             COALESCE(SUM(oi.qty * mi.price), 0)::int AS item_amount,
+             COALESCE(SUM(oi.qty * COALESCE(oi.unit_price, mi.price)), 0)::int AS item_amount,
              COALESCE((
                SELECT SUM(amount)::int
                FROM order_charges oc
@@ -83,6 +83,7 @@ export async function POST(req: Request) {
           [order.id]
         );
         const baseAmount = (finance.rows[0]?.item_amount || 0) + (finance.rows[0]?.charge_amount || 0);
+        if (baseAmount <= 0) continue;
 
         for (const rule of taxRules.rows) {
           const amount = rule.mode === "percent"
@@ -120,7 +121,7 @@ export async function POST(req: Request) {
       const summary = await client.query<{ order_count: number; total_amount: number }>(
         `WITH order_total AS (
            SELECT o.id,
-                  COALESCE(SUM(oi.qty * mi.price), 0)::int
+                  COALESCE(SUM(oi.qty * COALESCE(oi.unit_price, mi.price)), 0)::int
                   + COALESCE((
                       SELECT SUM(amount)::int
                       FROM order_charges oc

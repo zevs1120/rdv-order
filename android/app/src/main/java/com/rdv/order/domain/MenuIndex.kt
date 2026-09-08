@@ -8,6 +8,7 @@ data class MenuSelection(val categories: List<String>, val selected: String, val
 /** Built once per menu response, not once per cart edit or sheet recomposition. */
 class MenuIndex(menu: MenuResponse?, private val uncategorized: String) {
     private val items = menu?.items.orEmpty()
+    private val codeItems = menu?.searchItems?.takeIf { it.isNotEmpty() } ?: items
     private fun category(item: MenuItem) = item.category ?: uncategorized
     private val categories = (menu?.subcategories.orEmpty() + items.map(::category))
         .filter { it.isNotBlank() }.distinctBy { it.lowercase() }
@@ -16,6 +17,10 @@ class MenuIndex(menu: MenuResponse?, private val uncategorized: String) {
 
     fun select(input: String, requested: String): MenuSelection {
         val keyword = input.trim().lowercase()
+        if (keyword.matches(Regex("\\d+"))) {
+            val matches = codeItems.filter { it.code != null && it.code == keyword.toIntOrNull() }
+            return MenuSelection(matches.map(::category).distinct(), matches.firstOrNull()?.let(::category).orEmpty(), matches)
+        }
         if (keyword.isEmpty()) {
             val selected = requested.takeIf { it in categories } ?: categories.firstOrNull().orEmpty()
             return MenuSelection(categories, selected, if (selected.isEmpty()) items else byCategory[selected].orEmpty())

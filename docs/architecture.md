@@ -1,5 +1,9 @@
 # Architecture
 
+## Configurable ordering (2026-09-08, pending rollout)
+
+Web/native clients select required options and key cart/draft lines by dish plus canonical choices. The backend validates options and snapshots the catalog-derived price and printable labels atomically with order insertion. Free sets contribute zero; separately purchased drinks remain paid. Bill, report, return, split, merge and print paths retain those snapshots. Menu codes are immutable internal search keys, not display/print prefixes. Migration must precede compatible server deployment; compatible mandatory native upgrade must precede activating required selectors. See `menu-september-2026.md`.
+
 ## System Topology
 - Client: Next.js mobile web app (PWA-capable)
 - API: Next.js Route Handlers (`app/api/*`)

@@ -10,7 +10,7 @@ beforeAll(async () => {
   await db.exec(`
     CREATE TABLE orders(id text PRIMARY KEY, created_at timestamptz, status text, cancelled_at timestamptz, merged_into_order_id text);
     CREATE TABLE menu_items(id text PRIMARY KEY, price integer);
-    CREATE TABLE order_items(order_id text, menu_item_id text, qty integer);
+    CREATE TABLE order_items(order_id text, menu_item_id text, qty integer, unit_price integer);
     CREATE TABLE order_charges(order_id text, amount integer);
     INSERT INTO menu_items VALUES ('dish', 100);
     INSERT INTO orders VALUES
@@ -21,7 +21,7 @@ beforeAll(async () => {
       ('cancel', '2026-09-08T12:00:00Z', 'paid', '2026-09-08T13:00:00Z', NULL),
       ('merged', '2026-09-08T12:00:00Z', 'paid', NULL, 'paid'),
       ('outside', '2026-08-01T12:00:00Z', 'paid', NULL, NULL);
-    INSERT INTO order_items SELECT id, 'dish', 2 FROM orders WHERE id != 'empty';
+    INSERT INTO order_items(order_id, menu_item_id, qty) SELECT id, 'dish', 2 FROM orders WHERE id != 'empty';
     INSERT INTO order_charges VALUES ('paid', 50), ('paid', -20), ('closed', -10);
   `);
 });

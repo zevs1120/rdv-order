@@ -1,5 +1,7 @@
 "use client";
 
+import { useConnectionRefresh } from "../../../lib/use-connection-refresh";
+
 import DatePresets from "../../components/date-presets";
 
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -14,6 +16,7 @@ import { Button } from "../../../components/ui";
 import { RDV_TOPBAR_ACTION_EVENT, type TopbarActionDetail } from "../../../lib/topbar-events";
 
 type OrderItemDetail = {
+  order_item_id?: string;
   menu_item_id: string;
   name: string;
   qty: number;
@@ -53,6 +56,7 @@ export default function ManageOrdersPage() {
   const [toDate, setToDate] = useState("");
   const [renderLimit, setRenderLimit] = useState(ORDER_PROGRESSIVE_THRESHOLD);
   const loadMoreAnchorRef = useRef<HTMLDivElement | null>(null);
+  const ordersRequestRef = useRef<AbortController | null>(null);
   const canRunAction = useActionGuard();
 
 
@@ -81,6 +85,9 @@ export default function ManageOrdersPage() {
   }
 
   async function loadOrders(from: Date, to: Date, tableNoOverride?: string) {
+    ordersRequestRef.current?.abort();
+    const controller = new AbortController();
+    ordersRequestRef.current = controller;
     setLoading(true);
     setError("");
     try {
@@ -102,20 +109,25 @@ export default function ManageOrdersPage() {
 
       const body = await apiFetchJson<{ orders: OrderRow[]; viewerRole?: string }>(
         `/api/manage/orders?${params.toString()}`,
-        { timeoutMs: 6000, retries: 1 }
+        { timeoutMs: 6000, retries: 1, signal: controller.signal }
       );
+      if (controller.signal.aborted || getStoredAuth().token !== token) return;
       if (body.viewerRole) {
         setRole(body.viewerRole);
       }
       setOrders(body.orders || []);
     } catch (err: any) {
+      if (controller.signal.aborted) return;
       if (err.message === "未登录" || err.message === "Not signed in") {
         router.replace("/");
         return;
       }
       setError(err.message || t("orders.loadFailed", "Failed to load orders"));
     } finally {
-      setLoading(false);
+      if (ordersRequestRef.current === controller) {
+        ordersRequestRef.current = null;
+        setLoading(false);
+      }
     }
   }
 
@@ -199,7 +211,7 @@ export default function ManageOrdersPage() {
     }
   }
 
-  async function returnOne(orderId: string, menuItemId: string) {
+  async function returnOne(orderId: string, menuItemId: string, orderItemId?: string) {
     if (!canRunAction()) return;
     setWorkingId(orderId);
     setError("");
@@ -208,6 +220,7 @@ export default function ManageOrdersPage() {
         method: "POST",
         body: {
           menuItemId,
+          orderItemId,
           qty: 1,
           reason: "manual"
         },
@@ -243,6 +256,8 @@ export default function ManageOrdersPage() {
     }
   }
 
+  useConnectionRefresh(reloadWithCurrentRange, !loading && !workingId);
+
   async function applyPreset(next: PresetKey) {
     setPreset(next);
     const range = rangeByPreset(next);
@@ -274,6 +289,7 @@ export default function ManageOrdersPage() {
     setFromDate(toDateInput(range.from));
     setToDate(toDateInput(range.to));
     void loadOrders(range.from, range.to, initialTable);
+    return () => { ordersRequestRef.current?.abort(); ordersRequestRef.current = null; };
   }, []);
 
   useEffect(() => {
@@ -312,7 +328,7 @@ export default function ManageOrdersPage() {
   }, [orders.length, renderLimit]);
 
   const renderedOrders = useMemo(() => orders.slice(0, renderLimit), [orders, renderLimit]);
-  const totalAmount = orders.reduce((sum, row) => sum + row.amount, 0);
+  const totalAmount = useMemo(() => orders.reduce((sum, row) => sum + row.amount, 0), [orders]);
 
   return (
     <div className="stack manage-subpage-screen">
@@ -460,7 +476,7 @@ export default function ManageOrdersPage() {
                                   <button
                                     className="secondary compact-btn"
                                     type="button"
-                                    onClick={() => { void returnOne(order.id, item.menu_item_id); }}
+                                    onClick={() => { void returnOne(order.id, item.menu_item_id, item.order_item_id); }}
                                     disabled={workingId === order.id}
                                   >
                                     {t("orders.returnDish", "退菜")}

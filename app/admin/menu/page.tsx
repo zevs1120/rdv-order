@@ -1,5 +1,7 @@
 "use client";
 
+import { useConnectionRefresh } from "../../../lib/use-connection-refresh";
+
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { apiFetchJson, getStoredAuth } from "../../../lib/client-api";
@@ -113,6 +115,11 @@ export default function MenuAdminPage() {
     allergens: "",
     sortOrder: "0"
   });
+
+  useConnectionRefresh(() => { void loadItems(); void loadMajorCategories(); void loadSubcategories(); },
+    !loading && !subcategoriesLoading && !savingBatch && !savingNew && !deletingId && !deletingSubcategoryId &&
+    !deletingMajorKey && !creatingSubcategory && !creatingMajorCategory && !showCreateForm &&
+    !subcategorySheetOpen && !majorCategorySheetOpen && !items.some(isDirty));
 
   async function loadItems() {
     setLoading(true);

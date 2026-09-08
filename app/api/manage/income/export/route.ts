@@ -108,7 +108,7 @@ export async function GET(req: Request) {
     const detail = await pool.query<ExportRow>(
       `WITH item_total AS (
          SELECT oi.order_id,
-                COALESCE(SUM(oi.qty * mi.price), 0)::int AS subtotal
+                COALESCE(SUM(oi.qty * COALESCE(oi.unit_price, mi.price)), 0)::int AS subtotal
          FROM order_items oi
          JOIN menu_items mi ON mi.id = oi.menu_item_id
          GROUP BY oi.order_id

@@ -18,6 +18,16 @@ import kotlinx.serialization.json.*
 class RdvRepository(val api: Transport, private val store: KeyValueStore, private val origin: () -> String,
     private val clock: () -> Long = System::currentTimeMillis, private val newKey: () -> String = { UUID.randomUUID().toString() }) {
     private val workspaceMutex = Mutex()
+    private val menuMemory = java.util.Collections.synchronizedMap(LinkedHashMap<String, CachedMenu>())
+    private fun menuKey(shift: String) = "menu:${digest(storageOrigin())}:$shift"
+    // Match the public menu's existing 60-second freshness window; never cache financial reports here.
+    fun freshMenu(shift: String): MenuResponse? = menuMemory[menuKey(shift)]?.let {
+        it.response.takeIf { _ -> clock() - it.savedAt in 0..59_999L }
+    }
+    private fun rememberMenu(key: String, value: CachedMenu) = synchronized(menuMemory) {
+        if (menuMemory.size >= 32 && !menuMemory.containsKey(key)) menuMemory.remove(menuMemory.keys.first())
+        menuMemory[key] = value
+    }
     private data class ScopeCache(val token: String, val origin: String, val value: String)
     @Volatile private var cachedScope: ScopeCache? = null
     private suspend inline fun <reified T> decodeResponse(text: String): T = withContext(Dispatchers.Default) {
@@ -69,14 +79,22 @@ class RdvRepository(val api: Transport, private val store: KeyValueStore, privat
         api.request("/api/tables/merge", "POST", jsonBody("primaryTable" to primary, "secondaryTable" to secondary, "guestCount" to guests), timeoutMs = 7_000, retries = 1).text).session
 
     suspend fun cachedMenu(shift: String): MenuResponse? = withContext(Dispatchers.IO) {
-        store.get("menu:${digest(storageOrigin())}:$shift")?.let { raw ->
+        val key = menuKey(shift)
+        menuMemory[key]?.let { cached ->
+            if (clock() - cached.savedAt in 0..14L * 24 * 60 * 60 * 1000) return@withContext cached.response
+        }
+        store.get(key)?.let { raw ->
             val cached = RdvJson.decodeFromString<CachedMenu>(raw)
+            rememberMenu(key, cached)
             cached.response.takeIf { clock() - cached.savedAt in 0..14L * 24 * 60 * 60 * 1000 }
         }
     }
     suspend fun menu(shift: String): MenuResponse {
+        val key = menuKey(shift)
         val result = decodeResponse<MenuResponse>(api.request("/api/menu", query = mapOf("shift" to shift), authenticated = false, timeoutMs = 5_000).text)
-        withContext(Dispatchers.IO) { store.put("menu:${digest(storageOrigin())}:$shift", RdvJson.encodeToString(CachedMenu(result, clock()))) }
+        val cached = CachedMenu(result, clock())
+        withContext(Dispatchers.IO) { store.put(key, RdvJson.encodeToString(cached)) }
+        rememberMenu(key, cached)
         return result
     }
     private fun readWorkspace(default: Draft, storageKey: String = workspaceKey(default.tableNo)): Workspace = store.get(storageKey)
@@ -142,14 +160,15 @@ class RdvRepository(val api: Transport, private val store: KeyValueStore, privat
     suspend fun checkout(table: String): CheckoutResult = RdvJson.decodeFromString<CheckoutResult>(api.request("/api/tables/checkout", "POST", jsonBody("tableNo" to table), timeoutMs = 8_000, retries = 1).text)
     suspend fun close(table: String) { api.request("/api/tables/close", "POST", jsonBody("tableNo" to table), timeoutMs = 7_000, retries = 1) }
     suspend fun unmerge(table: String): JsonObject = requestObject("/api/tables/unmerge", "POST", jsonBody("tableNo" to table), timeoutMs = 7_000, retries = 1)
-    suspend fun returnItem(orderId: String, item: String, qty: Int, reason: String = "manual correction") {
-        api.request("/api/orders/$orderId/return-item", "POST", jsonBody("menuItemId" to item, "qty" to qty, "reason" to reason), timeoutMs = 7_000)
+    suspend fun returnItem(orderId: String, item: String, qty: Int, reason: String = "manual correction", orderItemId: String? = null) {
+        api.request("/api/orders/$orderId/return-item", "POST", jsonBody("menuItemId" to item, "qty" to qty, "reason" to reason, "orderItemId" to orderItemId), timeoutMs = 7_000)
     }
     suspend fun customDish(body: JsonObject): MenuItem = RdvJson.decodeFromJsonElement(
         requestObject("/api/menu/custom", "POST", body, timeoutMs = 7_000).getValue("item"))
     suspend fun requestObject(path: String, method: String = "GET", body: JsonElement? = null,
         query: Map<String, String> = emptyMap(), timeoutMs: Long = 6_000, retries: Int = if (method == "GET") 1 else 0): JsonObject {
         val text = api.request(path, method, body, query, timeoutMs = timeoutMs, retries = retries).text
+        if (method != "GET" && (path.startsWith("/api/admin/menu") || path.startsWith("/api/menu"))) menuMemory.clear()
         return withContext(Dispatchers.Default) { RdvJson.parseToJsonElement(text).jsonObject }
     }
     suspend fun management(path: String, query: Map<String, String> = emptyMap(),

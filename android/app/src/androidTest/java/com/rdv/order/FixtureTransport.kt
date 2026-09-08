@@ -1,6 +1,7 @@
 package com.rdv.order
 
 import com.rdv.order.data.*
+import com.rdv.order.domain.MenuOptions
 import java.io.IOException
 import java.util.Base64
 import kotlinx.serialization.json.*
@@ -25,6 +26,13 @@ class FixtureTransport : Transport {
     val fish = MenuItem("22222222-2222-4222-8222-222222222222", "Grouper", 150, "Seasonal Seafood")
     val tea = MenuItem("33333333-3333-4333-8333-333333333333", "English Breakfast Tea", 120, "Tea")
     val longDish = MenuItem("44444444-4444-4444-8444-444444444444", "Sichuan Spicy Chicken Cubes with Vegetables", 520, "Rice")
+    val freeBreakfast = MenuItem("55555555-5555-4555-8555-555555555555", "Chinese Wonton Set", 0, "Complimentary Breakfast", code = 161,
+        isComplimentary = true, optionGroups = listOf(MenuOptionGroup("beverage", "Beverage", options = listOf(
+            MenuOption("coke", "Coke"), MenuOption("coke_zero", "Coke Zero"), MenuOption("sprite", "Sprite"), MenuOption("royal", "Royal"),
+            MenuOption("mango", "Mango Juice"), MenuOption("pineapple", "Pineapple Juice"), MenuOption("four_seasons", "Four Seasons Juice"),
+            MenuOption("pineapple_orange", "Pineapple Orange Juice"), MenuOption("instant_coffee", "Instant Black Coffee"), MenuOption("milk", "Pure Milk"), MenuOption("tea", "Tea")))))
+    val chop = MenuItem("66666666-6666-4666-8666-666666666666", "Chop Suey", 420, "Filipino Food", code = 18,
+        optionGroups = listOf(MenuOptionGroup("protein", "Protein", options = listOf(MenuOption("chicken", "Chicken"), MenuOption("pork", "Pork", priceDelta = 30)))))
     private val categories = listOf(MajorCategory("lunch", "午餐", "Lunch"), MajorCategory("beverage", "饮品", "Beverage"))
     override suspend fun request(path: String, method: String, body: JsonElement?, query: Map<String, String>, idempotencyKey: String?, timeoutMs: Long, retries: Int, authenticated: Boolean): ApiResponse {
         calls.add(Call(path, method, body, idempotencyKey))
@@ -47,7 +55,7 @@ class FixtureTransport : Transport {
             }))
             "/api/menu" -> {
                 val shift = query["shift"] ?: "lunch"
-                RdvJson.encodeToString(MenuResponse(if (shift == "beverage") listOf(tea) else listOf(rice, fish, longDish), if (shift == "beverage") listOf("Tea") else listOf("Rice", "Seasonal Seafood"), categories, shift))
+                RdvJson.encodeToString(MenuResponse(if (shift == "beverage") listOf(tea) else listOf(rice, fish, longDish), if (shift == "beverage") listOf("Tea") else listOf("Rice", "Seasonal Seafood"), categories, shift, searchItems = listOf(rice, fish, tea, longDish, freeBreakfast, chop)))
             }
             "/api/orders" -> {
                 val payload = RdvJson.decodeFromJsonElement<SubmitPayload>(body!!)
@@ -80,11 +88,12 @@ class FixtureTransport : Transport {
         return ApiResponse(result, "application/json", null)
     }
     private fun bill(table: String): Bill {
-        val menu = listOf(rice, fish, tea, longDish).associateBy { it.id }
+        val menu = listOf(rice, fish, tea, longDish, freeBreakfast, chop).associateBy { it.id }
         val orders = savedOrders.values.filter { it.first.tableNo == table }.map { (payload, id) ->
             val items = payload.items.map { item ->
                 val dish = menu.getValue(item.menuItemId)
-                BillItem(dish.id, dish.name, item.qty, dish.price * item.qty, item.note)
+                BillItem(dish.id, dish.name, item.qty, MenuOptions.price(dish, item.choices) * item.qty,
+                    listOf(MenuOptions.labels(dish, item.choices, "en"), item.note.orEmpty()).filter { it.isNotBlank() }.joinToString("; "))
             }
             BillOrder(id, "submitted", totalAmount = items.sumOf { it.amount }, itemAmount = items.sumOf { it.amount }, items = items)
         }

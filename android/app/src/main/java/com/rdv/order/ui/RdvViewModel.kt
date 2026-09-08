@@ -26,6 +26,7 @@ data class UiState(
     val bill: Bill? = null,
     val sheet: String = "",
     val noteItem: MenuItem? = null,
+    val noteChoices: Map<String, String> = emptyMap(),
     val selectMode: Boolean = false,
     val selectedTables: List<String> = emptyList(),
     val management: JsonObject = JsonObject(emptyMap()),
@@ -39,6 +40,8 @@ class RdvViewModel(val repository: RdvRepository, val strings: Strings, private 
     private var persistError: Throwable? = null
     private var loadJob: Job? = null
     private var menuJob: Job? = null
+    private var connectionReadJob: Job? = null
+    private var readError: String? = null
     private var lastSubmitted = ""
     private var lastSubmittedAt = 0L
     private var epoch = 0
@@ -120,21 +123,54 @@ class RdvViewModel(val repository: RdvRepository, val strings: Strings, private 
     fun refresh() {
         when (state.value.screen) {
             Screen.TABLES -> load { val tables = repository.tables(); mutable.update { it.copy(tables = tables) } }
-            Screen.ORDER -> selectShift(state.value.draft?.shift ?: "lunch")
+            Screen.ORDER -> selectShift(state.value.draft?.shift ?: "lunch", forceRefresh = true)
             Screen.LOGIN, Screen.MORE, Screen.UPDATES -> Unit
             else -> loadManagement()
         }
     }
+    // Recovery only reads the current screen. Never clears an uncertain write result or draft.
+    fun restoreConnectionReads() {
+        val before = state.value
+        if (!before.ready || before.busy || before.loading || before.sheet.isNotEmpty() || expiringSession) return
+        if (before.screen in setOf(Screen.LOGIN, Screen.MORE, Screen.UPDATES)) return
+        // These screens edit their loaded data in place; do not replace an open editor.
+        if (before.screen in setOf(Screen.FEES, Screen.MENU) && before.management.isNotEmpty()) return
+        if (before.screen == Screen.ORDER && before.menu != null && repository.freshMenu(before.draft?.shift ?: "lunch") != null) return
+        if (connectionReadJob?.isActive == true) return
+        val currentEpoch = epoch
+        connectionReadJob = viewModelScope.launch {
+            try {
+                val tables = if (before.screen == Screen.TABLES) repository.tables() else null
+                val menu = if (before.screen == Screen.ORDER) repository.menu(before.draft?.shift ?: "lunch") else null
+                val management = if (before.screen !in setOf(Screen.TABLES, Screen.ORDER)) readManagement(before) else null
+                val current = state.value
+                if (epoch != currentEpoch || current.busy || current.loading || current.screen != before.screen ||
+                    current.filters != before.filters || current.draft?.shift != before.draft?.shift) return@launch
+                if (before.screen in setOf(Screen.FEES, Screen.MENU) && current.management != before.management) return@launch
+                mutable.update { it.copy(tables = tables ?: it.tables, menu = menu ?: it.menu,
+                    management = management ?: it.management,
+                    error = if (readError != null && it.error == readError) "" else it.error) }
+                readError = null
+            } catch (e: Exception) {
+                if (e is CancellationException) throw e
+                // Keep the original operation error visible. The transport drives connection recovery.
+                if (e is ApiException && e.status == 401 && epoch == currentEpoch) fail(e)
+            }
+        }
+    }
     private fun load(block: suspend () -> Unit) {
+        connectionReadJob?.cancel()
         loadJob?.cancel()
         loadJob = viewModelScope.launch {
             mutable.update { it.copy(loading = true, error = "") }
-            try { block() } catch (e: Exception) { fail(e) }
+            try { block(); readError = null } catch (e: Exception) { fail(e); readError = state.value.error }
             finally { if (isActive) mutable.update { it.copy(loading = false) } }
         }
     }
     fun action(block: suspend () -> Unit) {
         if (state.value.busy || expiringSession) return
+        connectionReadJob?.cancel()
+        readError = null
         mutable.update { it.copy(busy = true, error = "") }
         viewModelScope.launch {
             try { block() } catch (e: Exception) { fail(e) }
@@ -178,6 +214,7 @@ class RdvViewModel(val repository: RdvRepository, val strings: Strings, private 
         if (state.value.busy) return
         val draft = state.value.draft ?: return
         val next = transform(draft)
+        if (next == draft) return
         mutable.update { it.copy(draft = next) }
         val save = repository.prepareDraftSave(next)
         val previous = persistJob
@@ -188,11 +225,16 @@ class RdvViewModel(val repository: RdvRepository, val strings: Strings, private 
     }
     fun keyword(value: String) = editDraft { it.copy(keyword = value) }
     fun category(value: String) = editDraft { it.copy(category = value) }
-    fun selectShift(shift: String) {
+    fun selectShift(shift: String, forceRefresh: Boolean = false) {
+        connectionReadJob?.cancel()
         val current = state.value.draft ?: return
         if (current.shift != shift) editDraft { it.copy(shift = shift) }
         menuJob?.cancel()
         val currentEpoch = epoch
+        if (!forceRefresh) repository.freshMenu(shift)?.let { menu ->
+            mutable.update { it.copy(menu = menu, loading = false, error = "", draft = it.draft?.copy(shift = menu.shift)) }
+            return
+        }
         menuJob = viewModelScope.launch {
             mutable.update { it.copy(loading = true) }
             try {
@@ -201,25 +243,38 @@ class RdvViewModel(val repository: RdvRepository, val strings: Strings, private 
                 mutable.update { it.copy(menu = cached) }
                 val menu = repository.menu(shift)
                 if (epoch == currentEpoch) mutable.update { it.copy(menu = menu, draft = it.draft?.copy(shift = menu.shift)) }
-            } catch (e: Exception) { if (epoch == currentEpoch) fail(e) }
+            } catch (e: Exception) { if (epoch == currentEpoch) { fail(e); readError = state.value.error } }
             finally { if (isActive && epoch == currentEpoch) mutable.update { it.copy(loading = false) } }
         }
     }
-    fun quantity(item: MenuItem, value: Int, note: String? = state.value.draft?.lines?.find { it.item.id == item.id }?.note) = editDraft { draft ->
-        val line = CartLine(item, value.coerceAtLeast(0), note)
-        val exists = draft.lines.any { it.item.id == item.id }
-        val lines = if (value <= 0) draft.lines.filterNot { it.item.id == item.id }
-            else if (exists) draft.lines.map { if (it.item.id == item.id) line else it } else draft.lines + line
+    fun quantity(item: MenuItem, value: Int, note: String? = state.value.draft?.lines?.find { it.item.id == item.id && it.choices.isEmpty() }?.note,
+        choices: Map<String, String> = emptyMap()) = editDraft { draft ->
+        val line = CartLine(item, value.coerceAtLeast(0), note, choices)
+        fun matches(other: CartLine) = other.item.id == item.id && other.choices == choices
+        val exists = draft.lines.any(::matches)
+        val lines = if (value <= 0) draft.lines.filterNot(::matches)
+            else if (exists) draft.lines.map { if (matches(it)) line else it } else draft.lines + line
         draft.copy(lines = lines)
     }
+    fun quantityLine(line: CartLine, value: Int) = quantity(line.item, value, line.note, line.choices)
+    fun addConfigured(item: MenuItem, choices: Map<String, String>) {
+        if (!MenuOptions.complete(item, choices)) return
+        val current = state.value.draft?.lines?.find { it.item.id == item.id && it.choices == choices }
+        quantity(item, (current?.qty ?: 0) + 1, current?.note, choices)
+        sheet("cart")
+    }
     fun add(item: MenuItem) {
+        if (item.optionGroups.isNotEmpty()) {
+            mutable.update { it.copy(noteItem = item, noteChoices = emptyMap(), sheet = "choices") }
+            return
+        }
         val qty = state.value.draft?.lines?.find { it.item.id == item.id }?.qty ?: 0
         quantity(item, qty + 1)
         if (Seafood.config(item.name) != null) {
             mutable.update { it.copy(noteItem = item, sheet = "note") }
         } else mutable.update { it.copy(sheet = "cart") }
     }
-    fun note(item: MenuItem) { mutable.update { it.copy(noteItem = item, sheet = "note") } }
+    fun note(item: MenuItem, choices: Map<String, String> = emptyMap()) { mutable.update { it.copy(noteItem = item, noteChoices = choices, sheet = "note") } }
     fun sheet(value: String) { if (!state.value.busy) mutable.update { it.copy(sheet = value) } }
     fun showBill() {
         mutable.update { it.copy(sheet = "bill") }
@@ -265,7 +320,7 @@ class RdvViewModel(val repository: RdvRepository, val strings: Strings, private 
     }
     fun returnItem(order: String, item: BillItem, qty: Int) = action {
         require(qty in 1..item.qty) { "退菜数量无效" }
-        repository.returnItem(order, item.menuItemId, qty)
+        repository.returnItem(order, item.menuItemId, qty, orderItemId = item.orderItemId)
         val bill = repository.bill(state.value.draft!!.tableNo)
         mutable.update { it.copy(bill = bill) }
     }
@@ -281,9 +336,13 @@ class RdvViewModel(val repository: RdvRepository, val strings: Strings, private 
     fun filters(values: Map<String, String>) { mutable.update { it.copy(filters = values) }; loadManagement() }
     fun updateManagement(data: JsonObject) { mutable.update { it.copy(management = data) } }
     fun loadManagement() {
-        val screen = state.value.screen
+        val snapshot = state.value
+        load { val result = readManagement(snapshot); mutable.update { it.copy(management = result) } }
+    }
+    private suspend fun readManagement(snapshot: UiState): JsonObject {
+        val screen = snapshot.screen
         val defaults = DateRules.preset("today", LocalDate.now(), ZoneId.systemDefault())
-        val query = if (state.value.filters.isEmpty()) mapOf("from" to defaults.from.toString(), "to" to defaults.to.toString()) else state.value.filters
+        val query = if (snapshot.filters.isEmpty()) mapOf("from" to defaults.from.toString(), "to" to defaults.to.toString()) else snapshot.filters
         val path = when (screen) {
             Screen.ORDERS -> "/api/manage/orders"
             Screen.INCOME -> "/api/manage/income"
@@ -293,18 +352,15 @@ class RdvViewModel(val repository: RdvRepository, val strings: Strings, private 
             Screen.RBAC -> "/api/admin/permissions"
             Screen.MENU -> "/api/admin/menu-items"
             Screen.SUMMARY -> "/api/summary"
-            else -> return
+            else -> return JsonObject(emptyMap())
         }
-        load {
-            val related = when (screen) {
-                Screen.DEVICES -> mapOf("health" to "/api/print/health")
-                Screen.MENU -> mapOf("majorData" to "/api/admin/menu-categories", "subData" to "/api/admin/menu-subcategories")
-                else -> emptyMap()
-            }
-            val result = repository.management(path,
+        val related = when (screen) {
+            Screen.DEVICES -> mapOf("health" to "/api/print/health")
+            Screen.MENU -> mapOf("majorData" to "/api/admin/menu-categories", "subData" to "/api/admin/menu-subcategories")
+            else -> emptyMap()
+        }
+        return repository.management(path,
                 query = if (screen in setOf(Screen.ORDERS, Screen.INCOME, Screen.HOT, Screen.SUMMARY)) query else emptyMap(), related = related)
-            mutable.update { it.copy(management = result) }
-        }
     }
     fun manageAction(path: String, method: String = "POST", body: JsonElement? = null) = action {
         repository.requestObject(path, method, body, timeoutMs = 8_000)
