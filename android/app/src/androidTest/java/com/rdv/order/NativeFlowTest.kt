@@ -208,6 +208,9 @@ class NativeFlowTest {
     @Test fun menuCodesAndRequiredChoicesKeepSeparateFreeDrinksAndVariantPrices() {
         login(); openTable()
         compose.onNodeWithTag("menu-search").performTextReplacement("161")
+        compose.onNodeWithTag("clear-menu-search").assertIsDisplayed().performClick()
+        compose.runOnIdle { assertEquals("", vm.state.value.draft!!.keyword) }
+        compose.onNodeWithTag("menu-search").performTextReplacement("161")
         compose.onNodeWithTag("add-${transport.freeBreakfast.id}").performScrollTo().performClick()
         compose.onNodeWithText("Add to order").assertIsNotEnabled()
         compose.onNodeWithTag("choice-beverage-tea").performScrollTo().assertIsDisplayed()

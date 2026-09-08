@@ -1111,6 +1111,12 @@ export default function OrderPage() {
     keywordDebouncedSyncRef.current?.(nextValue);
   }, []);
 
+  const clearKeywordInput = useCallback(() => {
+    keywordDebouncedSyncRef.current?.cancel();
+    setKeywordInput("");
+    setKeyword("");
+  }, []);
+
   const onSelectShift = useCallback((nextShift: ShiftKey) => {
     setMenuScrollRow(0);
     if (menuPaneRef.current) menuPaneRef.current.scrollTop = 0;
@@ -1588,6 +1594,8 @@ export default function OrderPage() {
             onChange={(e) => onKeywordInputChange(e.target.value)}
             placeholder={lang === 'en' ? 'Dish name or code' : '输入菜名或编号'}
             className={styles.searchCompact}
+            onClear={keywordInput ? clearKeywordInput : undefined}
+            clearLabel={lang === "en" ? "Clear dish search" : "清除菜名或编号搜索"}
           />
         </Card>
 

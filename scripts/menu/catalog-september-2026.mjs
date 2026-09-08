@@ -167,15 +167,15 @@ export function catalog() {
       sort_order: 100 + index, option_groups: name === 'Chop Suey' ? [group('protein', 'Protein', '选择肉类', [option('chicken', 'Chicken', '鸡肉'), option('pork', 'Pork', '猪肉', 30)])] : [] };
   });
   for (const [index, [name, price, description]] of breakfast.entries()) {
-    rows.push({ name, price, description, category: 'Breakfast Set', menu_group: 'breakfast', available_shifts: ['breakfast'],
+    rows.push({ name, price, description, category: 'Set', menu_group: 'breakfast', available_shifts: ['breakfast'],
       item_type: 'set', sort_order: 10 + index, option_groups: name === 'Filipino Breakfast' ? filipino : [] });
-    rows.push({ name, price: 0, description, category: 'Complimentary Breakfast', menu_group: 'breakfast', available_shifts: ['breakfast'],
+    rows.push({ name, price: 0, description, category: 'Free', menu_group: 'breakfast', available_shifts: ['breakfast'],
       item_type: 'set', is_complimentary: true, sort_order: -20 + index, option_groups: [drinks, ...(name === 'Filipino Breakfast' ? filipino : [])] });
   }
   for (const [index, [name, price, description]] of [
     ['Tea Egg', 50, '1 pc'], ['Fried Egg', 35, '1 pc'], ['Wontons', 260, '8 pcs'], ['Bacon', 150, '3 pcs'],
     ['Pan-fried Mantou', 100, '1 serving'], ['Chinese Crepe', 40, '1 pc'], ['Steamed Mantou', 30, '1 pc'], ['Toast', 30, '1 pc'],
-  ].entries()) rows.push({ name, price, description, category: 'Breakfast Add-ons', menu_group: 'breakfast', available_shifts: ['breakfast'], sort_order: 30 + index, option_groups: [] });
+  ].entries()) rows.push({ name, price, description, category: 'Add-ons', menu_group: 'breakfast', available_shifts: ['breakfast'], sort_order: 30 + index, option_groups: [] });
   const breakfastDrinks = [
     ['Coke', 90], ['Coke Zero', 90], ['Sprite', 90], ['Royal', 90], ['Coke Zero (Vanilla)', 100],
     ['Mango Juice', 90], ['Pineapple Juice', 90], ['Four Seasons Juice', 90], ['Pineapple Orange Juice', 90],
@@ -185,7 +185,7 @@ export function catalog() {
   for (const [index, [name, price]] of breakfastDrinks.entries()) {
     const shared = rows.find(row => row.name === name && row.menu_group === 'lunch_dinner' && row.price === price && name !== 'Espresso');
     if (shared) shared.available_shifts.push('breakfast');
-    else rows.push({ name, price, category: 'Breakfast Beverages', menu_group: 'breakfast',
+    else rows.push({ name, price, category: 'Coffee', menu_group: 'breakfast',
       available_shifts: ['breakfast'], sort_order: 50 + index,
       option_groups: name === 'Espresso' ? [group('shots', 'Shots', '浓缩份数', [option('single', '1 shot', '单份'), option('double', '2 shots', '双份', 70)])] : [] });
   }

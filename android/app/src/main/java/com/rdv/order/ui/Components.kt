@@ -93,23 +93,27 @@ private fun Modifier.bottomRule(color: Color = RdvColors.Border) = drawBehind {
     }
 }
 @Composable fun RdvField(label: String, value: String, onChange: (String) -> Unit, modifier: Modifier = Modifier,
-    numeric: Boolean = false, password: Boolean = false, enabled: Boolean = true, singleLine: Boolean = true) {
+    numeric: Boolean = false, password: Boolean = false, enabled: Boolean = true, singleLine: Boolean = true,
+    trailingIcon: (@Composable () -> Unit)? = null) {
     if (LocalLinearSettings.current || LocalFlatOrdering.current) {
-        RdvLineField(label, value, onChange, modifier, password = password, enabled = enabled, numeric = numeric, singleLine = singleLine)
+        RdvLineField(label, value, onChange, modifier, password = password, enabled = enabled, numeric = numeric, singleLine = singleLine, trailingIcon = trailingIcon)
         return
     }
     OutlinedTextField(value, onChange, modifier.fillMaxWidth(), label = { Text(label) },
         singleLine = singleLine, enabled = enabled, shape = RoundedCornerShape(12.dp),
         keyboardOptions = KeyboardOptions(keyboardType = when { password -> KeyboardType.Password; numeric -> KeyboardType.Decimal; else -> KeyboardType.Text }),
         visualTransformation = if (password) PasswordVisualTransformation() else VisualTransformation.None,
+        trailingIcon = trailingIcon,
         colors = OutlinedTextFieldDefaults.colors(unfocusedBorderColor = RdvColors.Border))
 }
 @Composable fun RdvLineField(label: String, value: String, onChange: (String) -> Unit, modifier: Modifier = Modifier,
-    password: Boolean = false, enabled: Boolean = true, numeric: Boolean = false, singleLine: Boolean = true) {
+    password: Boolean = false, enabled: Boolean = true, numeric: Boolean = false, singleLine: Boolean = true,
+    trailingIcon: (@Composable () -> Unit)? = null) {
     TextField(value, onChange, modifier.fillMaxWidth(), label = { Text(label) }, singleLine = singleLine, enabled = enabled,
         shape = RoundedCornerShape(0.dp),
         keyboardOptions = KeyboardOptions(keyboardType = when { password -> KeyboardType.Password; numeric -> KeyboardType.Decimal; else -> KeyboardType.Text }),
         visualTransformation = if (password) PasswordVisualTransformation() else VisualTransformation.None,
+        trailingIcon = trailingIcon,
         colors = TextFieldDefaults.colors(
             focusedContainerColor = if (LocalFlatOrdering.current) RdvColors.OrderCanvas else Color.Transparent,
             unfocusedContainerColor = if (LocalFlatOrdering.current) RdvColors.OrderCanvas else Color.Transparent,

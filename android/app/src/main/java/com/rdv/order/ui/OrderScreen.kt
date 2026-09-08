@@ -7,6 +7,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Add
+import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -50,7 +51,14 @@ import kotlin.math.roundToLong
                 Text("${vm.either("桌号", "Table")} ${draft.tableNo}", fontWeight = FontWeight.Bold, fontSize = 17.sp)
                 Text("${draft.guests} ${vm.either("人", "Guests")}", color = RdvColors.Brand)
             }
-            RdvField(vm.either("输入菜名或编号", "Dish name or code"), draft.keyword, vm::keyword, Modifier.testTag("menu-search"), enabled = !state.busy)
+            RdvField(vm.either("输入菜名或编号", "Dish name or code"), draft.keyword, vm::keyword, Modifier.testTag("menu-search"), enabled = !state.busy,
+                trailingIcon = if (draft.keyword.isBlank()) null else {
+                    {
+                        IconButton(onClick = { vm.keyword("") }, enabled = !state.busy, modifier = Modifier.testTag("clear-menu-search")) {
+                            Icon(Icons.Outlined.Close, vm.either("清除菜名或编号搜索", "Clear dish search"))
+                        }
+                    }
+                })
         }
         Surface(color = RdvColors.OrderSection, shape = RectangleShape) {
             Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {

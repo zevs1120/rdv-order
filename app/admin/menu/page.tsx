@@ -62,7 +62,7 @@ const FALLBACK_MAJOR_CATEGORIES: MenuMajorCategory[] = [
 ];
 
 const DEFAULT_CATEGORY_OPTIONS: Record<MenuGroup, string[]> = {
-  breakfast: ["Breakfast Set", "Eggs", "Bread", "Coffee", "Juice"],
+  breakfast: ["Set", "Eggs", "Bread", "Coffee", "Juice"],
   lunch_dinner: ["Filipino Food", "Soup", "Salad", "Pasta", "Rice", "Dessert"],
   cocktail: ["Classic", "Signature", "Mocktail", "Beer", "Wine", "Spirits"],
   set_menu: ["套餐"]
