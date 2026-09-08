@@ -1,15 +1,15 @@
 {
   "name": "RDV Team",
   "status": "available",
-  "version": "1.2.1",
-  "versionCode": 4,
+  "version": "1.2.2",
+  "versionCode": 5,
   "minAndroid": "8.0",
   "packageName": "com.rdv.staff",
-  "file": "/releases/rdv-team-1.2.1.apk",
-  "bytes": 2556909,
-  "sha256": "fe1d0cc183fc2454aae0a3a95045b7164e35aec3255f2373288f137997d6b092",
+  "file": "/releases/rdv-team-1.2.2.apk",
+  "bytes": 2573293,
+  "sha256": "72e6cb32ed96765130eed6c7a9f88198a38ddc1beea1b048cff90e2172d886b6",
   "notes": {
-    "zh": "统一 Today、客房详情、Team 与 More 界面；新增入住操作滑动确认、应用内更新管理；优化注册页居中照片框与登录文案。",
-    "en": "Updated Today, room details, Team and More; slide-to-confirm stay actions, in-app update management, and refined registration with a centered photo frame."
+    "zh": "修复中国网络下的连接问题；密码最低6位，纯数字可用；新增启动自动检查更新与登录前更新入口。",
+    "en": "Uses the Team domain for connectivity. Accepts passwords of 6 or more characters, including numbers only. Adds launch update checks and updates before login."
   }
 }
