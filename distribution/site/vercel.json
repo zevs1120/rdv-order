@@ -22,6 +22,7 @@
       {"key": "Content-Disposition", "value": "attachment; filename=\"rdv-order.apk\""},
       {"key": "Cache-Control", "value": "no-store"}
     ]},
-    {"source": "/release.json", "headers": [{"key": "Cache-Control", "value": "no-store"}]}
+    {"source": "/release.json", "headers": [{"key": "Cache-Control", "value": "no-store"}]},
+    {"source": "/staff-release.json", "headers": [{"key": "Cache-Control", "value": "no-store"}]}
   ]
 }
