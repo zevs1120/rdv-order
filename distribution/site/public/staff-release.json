@@ -1,4 +1,15 @@
 {
   "name": "RDV Team",
-  "status": "unavailable"
+  "status": "available",
+  "version": "1.2.1",
+  "versionCode": 4,
+  "minAndroid": "8.0",
+  "packageName": "com.rdv.staff",
+  "file": "/releases/rdv-team-1.2.1.apk",
+  "bytes": 2556909,
+  "sha256": "fe1d0cc183fc2454aae0a3a95045b7164e35aec3255f2373288f137997d6b092",
+  "notes": {
+    "zh": "统一 Today、客房详情、Team 与 More 界面；新增入住操作滑动确认、应用内更新管理；优化注册页居中照片框与登录文案。",
+    "en": "Updated Today, room details, Team and More; slide-to-confirm stay actions, in-app update management, and refined registration with a centered photo frame."
+  }
 }

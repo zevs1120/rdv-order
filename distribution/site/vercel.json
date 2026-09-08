@@ -4,7 +4,7 @@
   "installCommand": "echo Static download site: no dependencies",
   "buildCommand": "node verify.mjs",
   "outputDirectory": "public",
-  "rewrites": [{"source": "/rdv-order.apk", "destination": "/releases/rdv-order-1.0.0.apk"}],
+  "rewrites": [{"source": "/rdv-order.apk", "destination": "/releases/rdv-order-1.0.0.apk"}, {"source": "/rdv-team.apk", "destination": "/releases/rdv-team-1.2.1.apk"}],
   "headers": [
     {"source": "/(.*)", "headers": [
       {"key": "X-Content-Type-Options", "value": "nosniff"},
@@ -20,6 +20,11 @@
     {"source": "/rdv-order.apk", "headers": [
       {"key": "Content-Type", "value": "application/vnd.android.package-archive"},
       {"key": "Content-Disposition", "value": "attachment; filename=\"rdv-order.apk\""},
+      {"key": "Cache-Control", "value": "no-store"}
+    ]},
+    {"source": "/rdv-team.apk", "headers": [
+      {"key": "Content-Type", "value": "application/vnd.android.package-archive"},
+      {"key": "Content-Disposition", "value": "attachment; filename=\"rdv-team.apk\""},
       {"key": "Cache-Control", "value": "no-store"}
     ]},
     {"source": "/release.json", "headers": [{"key": "Cache-Control", "value": "no-store"}]},

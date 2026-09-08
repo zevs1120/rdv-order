@@ -1,9 +1,11 @@
-# RDV Team publication gate
+# RDV Team 1.2.1 publication
 
-2026-09-08: the user authorized adding the native Team APK to the existing Team tab. Order metadata, APKs and tab stay unchanged. Team currently remains **unavailable**, because the corresponding Guest/Staff production database lacks required migrations and Firebase is not provisioned. Do not upload or advertise the candidate as ready yet.
+2026-09-08: user explicitly requested publishing all current changes for their own real testing. Production Guest/Staff database backup and migration have completed. The earlier hold is superseded; authenticated real-account smoke and Firebase push delivery remain unverified and are not represented as passed.
 
-The sibling `rdv-guest-staff-h5-2` repository produced a signed 1.2.0 (3) candidate of 2,556,913 bytes. Its delivery record contains the full signing/hash/build evidence and production gate. This site now supports a separate `/staff-release.json`; absent or invalid release metadata preserves Coming soon. Published metadata requires package `com.rdv.staff`, immutable `/releases/rdv-team-VERSION.apk`, exact bytes/SHA-256 and bilingual notes. Add `/rdv-team.apk` as a stable rewrite when publishing the real artifact. Do not edit `/release.json` or `/rdv-order.apk` for Team.
+- Version 1.2.1 (4), package `com.rdv.staff`, Android 8.0+.
+- Immutable file `/releases/rdv-team-1.2.1.apk`; stable alias `/rdv-team.apk`.
+- 2,556,909 bytes; SHA-256 `fe1d0cc183fc2454aae0a3a95045b7164e35aec3255f2373288f137997d6b092`.
+- Existing dedicated signing certificate SHA-256 `c65c6c501c5ca826a438d132557ef78d4e1f101d32500b2b18fa3ba288969830`; APK v2 signature verified.
+- Includes all current Staff UI increments and the latest centered registration photo frame, Optional label and Register login action. R8/resource shrinking enabled. In-app updates currently download the full compact APK, not a delta patch.
 
-Focused checks already run: `node distribution/site/verify.mjs` with unavailable metadata and `node distribution/site/verify-staff-release-fixture.mjs /absolute/path/to/app-release.apk` against the genuine candidate in a disposable directory. A review corrected the metadata-loader assertion to read language.js rather than HTML. The fixture copies only public verification inputs, excluding local deployment credentials. No Order app build or full test suite was repeated.
-
-Next action: clear the backend/notification release gates, then copy the final signed artifact, derive metadata, run the site verifier once and publish. This source preparation is not evidence of a public release.
+Order metadata, APKs and tab remain unchanged. Concurrent Order source and delta-update changes are excluded. The static verification for this release uses an exported Git-index snapshot, so uncommitted Order verifier changes do not affect the check or deployment. No Order build or full test suite is included. The obsolete local 1.2.0 candidate is not published.
