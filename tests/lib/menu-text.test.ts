@@ -5,8 +5,10 @@ describe("menu text localization", () => {
   it("localizeMenuText should map known zh/en pairs bidirectionally", () => {
     expect(localizeMenuText("菲律宾菜", "en")).toBe("Filipino Food");
     expect(localizeMenuText("Filipino Food", "zh")).toBe("菲律宾菜");
-    expect(localizeMenuText("早餐加点", "en")).toBe("Add-ons");
-    expect(localizeMenuText("Add-ons", "zh")).toBe("早餐加点");
+    expect(localizeMenuText("加点", "en")).toBe("Add-ons");
+    expect(localizeMenuText("Add-ons", "zh")).toBe("加点");
+    expect(localizeMenuText("Free", "zh")).toBe("免费套餐");
+    expect(localizeMenuText("Set", "zh")).toBe("套餐");
   });
 
   it("localizeMenuText should keep unknown text unchanged", () => {

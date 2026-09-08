@@ -4,9 +4,9 @@ type Pair = { zh: string; en: string };
 
 const pairs: Pair[] = [
   { zh: "早餐", en: "Breakfast" },
-  { zh: "早餐套餐", en: "Set" },
-  { zh: "免费早餐", en: "Free" },
-  { zh: "早餐加点", en: "Add-ons" },
+  { zh: "套餐", en: "Set" },
+  { zh: "免费套餐", en: "Free" },
+  { zh: "加点", en: "Add-ons" },
   { zh: "三明治套餐", en: "Sandwich Set" },
   { zh: "套餐", en: "Package" },
   { zh: "鸡尾酒", en: "Cocktail" },
