@@ -69,7 +69,7 @@ class MainActivity : ComponentActivity() {
                     }, enabled = address.isNotBlank())
                     Text("内部测试版。请使用测试环境，营业前需完成门店验收。\nInternal test build. Use a test environment until store acceptance is complete.")
                 } else Text("尚未配置门店连接，请联系管理员。\nStore connection is not configured. Contact your administrator.")
-                ErrorPanel(error) { error = "" }
+                ErrorPanel(error, { error = "" }, "关闭 / Close")
             }
         }
     }

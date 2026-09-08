@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import BottomNav from "../../components/bottom-nav";
 import { apiFetchJson, getStoredAuth } from "../../../lib/client-api";
 import { useI18n } from "../../components/i18n-provider";
 import { useActionGuard } from "../../../lib/use-action-guard";
@@ -48,7 +47,6 @@ export default function ManageRbacPage() {
   const [loading, setLoading] = useState(false);
   const [updatingKey, setUpdatingKey] = useState("");
   const [error, setError] = useState("");
-  const [sectionOpen, setSectionOpen] = useState(true);
   const canRunAction = useActionGuard();
 
   const grouped = useMemo(() => {
@@ -177,34 +175,13 @@ export default function ManageRbacPage() {
   return (
     <div className="stack manage-subpage-screen">
       <div className="manage-subpage-scroll stack">
-        <div className="panel stack">
-          <div className="row" style={{ justifyContent: "space-between" }}>
-            <h3 style={{ margin: 0 }}>{t("rbac.section", "权限说明")}</h3>
-            <button
-              type="button"
-              className="secondary compact-btn"
-              onClick={() => setSectionOpen((v) => !v)}
-            >
-              {sectionOpen ? t("common.collapse", "收起") : t("common.expand", "展开")}
-            </button>
-          </div>
-          {sectionOpen ? (
-            <div className="muted">{t("rbac.hint", "开关即时生效，所有修改会写入审计日志。")}</div>
-          ) : null}
-        </div>
-
         {loading ? <div className="muted">{t("common.loading", "加载中...")}</div> : null}
         {error ? <div className="muted">{error}</div> : null}
 
-        {sectionOpen ? (
-          <>
-            {renderRoleBlock("waiter")}
-            {renderRoleBlock("manager")}
-          </>
-        ) : null}
+        {renderRoleBlock("waiter")}
+        {renderRoleBlock("manager")}
       </div>
 
-      <BottomNav />
     </div>
   );
 }

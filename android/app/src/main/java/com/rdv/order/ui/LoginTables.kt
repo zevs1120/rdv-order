@@ -11,6 +11,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.*
 import com.rdv.order.data.TableInfo
 import java.time.Duration
@@ -21,16 +22,15 @@ import kotlinx.coroutines.delay
     var username by rememberSaveable { mutableStateOf("") }
     // Never save a PIN to saved-instance-state or persistent storage.
     var pin by remember { mutableStateOf("") }
-    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(top = 24.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-        Text(vm.text("login.title"), style = MaterialTheme.typography.titleLarge)
-        Text(vm.text("login.subtitle"), color = RdvColors.Secondary)
-        RdvCard {
-            RdvField(vm.text("login.username"), username, { username = it }, Modifier.testTag("username"), enabled = !state.busy)
-            RdvField(vm.text("login.pin"), pin, { pin = it }, Modifier.testTag("pin"), password = true, enabled = !state.busy)
+    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 8.dp, vertical = 32.dp), verticalArrangement = Arrangement.spacedBy(20.dp)) {
+        Text(vm.text("login.title"), Modifier.fillMaxWidth(), style = MaterialTheme.typography.titleLarge, textAlign = TextAlign.Center)
+        Column(Modifier.fillMaxWidth()) {
+            RdvLineField(vm.text("login.username"), username, { username = it }, Modifier.testTag("username"), enabled = !state.busy)
+            RdvLineField(vm.text("login.pin"), pin, { pin = it }, Modifier.testTag("pin"), password = true, enabled = !state.busy)
+            Spacer(Modifier.height(20.dp))
             RdvButton(vm.text(if (state.busy) "login.submitting" else "login.submit"), { vm.login(username, pin) }, Modifier.fillMaxWidth().testTag("login"),
                 enabled = state.ready && username.isNotBlank() && pin.isNotEmpty(), loading = state.busy)
         }
-        Text(vm.text("login.offlineNote"), color = RdvColors.Secondary)
     }
 }
 
@@ -74,7 +74,7 @@ import kotlinx.coroutines.delay
         if (!state.loading && state.tables.isEmpty()) Text(vm.either("未找到桌台，请刷新后重试", "No table found. Please refresh and try again."))
         if (state.selectMode) RdvCard {
             Text("${vm.text("tables.selected")}: ${state.selectedTables.joinToString(" + ")}")
-            Stepper(mergeGuests, { mergeGuests = it }, min = 1, max = 20, enabled = !state.busy)
+            Stepper(mergeGuests, { mergeGuests = it }, min = 1, max = 20, enabled = !state.busy, lang = state.lang)
             RdvButton(vm.text("tables.mergeConfirm"), { vm.mergeTables(mergeGuests) }, Modifier.fillMaxWidth(), enabled = state.selectedTables.size == 2, loading = state.busy)
         }
     }
@@ -85,8 +85,8 @@ import kotlinx.coroutines.delay
                 RdvButton(vm.text("tables.confirmOpen"), { vm.openTable(table, guests) }, Modifier.weight(1f), loading = state.busy)
             }) {
             Text(vm.text("tables.guestCount"))
-            Stepper(guests, { guests = it }, min = 1, max = 20, enabled = !state.busy)
-            ErrorPanel(state.error, vm::dismissError)
+            Stepper(guests, { guests = it }, min = 1, max = 20, enabled = !state.busy, lang = state.lang)
+            ErrorPanel(state.error, vm::dismissError, vm.text("common.close"))
         }
     }
 }
@@ -96,6 +96,7 @@ import kotlinx.coroutines.delay
         add(Screen.ORDERS to "manage.orders")
         if (state.role == "manager") addAll(listOf(Screen.INCOME to "manage.income", Screen.FEES to "manage.fees", Screen.HOT to "manage.hot",
             Screen.DEVICES to "manage.devices", Screen.RBAC to "manage.rbac", Screen.MENU to "manage.menu"))
+        add(Screen.UPDATES to "manage.updates")
     }
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         RdvCard {
@@ -106,6 +107,5 @@ import kotlinx.coroutines.delay
                 }
             }
         }
-        Text(vm.either("点击模块进入对应的详细管理子页面。", "Tap one module to enter detailed management page."), color = RdvColors.Secondary)
     }
 }

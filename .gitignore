@@ -1,5 +1,6 @@
 node_modules/
 .next/
+.next-verify/
 .next_bak_*/
 out/
 dist/

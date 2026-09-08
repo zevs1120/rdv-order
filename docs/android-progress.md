@@ -1,5 +1,17 @@
 # Android 实施记录
 
+## 1.0.0 正式发布批次（2026-09-08）
+
+网页/原生同步删除设置页“点击模块进入对应的详细管理子页面”中英文提示。累计界面与性能改进作为 1.0.0/code 8；原包名、正式后台、签名证书不变，历史 APK 保留。正式包 1,592,129 bytes，SHA-256 `bd9295dbfae3b631bbebd2dccd52be41eb005c0b87481132e62ab6c80b98c503`，路径 `distribution/site/public/releases/rdv-order-1.0.0.apk`，最低 Android 8/API 26。
+
+仅新增文案缺失检查、网页类型检查、`:app:lintRelease :app:assembleRelease`、签名/版本/对齐/哈希及下载页清单一致性检查；均通过。复用本批 109 项网页测试、48 项 JVM、3 项隔离模拟器流程，不重复全套测试。未做本版现场打印或酒店设备验收，不宣称零 crash。部署证据与提交见 `release-1.0.0.md`。
+
+## 速度与稳定性批次（2026-09-08，本地未发布）
+
+管理页独立请求并行；菜单、桌台、账单和管理响应在后台解析；点餐复用菜单索引与数量映射；草稿命名空间使用按 token/origin 隔离的不可变缓存，原有先持久化、账号归属及幂等恢复不变。补齐此前界面批次 `RdvTextButton.enabled` 参数。
+
+5 份资源目录、48 项 JVM 测试、lint（0 errors / 22 warnings）和 debug 构建通过。隔离 API-35 模拟器 `emulator-5554` 上仅运行 3 项相关用例：做法/数量/语言、管理模块、未知提交结果恢复，均通过，全部使用内存 fixture，不接真实打印机。内部 APK：`android/app/build/outputs/apk/debug/app-debug.apk`，`com.rdv.order.test`，0.1.6-internal/code 7，最低 API 26。不替代正式包；未发布、未 commit/push。酒店设备耗时、长期 crash/ANR、现场打印仍待验证。详见 `performance-2026-09-08.md`。
+
 ## 0.1.6 系统语言更新详情（2026-09-08）
 
 - Android 桌面图标继续使用用户提供的点餐 APP 高清图稿，按 Android launcher 各密度尺寸缩小；下载页使用的原始 PNG 与该图稿 SHA-256 一致，现有 WebP 是同一图稿缩小版本。

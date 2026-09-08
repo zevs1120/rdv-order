@@ -1,4 +1,5 @@
 import type { ButtonHTMLAttributes, ReactNode } from "react";
+import { SvgIcon } from "./svg-icon";
 
 type Variant = "primary" | "secondary" | "ghost" | "danger";
 
@@ -33,7 +34,7 @@ export function Button({
 
   return (
     <button className={classes} disabled={disabled || (loading && disableWhenLoading)} {...rest}>
-      {loading ? <span className="ui-btn__spinner" aria-hidden="true" /> : (iconLeft ? <span className="ui-btn__icon">{iconLeft}</span> : null)}
+      {loading ? <SvgIcon name="loader-circle" className="ui-btn__spinner" /> : (iconLeft ? <span className="ui-btn__icon">{iconLeft}</span> : null)}
       <span>{children}</span>
       {iconRight ? <span className="ui-btn__icon">{iconRight}</span> : null}
     </button>

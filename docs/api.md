@@ -1,5 +1,13 @@
 # API Reference
 
+## Read-path optimization (2026-09-08 local batch)
+
+Public response shapes, authorization and write/printing endpoints are unchanged. `/api/menu` reads items and subcategories concurrently after resolving the main category, preserving item-first category ordering and the missing-table fallback. `/api/manage/income` supplies daily rows and total count/amount through one SQL aggregation with window totals, keeping paid/closed, cancellation, merge and date filters unchanged. This removes duplicate aggregation and gives totals/details one database snapshot. Both clients benefit. Evidence: `performance-2026-09-08.md`.
+
+## Public release metadata
+
+`GET /api/app-release` retrieves validated public Android release metadata from the fixed download origin. Returns version, versionCode, bilingual notes and download URL with no-store caching; returns 503 on failure. Used by the web Updates settings screen. No database/printer access or installed-device version detection.
+
 Base: Next.js Route Handlers under `app/api`.
 
 ## Auth & Permission

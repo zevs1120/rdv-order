@@ -1,0 +1,211 @@
+/* Settings and its descendants share one visual treatment. Layout and control order stay unchanged. */
+.report-date-presets {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 4px;
+  width: 100%;
+}
+
+.report-date-presets .manage-preset {
+  min-width: 0;
+  min-height: 44px;
+  padding: 0 2px;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.report-range-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+
+.report-table-context {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+
+.menu-create-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.menu-create-options {
+  grid-column: 1 / -1;
+}
+
+.menu-create-options > summary {
+  cursor: pointer;
+  padding: 12px 0;
+}
+
+.app-shell--settings {
+  --radius-sm: 0px;
+  --radius-md: 0px;
+  --radius-lg: 0px;
+  --shadow-1: none;
+  --shadow-2: none;
+  --settings-line: var(--gray-300);
+  --settings-control-line: var(--gray-400);
+}
+
+.app-shell--settings :is(.panel, .card, .ui-card, .manage-panel, .manage-kpi-card,
+  .manage-order-card, .menu-simple-row, .fee-rule-row, .ui-list-row) {
+  border: 0 !important;
+  border-bottom: 1px solid var(--settings-line) !important;
+  border-radius: 0 !important;
+  background: transparent;
+  box-shadow: none !important;
+}
+
+.app-shell--settings :is(.manage-empty-note, .income-export-error, .device-alert-panel) {
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.app-shell--settings :is(.order-detail-list, .menu-admin-table) {
+  border: 0;
+  border-top: 1px solid var(--settings-line);
+  background: transparent;
+}
+
+.app-shell--settings .order-list > .row {
+  border-bottom: 1px solid var(--settings-line);
+  padding-block: 10px;
+}
+
+.app-shell--settings button:not(.ios-switch):not(.ui-sheet__handle) {
+  border-radius: 0 !important;
+  box-shadow: none !important;
+}
+
+.app-shell--settings :is(button.secondary, .ui-btn--secondary, .ui-btn--ghost) {
+  border: 1px solid var(--settings-control-line);
+  background: var(--panel);
+}
+
+.app-shell--settings :is(button.secondary, .ui-btn--secondary, .ui-btn--ghost):hover:not(:disabled) {
+  border-color: var(--brand);
+  background: color-mix(in srgb, var(--brand) 4%, #fff);
+}
+
+.app-shell--settings .ui-chip {
+  border: 1px solid var(--settings-control-line);
+  border-radius: 0;
+  background: var(--panel);
+  box-shadow: none;
+}
+
+.app-shell--settings .ui-chip.is-active {
+  border-color: var(--brand);
+  color: var(--brand);
+  background: color-mix(in srgb, var(--brand) 8%, #fff);
+}
+
+.app-shell--settings :is(.ui-tabbar__tab, .manage-tab) {
+  border: 0;
+  border-bottom: 1px solid var(--settings-line);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.app-shell--settings :is(.ui-tabbar__tab.is-active, .manage-tab.active) {
+  color: var(--brand);
+  border-bottom: 2px solid var(--brand);
+}
+
+.app-shell--settings :is(input:not([type="checkbox"]):not([type="radio"]), select, textarea) {
+  border: 0;
+  border-bottom: 1px solid var(--settings-line);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.app-shell--settings :is(input, select, textarea):focus-visible {
+  border-bottom-color: var(--brand);
+  outline: 1px solid var(--brand);
+  outline-offset: 2px;
+}
+
+.app-shell--settings :is(button, a):focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
+}
+
+.app-shell--settings :is(.ui-sheet, .ui-modal) {
+  border: 1px solid var(--settings-line);
+  border-radius: 0;
+  background: var(--panel);
+  box-shadow: none;
+}
+
+.app-shell--settings :is(.ui-sheet__footer, .menu-save-bar) {
+  border-radius: 0;
+  border-top: 1px solid var(--settings-line);
+  background: var(--panel);
+  box-shadow: none;
+}
+
+.app-shell--settings .ui-sheet__handle {
+  width: 44px;
+  min-height: 44px;
+  height: 44px;
+  margin: 0 auto;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.app-shell--settings .ui-sheet__handle::after {
+  content: "";
+  display: block;
+  width: 32px;
+  height: 1px;
+  margin: auto;
+  background: var(--settings-line);
+}
+
+.app-shell--settings .topbar-shell {
+  box-shadow: none;
+  border-bottom: 1px solid var(--line);
+}
+
+.app-shell--settings :is(.tag, .ui-badge) {
+  border-radius: 0;
+  box-shadow: none;
+}
+
+/* Preserve the existing two-column / narrow one-column entry layout and hit areas. */
+.app-shell--settings .more-grid-card {
+  border: 0 !important;
+}
+
+.app-shell--settings .more-grid-btn {
+  border: 1px solid var(--settings-control-line);
+  font-weight: 600;
+}
+
+.app-shell--settings .more-grid-btn:hover {
+  color: var(--brand);
+  background: color-mix(in srgb, var(--brand) 4%, transparent);
+}
+
+.app-shell--settings .manage-preset {
+  background: var(--panel);
+  color: var(--muted);
+  border: 1px solid var(--settings-control-line);
+}
+
+.app-shell--settings .manage-preset.is-active {
+  color: var(--brand);
+  border-color: var(--brand);
+  background: color-mix(in srgb, var(--brand) 4%, transparent);
+}

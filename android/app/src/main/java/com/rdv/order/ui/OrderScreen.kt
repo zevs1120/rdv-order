@@ -4,12 +4,19 @@ import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.*
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.RectangleShape
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -24,13 +31,13 @@ import kotlin.math.roundToLong
 @Composable fun OrderScreen(vm: RdvViewModel, state: UiState) {
     val draft = state.draft ?: return
     val menu = state.menu
-    val keyword = draft.keyword.trim().lowercase()
-    val matching = menu?.items.orEmpty().filter { keyword.isEmpty() || "${it.name} ${it.category.orEmpty()}".lowercase().contains(keyword) }
-    val allCategories = (menu?.subcategories.orEmpty() + menu?.items.orEmpty().map { it.category ?: vm.text("order.uncategorized") })
-        .filter { it.isNotBlank() }.distinctBy { it.lowercase() }
-    val categories = allCategories.filter { keyword.isEmpty() || matching.any { item -> (item.category ?: vm.text("order.uncategorized")) == it } }
-    val selected = draft.category.takeIf { it in categories } ?: categories.firstOrNull().orEmpty()
-    val visible = matching.filter { selected.isEmpty() || (it.category ?: vm.text("order.uncategorized")) == selected }
+    val uncategorized = vm.text("order.uncategorized")
+    val index = remember(menu, uncategorized) { MenuIndex(menu, uncategorized) }
+    val selection = remember(index, draft.keyword, draft.category) { index.select(draft.keyword, draft.category) }
+    val categories = selection.categories
+    val selected = selection.selected
+    val visible = selection.items
+    val quantities = remember(draft.lines) { draft.lines.associate { it.item.id to it.qty } }
     var confirm by rememberSaveable { mutableStateOf("") }
     LaunchedEffect(selected) { if (selected != draft.category && !state.busy) vm.category(selected) }
     BoxWithConstraints(Modifier.fillMaxSize()) {
@@ -45,7 +52,7 @@ import kotlin.math.roundToLong
             }
             RdvField(vm.text("order.searchPlaceholder"), draft.keyword, vm::keyword, Modifier.testTag("menu-search"), enabled = !state.busy)
         }
-        Surface(color = Color.White, shape = RoundedCornerShape(16.dp), border = BorderStroke(1.dp, RdvColors.Border)) {
+        Surface(color = RdvColors.OrderSection, shape = RectangleShape) {
             Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 menu?.majorCategories.orEmpty().forEach { category ->
                     RdvChip(if (state.lang == "zh") category.zh else category.en, draft.shift == category.key, { vm.selectShift(category.key) }, enabled = !state.busy)
@@ -53,14 +60,18 @@ import kotlin.math.roundToLong
             }
         }
         Row(Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Surface(Modifier.width(94.dp).fillMaxHeight(), shape = RoundedCornerShape(18.dp), color = Color.White, border = BorderStroke(1.dp, RdvColors.Border)) {
+            Surface(Modifier.width(94.dp).fillMaxHeight(), shape = RectangleShape, color = RdvColors.OrderSection) {
                 LazyColumn(Modifier.padding(4.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     items(categories, key = { it }) { category ->
+                        val categorySelected = selected == category
                         Surface(onClick = { vm.category(category) }, enabled = !state.busy,
-                            color = if (selected == category) RdvColors.Brand.copy(alpha = .07f) else Color.Transparent,
-                            border = if (selected == category) BorderStroke(1.dp, RdvColors.Brand.copy(alpha = .25f)) else null,
-                            shape = RoundedCornerShape(14.dp), modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) {
-                            Box(Modifier.padding(8.dp), contentAlignment = Alignment.CenterStart) {
+                            color = if (selected == category) Color.White else Color.Transparent,
+                            shape = RectangleShape, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
+                                .semantics { this.selected = categorySelected }) {
+                            Box(Modifier.drawBehind {
+                                if (selected == category) drawLine(RdvColors.Brand, Offset(1.5.dp.toPx(), 0f),
+                                    Offset(1.5.dp.toPx(), size.height), 3.dp.toPx())
+                            }.padding(8.dp), contentAlignment = Alignment.CenterStart) {
                                 Text(vm.strings.category(state.lang, category), fontSize = 12.sp, maxLines = 2, overflow = TextOverflow.Ellipsis,
                                     fontWeight = if (selected == category) FontWeight.SemiBold else FontWeight.Normal,
                                     color = if (selected == category) RdvColors.Brand else RdvColors.Text)
@@ -69,14 +80,14 @@ import kotlin.math.roundToLong
                     }
                 }
             }
-            Surface(Modifier.weight(1f).fillMaxHeight(), shape = RoundedCornerShape(18.dp), color = Color.White, border = BorderStroke(1.dp, RdvColors.Border)) {
+            Surface(Modifier.weight(1f).fillMaxHeight(), shape = RectangleShape, color = RdvColors.OrderCanvas) {
                 Column(Modifier.padding(8.dp)) {
                     if (state.loading) LinearProgressIndicator(Modifier.fillMaxWidth())
                     if (visible.isEmpty() && !state.loading) Text(vm.text(if (categories.isEmpty()) "order.menuEmpty" else "order.categoryEmpty"), Modifier.padding(12.dp))
-                    key(draft.shift, selected, keyword) {
+                    key(draft.shift, selected, draft.keyword.trim().lowercase()) {
                         LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             items(visible, key = { it.id }) { item ->
-                                val qty = draft.lines.find { it.item.id == item.id }?.qty ?: 0
+                                val qty = quantities[item.id] ?: 0
                                 RdvCard(Modifier.fillMaxWidth().testTag("dish-${item.id}")) {
                                     Row {
                                         Text(vm.localized(item.name) + if (item.itemType == "set") vm.either("（套餐）", " (Set)") else "",
@@ -88,7 +99,11 @@ import kotlin.math.roundToLong
                                         val unit = Seafood.config(item.name)?.unit
                                         Text("₱${item.price}" + if (unit == null) "" else "/${if (unit == "pcs" && state.lang == "zh") "只" else unit}",
                                             Modifier.align(Alignment.CenterVertically), fontSize = if (unit == null) 28.sp else 21.sp, fontWeight = FontWeight.Bold)
-                                        RdvButton(vm.either("添加 +", "Add +"), { vm.add(item) }, Modifier.testTag("add-${item.id}"), secondary = true, enabled = !state.busy)
+                                        FilledIconButton(onClick = { vm.add(item) }, enabled = !state.busy,
+                                            modifier = Modifier.size(48.dp).testTag("add-${item.id}"), shape = CircleShape,
+                                            colors = IconButtonDefaults.filledIconButtonColors(containerColor = RdvColors.Brand, contentColor = Color.White)) {
+                                            Icon(Icons.Outlined.Add, vm.either("添加", "Add") + " " + vm.localized(item.name), Modifier.size(24.dp))
+                                        }
                                     }
                                 }
                             }
@@ -130,13 +145,13 @@ import kotlin.math.roundToLong
                     Text("₱${line.item.price} · ${vm.either("数量", "Qty")} ${Seafood.quantity(line.item.name, line.qty, state.lang)}", color = RdvColors.Secondary)
                     if (!line.note.isNullOrBlank()) Text("${vm.text("order.noteLabel")}: ${line.note}", color = RdvColors.Secondary)
                     FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Stepper(line.qty, { vm.quantity(line.item, it) }, label = Seafood.quantity(line.item.name, line.qty, state.lang), enabled = !state.busy)
+                        Stepper(line.qty, { vm.quantity(line.item, it) }, label = Seafood.quantity(line.item.name, line.qty, state.lang), enabled = !state.busy, lang = state.lang)
                         RdvButton(vm.text("order.noteAction"), { vm.note(line.item) }, secondary = true, enabled = !state.busy)
                         RdvButton(vm.either("移除", "Remove"), { vm.quantity(line.item, 0) }, secondary = true, danger = true, enabled = !state.busy)
                     }
                 }
             }
-            ErrorPanel(state.error, vm::dismissError)
+            ErrorPanel(state.error, vm::dismissError, vm.text("common.close"))
         }
         "note" -> state.noteItem?.let { NoteSheet(vm, state, it) }
         "custom" -> CustomDishSheet(vm, state)
@@ -174,7 +189,7 @@ import kotlin.math.roundToLong
     }) {
         if (config != null) {
             Text(vm.either("单价按 ${config.unit} 计", "Price is per ${config.unit}"), color = RdvColors.Secondary)
-            Stepper(qty, { qty = it }, label = Seafood.quantity(item.name, qty, state.lang), min = 1, max = 200)
+            Stepper(qty, { qty = it }, label = Seafood.quantity(item.name, qty, state.lang), min = 1, max = 200, lang = state.lang)
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 config.methods.forEach { m -> RdvChip(if (state.lang == "zh") m.zh else m.en, method == m.key, { method = m.key }) }
             }
@@ -205,7 +220,7 @@ import kotlin.math.roundToLong
         RdvField(vm.text("order.addDishPrice"), price, { price = it }, numeric = true, enabled = !state.busy)
         RdvField(vm.text("order.addDishCategory"), category, { category = it }, enabled = !state.busy)
         RdvField(vm.text("order.addDishDesc"), description, { description = it }, enabled = !state.busy)
-        ErrorPanel(state.error, vm::dismissError)
+        ErrorPanel(state.error, vm::dismissError, vm.text("common.close"))
     }
 }
 
@@ -248,7 +263,7 @@ import kotlin.math.roundToLong
                 order.charges.forEach { Text("${it.type}: ₱${it.amount}") }
             }
         }
-        ErrorPanel(state.error, vm::dismissError)
+        ErrorPanel(state.error, vm::dismissError, vm.text("common.close"))
     }
     returning?.let { (order, item) ->
         AlertDialog(onDismissRequest = { returning = null }, title = { Text(vm.text("orders.returnDish")) },

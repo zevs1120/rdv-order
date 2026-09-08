@@ -5,6 +5,8 @@ import java.security.MessageDigest
 import java.util.Base64
 import java.util.UUID
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
@@ -16,6 +18,11 @@ import kotlinx.serialization.json.*
 class RdvRepository(val api: Transport, private val store: KeyValueStore, private val origin: () -> String,
     private val clock: () -> Long = System::currentTimeMillis, private val newKey: () -> String = { UUID.randomUUID().toString() }) {
     private val workspaceMutex = Mutex()
+    private data class ScopeCache(val token: String, val origin: String, val value: String)
+    @Volatile private var cachedScope: ScopeCache? = null
+    private suspend inline fun <reified T> decodeResponse(text: String): T = withContext(Dispatchers.Default) {
+        RdvJson.decodeFromString<T>(text)
+    }
     var session: Session? = null
         private set
     val isManager get() = session?.role == "manager"
@@ -30,11 +37,13 @@ class RdvRepository(val api: Transport, private val store: KeyValueStore, privat
     private fun sessionKey() = "session:${digest(storageOrigin())}"
     private fun scope(): String {
         val token = session?.token ?: error("未登录")
+        val origin = storageOrigin()
+        cachedScope?.let { if (token == it.token && origin == it.origin) return it.value }
         // This claim is used only for local storage namespacing. Authorization remains server-side.
         val userId = runCatching {
             RdvJson.parseToJsonElement(String(Base64.getUrlDecoder().decode(token.split('.')[1]))).jsonObject.text("userId")
         }.getOrDefault("").ifEmpty { digest(token) }
-        return digest("${storageOrigin()}|$userId")
+        return digest("$origin|$userId").also { cachedScope = ScopeCache(token, origin, it) }
     }
     private fun workspaceKey(table: String) = "workspace:${scope()}:$table"
     suspend fun restoreSession(): Session? = withContext(Dispatchers.IO) {
@@ -51,8 +60,9 @@ class RdvRepository(val api: Transport, private val store: KeyValueStore, privat
     suspend fun logout() {
         withContext(Dispatchers.IO) { store.remove(sessionKey()) }
         session = null
+        cachedScope = null
     }
-    suspend fun tables(): List<TableInfo> = RdvJson.decodeFromString<TablesResponse>(api.request("/api/tables", timeoutMs = 5_000).text).tables
+    suspend fun tables(): List<TableInfo> = decodeResponse<TablesResponse>(api.request("/api/tables", timeoutMs = 5_000).text).tables
     suspend fun open(table: String, guests: Int): OpenSession = RdvJson.decodeFromString<OpenResponse>(
         api.request("/api/tables", "POST", jsonBody("tableNo" to table, "guestCount" to guests), timeoutMs = 1_800).text).session
     suspend fun merge(primary: String, secondary: String, guests: Int): OpenSession = RdvJson.decodeFromString<OpenResponse>(
@@ -65,7 +75,7 @@ class RdvRepository(val api: Transport, private val store: KeyValueStore, privat
         }
     }
     suspend fun menu(shift: String): MenuResponse {
-        val result = RdvJson.decodeFromString<MenuResponse>(api.request("/api/menu", query = mapOf("shift" to shift), authenticated = false, timeoutMs = 5_000).text)
+        val result = decodeResponse<MenuResponse>(api.request("/api/menu", query = mapOf("shift" to shift), authenticated = false, timeoutMs = 5_000).text)
         withContext(Dispatchers.IO) { store.put("menu:${digest(storageOrigin())}:$shift", RdvJson.encodeToString(CachedMenu(result, clock()))) }
         return result
     }
@@ -127,7 +137,7 @@ class RdvRepository(val api: Transport, private val store: KeyValueStore, privat
         } }
         return result
     }
-    suspend fun bill(table: String): Bill = RdvJson.decodeFromString<Bill>(api.request("/api/tables/bill", query = mapOf("tableNo" to table), timeoutMs = 6_000).text)
+    suspend fun bill(table: String): Bill = decodeResponse<Bill>(api.request("/api/tables/bill", query = mapOf("tableNo" to table), timeoutMs = 6_000).text)
     suspend fun printBill(table: String) { api.request("/api/tables/print-bill", "POST", jsonBody("tableNo" to table), timeoutMs = 1_800) }
     suspend fun checkout(table: String): CheckoutResult = RdvJson.decodeFromString<CheckoutResult>(api.request("/api/tables/checkout", "POST", jsonBody("tableNo" to table), timeoutMs = 8_000, retries = 1).text)
     suspend fun close(table: String) { api.request("/api/tables/close", "POST", jsonBody("tableNo" to table), timeoutMs = 7_000, retries = 1) }
@@ -138,6 +148,15 @@ class RdvRepository(val api: Transport, private val store: KeyValueStore, privat
     suspend fun customDish(body: JsonObject): MenuItem = RdvJson.decodeFromJsonElement(
         requestObject("/api/menu/custom", "POST", body, timeoutMs = 7_000).getValue("item"))
     suspend fun requestObject(path: String, method: String = "GET", body: JsonElement? = null,
-        query: Map<String, String> = emptyMap(), timeoutMs: Long = 6_000, retries: Int = if (method == "GET") 1 else 0): JsonObject =
-        RdvJson.parseToJsonElement(api.request(path, method, body, query, timeoutMs = timeoutMs, retries = retries).text).jsonObject
+        query: Map<String, String> = emptyMap(), timeoutMs: Long = 6_000, retries: Int = if (method == "GET") 1 else 0): JsonObject {
+        val text = api.request(path, method, body, query, timeoutMs = timeoutMs, retries = retries).text
+        return withContext(Dispatchers.Default) { RdvJson.parseToJsonElement(text).jsonObject }
+    }
+    suspend fun management(path: String, query: Map<String, String> = emptyMap(),
+        related: Map<String, String> = emptyMap()): JsonObject = coroutineScope {
+        val primary = async { requestObject(path, query = query) }
+        val extras = related.mapValues { (_, endpoint) -> async { requestObject(endpoint) } }
+        val result = primary.await()
+        JsonObject(result + extras.mapValues { (_, pending) -> pending.await() })
+    }
 }

@@ -1,4 +1,6 @@
 import "./globals.css";
+import "./settings.css";
+import "./ordering.css";
 import type { ReactNode } from "react";
 import type { Metadata, Viewport } from "next";
 import I18nProvider from "./components/i18n-provider";

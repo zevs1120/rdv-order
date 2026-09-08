@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import BottomNav from "../components/bottom-nav";
 import { getStoredAuth } from "../../lib/client-api";
 import { useI18n } from "../components/i18n-provider";
 import { Button, Card } from "../../components/ui";
@@ -20,11 +19,13 @@ const MANAGER_ENTRIES: Entry[] = [
   { href: "/manage/hot", labelZh: "热销", labelEn: "Hot Items" },
   { href: "/manage/devices", labelZh: "设备", labelEn: "Devices" },
   { href: "/manage/rbac", labelZh: "权限", labelEn: "Access" },
-  { href: "/admin/menu", labelZh: "菜单管理", labelEn: "Menu" }
+  { href: "/admin/menu", labelZh: "菜单管理", labelEn: "Menu" },
+  { href: "/manage/updates", labelZh: "更新管理", labelEn: "Updates" }
 ];
 
 const WAITER_ENTRIES: Entry[] = [
-  { href: "/manage/orders", labelZh: "订单", labelEn: "Orders" }
+  { href: "/manage/orders", labelZh: "订单", labelEn: "Orders" },
+  { href: "/manage/updates", labelZh: "更新管理", labelEn: "Updates" }
 ];
 
 export default function ManageIndexPage() {
@@ -63,9 +64,6 @@ export default function ManageIndexPage() {
             ))}
           </div>
         </Card>
-        <div className="muted">
-          {lang === "en" ? "Tap one module to enter detailed management page." : "点击模块进入对应的详细管理子页面。"}
-        </div>
       </div>
     </div>
   );

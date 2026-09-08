@@ -1,8 +1,9 @@
 "use client";
 
+import DatePresets from "../../components/date-presets";
+
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import BottomNav from "../../components/bottom-nav";
 import { apiFetchJson, getStoredAuth } from "../../../lib/client-api";
 import { useI18n } from "../../components/i18n-provider";
 import { type PresetKey, rangeByPreset, toDateInput } from "../../../lib/date-range";
@@ -26,14 +27,6 @@ export default function ManageHotPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  const quickButtons: Array<{ key: PresetKey; label: string }> = useMemo(() => [
-    { key: "today", label: t("income.today", "当天") },
-    { key: "yesterday", label: t("income.yesterday", "昨天") },
-    { key: "week", label: t("income.week", "过去一周") },
-    { key: "month", label: t("income.month", "过去一月") },
-    { key: "3months", label: t("income.threeMonths", "过去三月") },
-    { key: "year", label: t("income.year", "过去一年") }
-  ], [t]);
 
   const totalQty = useMemo(
     () => items.reduce((sum, item) => sum + (Number(item.qty) || 0), 0),
@@ -102,18 +95,7 @@ export default function ManageHotPage() {
     <div className="stack manage-subpage-screen">
       <div className="manage-subpage-scroll stack">
         <div className="card stack manage-panel">
-          <div className="row" style={{ flexWrap: "wrap" }}>
-            {quickButtons.map((btn) => (
-              <button
-                key={btn.key}
-                type="button"
-                className={preset === btn.key ? "compact-btn" : "secondary compact-btn"}
-                onClick={() => { void applyPreset(btn.key); }}
-              >
-                {btn.label}
-              </button>
-            ))}
-          </div>
+          <DatePresets value={preset} onChange={(key) => { void applyPreset(key); }} />
           <div className="row" style={{ flexWrap: "wrap" }}>
             <input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} />
             <input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} />
@@ -148,7 +130,6 @@ export default function ManageHotPage() {
         </div>
       </div>
 
-      <BottomNav />
     </div>
   );
 }

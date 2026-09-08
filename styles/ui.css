@@ -1,3 +1,14 @@
+.rdv-icon {
+  display: inline-block;
+  width: 20px;
+  height: 20px;
+  flex: 0 0 auto;
+  vertical-align: middle;
+  background-color: currentColor;
+  -webkit-mask: var(--icon-url) center / contain no-repeat;
+  mask: var(--icon-url) center / contain no-repeat;
+}
+
 .ui-btn {
   min-height: var(--tap-min);
   border-radius: 16px;
@@ -26,10 +37,11 @@
 .ui-btn__spinner {
   width: 14px;
   height: 14px;
-  border-radius: 50%;
-  border: 2px solid currentColor;
-  border-right-color: transparent;
   animation: ui-spin 760ms linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ui-btn__spinner { animation: none; }
 }
 
 @keyframes ui-spin {

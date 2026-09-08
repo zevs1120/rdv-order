@@ -58,12 +58,11 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="stack">
+    <div className="stack login-page">
       <header className="login-hero">
         <h1>{t("login.title", "RDV 点餐系统")}</h1>
-        <div className="muted login-subtitle">{t("login.subtitle", "稳定 / 简单 / 低成本")}</div>
       </header>
-      <div className="card login-card">
+      <div className="login-card">
         {checkingSession ? (
           <div className="stack">
             <div className="skeleton skeleton-row" />
@@ -71,9 +70,9 @@ export default function LoginPage() {
             <div className="skeleton skeleton-card" />
           </div>
         ) : (
-        <form className="stack" onSubmit={onSubmit}>
-          <label className="stack">
-            {t("login.username", "账号")}
+        <form className="login-form" onSubmit={onSubmit}>
+          <label className="login-field">
+            <span>{t("login.username", "账号")}</span>
             <input
               value={username}
               onChange={(e) => setUsername(e.target.value)}
@@ -85,8 +84,8 @@ export default function LoginPage() {
               enterKeyHint="next"
             />
           </label>
-          <label className="stack">
-            {t("login.pin", "PIN 码")}
+          <label className="login-field">
+            <span>{t("login.pin", "PIN 码")}</span>
             <input
               value={pin}
               onChange={(e) => setPin(e.target.value)}
@@ -106,7 +105,6 @@ export default function LoginPage() {
         </form>
         )}
       </div>
-      <div className="muted login-footnote">{t("login.offlineNote", "没有网络时请使用手写单")}</div>
     </div>
   );
 }

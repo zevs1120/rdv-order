@@ -3,24 +3,20 @@
 import { Suspense, useEffect, type ReactNode } from "react";
 import { usePathname } from "next/navigation";
 import TopBar from "./top-bar";
-import BottomNav from "./bottom-nav";
+import SettingsFab from "./settings-fab";
 
 type Props = {
   children: ReactNode;
 };
 
 const HIDE_TOP_BAR_PATHS = new Set<string>(["/"]);
-const HIDE_TAB_BAR_PREFIXES = ["/"];
-
-function shouldHideTabBar(pathname: string) {
-  return HIDE_TAB_BAR_PREFIXES.includes(pathname);
-}
 
 export default function AppShell({ children }: Props) {
   const pathname = usePathname();
   const hideTopBar = HIDE_TOP_BAR_PATHS.has(pathname);
-  const hideTabBar = shouldHideTabBar(pathname);
+  const showSettingsButton = pathname === "/tables" || pathname.startsWith("/order");
   const lockRootScroll = pathname.startsWith("/order");
+  const isSettings = pathname.startsWith("/manage") || pathname.startsWith("/admin") || pathname === "/summary";
 
   useEffect(() => {
     const ua = navigator.userAgent.toLowerCase();
@@ -31,7 +27,7 @@ export default function AppShell({ children }: Props) {
   }, []);
 
   return (
-    <div className="app-shell">
+    <div className={isSettings ? "app-shell app-shell--settings" : lockRootScroll ? "app-shell app-shell--ordering" : "app-shell"}>
       {!hideTopBar ? (
         <Suspense fallback={null}>
           <TopBar />
@@ -39,13 +35,13 @@ export default function AppShell({ children }: Props) {
       ) : null}
       <div
         className={[
-          hideTabBar ? "app-shell-main no-tabbar" : "app-shell-main has-tabbar",
+          "app-shell-main no-tabbar",
           lockRootScroll ? "app-shell-main--locked" : ""
         ].filter(Boolean).join(" ")}
       >
         <main className="app-main">{children}</main>
       </div>
-      {!hideTabBar ? <BottomNav global /> : null}
+      {showSettingsButton ? <SettingsFab /> : null}
     </div>
   );
 }

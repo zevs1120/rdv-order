@@ -1,8 +1,8 @@
 "use client";
+import { SvgIcon } from "../../components/ui/svg-icon";
 
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import BottomNav from "../components/bottom-nav";
 import { apiFetchJson, getStoredAuth } from "../../lib/client-api";
 import { safeStorageGet, safeStorageRemove, safeStorageSet } from "../../lib/browser-storage";
 import { useI18n } from "../components/i18n-provider";
@@ -1559,7 +1559,7 @@ export default function OrderPage() {
         <Card className={styles.shiftPanel}>
           <div className={styles.shiftRow}>
             {shiftOptions.map((option) => (
-              <Chip key={option.key} active={shift === option.key} onClick={() => onSelectShift(option.key)}>
+              <Chip key={option.key} active={shift === option.key} aria-pressed={shift === option.key} onClick={() => onSelectShift(option.key)}>
                 {shiftLabel(option.key)}
               </Chip>
             ))}
@@ -1882,9 +1882,9 @@ export default function OrderPage() {
                   {item.note ? <span className="muted">{t("order.noteLabel", "Note")}: {item.note}</span> : null}
                 </div>
                 <div className="cart-row-actions">
-                  <Button variant="secondary" onClick={() => setQty(item.id, Math.max(0, item.qty - 1))}>-</Button>
+                  <Button variant="secondary" aria-label={lang === "en" ? "Decrease quantity" : "减少数量"} onClick={() => setQty(item.id, Math.max(0, item.qty - 1))}><SvgIcon name="minus" /></Button>
                   <span>{formatQtyWithUnit(item.qty, seafoodConfig)}</span>
-                  <Button variant="secondary" onClick={() => setQty(item.id, item.qty + 1)}>+</Button>
+                  <Button variant="secondary" aria-label={lang === "en" ? "Increase quantity" : "增加数量"} onClick={() => setQty(item.id, item.qty + 1)}><SvgIcon name="plus" /></Button>
                   <Button variant="secondary" onClick={() => openNoteSheetFor(item.id)}>
                     {t("order.noteAction", "Note")}
                   </Button>
@@ -1939,18 +1939,20 @@ export default function OrderPage() {
               <div className={styles.seafoodQtyRow}>
                 <Button
                   variant="secondary"
+                  aria-label={lang === "en" ? "Decrease quantity" : "减少数量"}
                   onClick={() => setSeafoodDraftQty((prev) => Math.max(1, prev - 1))}
                 >
-                  -
+                  <SvgIcon name="minus" />
                 </Button>
                 <strong className={styles.seafoodQtyValue}>
                   {formatQtyWithUnit(seafoodDraftQty, noteSheetSeafoodConfig)}
                 </strong>
                 <Button
                   variant="secondary"
+                  aria-label={lang === "en" ? "Increase quantity" : "增加数量"}
                   onClick={() => setSeafoodDraftQty((prev) => Math.min(200, prev + 1))}
                 >
-                  +
+                  <SvgIcon name="plus" />
                 </Button>
               </div>
               <div className={styles.seafoodMethodRow}>
@@ -1958,6 +1960,7 @@ export default function OrderPage() {
                   <Chip
                     key={method.key}
                     active={seafoodDraftMethod === method.key}
+                    aria-pressed={seafoodDraftMethod === method.key}
                     onClick={() => setSeafoodDraftMethod(method.key)}
                   >
                     {lang === "en" ? method.label_en : method.label_zh}
@@ -2068,6 +2071,7 @@ const CategoryOptionButton = memo(function CategoryOptionButton({
     <button
       type="button"
       className={`${styles.categoryBtn} ${active ? styles.categoryBtnActive : ""}`}
+      aria-pressed={active}
       onClick={() => onSelect(category)}
     >
       {label}
@@ -2133,6 +2137,7 @@ const MenuListItem = memo(function MenuListItem({
   qtyLabel,
   onAdd
 }: MenuListItemProps) {
+  const { lang } = useI18n();
   return (
     <div className={styles.menuRow}>
       <div className={styles.menuMain}>
@@ -2144,9 +2149,10 @@ const MenuListItem = memo(function MenuListItem({
         variant="secondary"
         type="button"
         className={styles.addBtn}
+        aria-label={lang === "en" ? `Add ${title}` : `添加 ${title}`}
         onClick={() => onAdd(id)}
       >
-        Add +
+        <SvgIcon name="plus" />
       </Button>
       {qty > 0 ? <Badge className={styles.qtyBadge} tone="brand">{qtyLabel || `x${qty}`}</Badge> : null}
     </div>

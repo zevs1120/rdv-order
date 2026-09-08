@@ -5,6 +5,16 @@ All notable changes to this project are documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
+
+## [1.0.0] — 2026-09-08
+
+- Refined login, ordering, cart/cooking/note sheets and management screens with flat tonal surfaces, clearer rectangular actions and lightweight official icons. Kept familiar ordering and confirmation flows.
+- Replaced fixed bottom navigation with a draggable settings button; added version/update management. Simplified date presets and menu creation, removed repeated titles and unnecessary instructions.
+- Reduced obsolete shared styling; removed the translation fetch waterfall, duplicate revenue aggregation and needless retries. Native management reads run concurrently, with menu indexing and background response parsing.
+- Preserved drafts, order idempotency, printing and mandatory updates; improved cancellation, cache invalidation and idle database connection recovery.
+- Web version 1.0.0; native version 1.0.0 / code 8, same production package, origin and signing certificate. Prior APKs remain immutable.
+
+## Earlier changes
 ### Android 0.1.3 — in-app updates
 - Added one bounded cold-start version check, mandatory updates for every newer published APK, download progress/retry, package verification and Android installation confirmation. Previously confirmed requirements persist across restarts; a failed first check does not prevent ordering.
 - Added local signed-release staging to verify identity, version, certificate and alignment, then update APK/download metadata together. No business API or printing changes.

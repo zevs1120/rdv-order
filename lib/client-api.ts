@@ -21,6 +21,11 @@ export const NETWORK_POLICY = {
 
 const inflightGet = new Map<string, Promise<unknown>>();
 const responseCache = new Map<string, { expiresAt: number; data: unknown }>();
+const MAX_CACHED_RESPONSES = 64;
+let cacheGeneration = 0;
+class HttpResponseError extends Error {
+  constructor(readonly status: number, message: string) { super(message); }
+}
 type UiLang = "zh" | "en";
 
 const serverErrorEn: Record<string, string> = {
@@ -139,8 +144,13 @@ const serverErrorEn: Record<string, string> = {
   "请求失败": "Request failed"
 };
 
-function delay(ms: number) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
+function delay(ms: number, signal?: AbortSignal | null) {
+  return new Promise<void>((resolve, reject) => {
+    const abort = () => { clearTimeout(timer); reject(new DOMException("Request cancelled", "AbortError")); };
+    const timer = setTimeout(() => { signal?.removeEventListener("abort", abort); resolve(); }, ms);
+    signal?.addEventListener("abort", abort, { once: true });
+    if (signal?.aborted) { signal.removeEventListener("abort", abort); abort(); }
+  });
 }
 
 function backoffMs(attempt: number) {
@@ -226,12 +236,7 @@ function resolveRetryCount(method: string, retries: number | undefined) {
   return base;
 }
 
-function makeGetDedupeKey(url: string, headers: HeadersInit | undefined, useAuth: boolean) {
-  const auth = getStoredAuth();
-  const requestHeaders = new Headers(headers);
-  if (useAuth && auth.token && !requestHeaders.has("Authorization")) {
-    requestHeaders.set("Authorization", `Bearer ${auth.token}`);
-  }
+function makeGetDedupeKey(url: string, requestHeaders: Headers) {
   const sorted = Array.from(requestHeaders.entries())
     .map(([k, v]) => `${k.toLowerCase()}:${v}`)
     .sort()
@@ -274,11 +279,20 @@ export async function apiFetchJson<T>(url: string, options: ApiFetchOptions = {}
   const lang = getUiLang();
   const retryCount = resolveRetryCount(method, retries);
   const effectiveTimeoutMs = adaptiveTimeout ? resolveTimeout(timeoutMs) : timeoutMs;
+  // Pin identity and payload for this logical request, including every retry.
+  const requestHeaders = new Headers(headers);
+  const auth = getStoredAuth();
+  if (body !== undefined && !requestHeaders.has("Content-Type")) requestHeaders.set("Content-Type", "application/json");
+  if (useAuth && auth.token && !requestHeaders.has("Authorization")) requestHeaders.set("Authorization", `Bearer ${auth.token}`);
+  const requestBody = body === undefined ? undefined : JSON.stringify(body);
+  const generation = cacheGeneration;
 
   const execute = async (): Promise<T> => {
     let lastError: Error | null = null;
 
     for (let attempt = 0; attempt <= retryCount; attempt += 1) {
+      if (externalSignal?.aborted) throw new DOMException("Request cancelled", "AbortError");
+      if (attempt > 0) await delay(backoffMs(attempt - 1), externalSignal);
       if (typeof navigator !== "undefined" && navigator.onLine === false) {
         throw new Error(
           lang === "zh"
@@ -293,37 +307,31 @@ export async function apiFetchJson<T>(url: string, options: ApiFetchOptions = {}
       const timer = setTimeout(() => controller.abort(), effectiveTimeoutMs);
 
       try {
-        const auth = getStoredAuth();
-        const requestHeaders = new Headers(headers);
-        if (body !== undefined && !requestHeaders.has("Content-Type")) {
-          requestHeaders.set("Content-Type", "application/json");
-        }
-        if (useAuth && auth.token && !requestHeaders.has("Authorization")) {
-          requestHeaders.set("Authorization", `Bearer ${auth.token}`);
-        }
-
         const response = await fetch(url, {
           ...rest,
           headers: requestHeaders,
-          body: body === undefined ? undefined : JSON.stringify(body),
+          body: requestBody,
           signal: controller.signal
         });
 
-        const data = await response.json().catch(() => ({}));
+        const data = await response.json().catch((error) => {
+          if (response.ok) throw error; // An invalid success payload is not a successful order/read.
+          return {};
+        });
         if (response.ok) {
           if (method !== "GET") {
             responseCache.clear();
+            cacheGeneration += 1;
           }
           return data as T;
         }
 
-        if (attempt < retryCount && isRetryableStatus(response.status)) {
-          await delay(backoffMs(attempt));
-          continue;
-        }
-
-        throw new Error(readErrorMessage(data, `Request failed (${response.status})`, lang));
+        throw new HttpResponseError(response.status, readErrorMessage(data, `Request failed (${response.status})`, lang));
       } catch (err: any) {
+        if (externalSignal?.aborted) throw new DOMException("Request cancelled", "AbortError");
+        if (err instanceof HttpResponseError && !isRetryableStatus(err.status)) throw err;
+        // Do not replay a successful write merely because its response was malformed.
+        if (err instanceof SyntaxError) throw new Error(lang === "zh" ? "服务器响应无效，请刷新确认" : "Invalid server response. Refresh to confirm.");
         if (err?.name === "AbortError") {
           lastError = new Error(
             lang === "zh"
@@ -336,10 +344,6 @@ export async function apiFetchJson<T>(url: string, options: ApiFetchOptions = {}
             : new Error(lang === "zh" ? "网络请求失败" : "Network request failed");
         }
 
-        if (attempt < retryCount) {
-          await delay(backoffMs(attempt));
-          continue;
-        }
       } finally {
         clearTimeout(timer);
         externalSignal?.removeEventListener("abort", onAbort);
@@ -354,7 +358,7 @@ export async function apiFetchJson<T>(url: string, options: ApiFetchOptions = {}
     return execute();
   }
 
-  const dedupeKey = makeGetDedupeKey(url, headers, useAuth);
+  const dedupeKey = `${generation}:${rest.credentials || "same-origin"}:${rest.cache || "default"}:${makeGetDedupeKey(url, requestHeaders)}`;
   const canCacheGet = cacheTtlMs > 0;
   if (canCacheGet) {
     const cached = responseCache.get(dedupeKey);
@@ -373,7 +377,10 @@ export async function apiFetchJson<T>(url: string, options: ApiFetchOptions = {}
 
   const pending = execute()
     .then((result) => {
-      if (canCacheGet) {
+      if (canCacheGet && generation === cacheGeneration) {
+        const now = Date.now();
+        for (const [key, entry] of responseCache) if (entry.expiresAt <= now) responseCache.delete(key);
+        if (responseCache.size >= MAX_CACHED_RESPONSES) responseCache.delete(responseCache.keys().next().value!);
         responseCache.set(dedupeKey, {
           expiresAt: Date.now() + cacheTtlMs,
           data: cloneCachePayload(result)

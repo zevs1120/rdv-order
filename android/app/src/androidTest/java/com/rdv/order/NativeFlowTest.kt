@@ -82,7 +82,7 @@ class NativeFlowTest {
         compose.onNodeWithText("Seasonal").performClick()
         compose.onNodeWithTag("add-${transport.fish.id}").performClick()
         compose.waitUntil { vm.state.value.sheet == "note" }
-        compose.onNodeWithText("+").performClick()
+        compose.onNodeWithContentDescription("Increase quantity").performClick()
         compose.onNodeWithText("Braised").performClick()
         compose.onNodeWithTag("note-input").performTextInput("no chilli")
         compose.onNodeWithText("Apply").performClick()
@@ -98,7 +98,7 @@ class NativeFlowTest {
     @Test fun managerRetainsAllSevenManagementEntries() {
         login("manager")
         assertEquals(Screen.ORDERS, vm.state.value.screen)
-        compose.onNodeWithText("More").performClick()
+        compose.onNodeWithContentDescription("Back").performClick()
         listOf("Orders", "Revenue", "Fees", "Hot Items", "Devices", "Access", "Menu").forEach { compose.onNodeWithText(it).assertExists() }
         compose.onNodeWithText("Revenue").performClick()
         compose.waitUntil(10_000) { !vm.state.value.loading && vm.state.value.management.number("totalAmount") == 600.0 }
@@ -131,7 +131,7 @@ class NativeFlowTest {
     }
     @Test fun waiterHasOrdersOnlyInManagement() {
         login()
-        compose.onNodeWithText("More").performClick()
+        compose.onNodeWithTag("settings").performClick()
         compose.onNodeWithText("Orders").assertExists()
         listOf("Revenue", "Fees", "Hot Items", "Devices", "Access", "Menu").forEach { compose.onNodeWithText(it).assertDoesNotExist() }
     }
@@ -139,7 +139,7 @@ class NativeFlowTest {
         login("manager")
         val targets = listOf("Fees" to Screen.FEES, "Hot Items" to Screen.HOT, "Devices" to Screen.DEVICES, "Access" to Screen.RBAC, "Menu" to Screen.MENU)
         targets.forEach { (label, target) ->
-            compose.onNodeWithText("More").performClick()
+            compose.onNodeWithContentDescription("Back").performClick()
             compose.onNodeWithText(label).performClick()
             compose.waitUntil(10_000) { vm.state.value.screen == target && !vm.state.value.loading }
             assertEquals("Error loading $target", "", vm.state.value.error)
@@ -151,18 +151,20 @@ class NativeFlowTest {
         compose.onNodeWithTag("add-${transport.rice.id}").performClick()
         Espresso.pressBack()
         compose.waitUntil { vm.state.value.sheet.isEmpty() }
-        compose.onNodeWithText("Tables").performClick()
+        Espresso.pressBack()
+        compose.waitUntil { vm.state.value.screen == Screen.TABLES }
         compose.waitUntil { !vm.state.value.loading }
         compose.onNodeWithTag("table-01").performClick()
         compose.waitUntil { vm.state.value.screen == Screen.ORDER && !vm.state.value.busy }
         assertEquals(transport.rice.id, vm.state.value.draft!!.lines.single().item.id)
     }
-    @Test fun deviceControlsRemainAvailableWhenHealthIsCollapsedAndClearRequiresConfirmation() {
+    @Test fun deviceControlsRemainAvailableAndClearRequiresConfirmation() {
         login("manager")
-        compose.onNodeWithText("More").performClick()
+        compose.onNodeWithContentDescription("Back").performClick()
         compose.onNodeWithText("Devices").performClick()
         compose.waitUntil { !vm.state.value.loading && vm.state.value.screen == Screen.DEVICES }
-        compose.onNodeWithText(vm.text("common.collapse")).performClick()
+        compose.onNodeWithText(vm.text("common.collapse")).assertDoesNotExist()
+        compose.onNodeWithText(vm.text("devices.retryPrint")).assertIsDisplayed()
         compose.onNodeWithText(vm.text("devices.testKitchen")).performScrollTo().performClick()
         compose.waitUntil { !vm.state.value.busy && !vm.state.value.loading }
         assertEquals(1, transport.calls.count { it.path == "/api/print/self-test" && it.method == "POST" })

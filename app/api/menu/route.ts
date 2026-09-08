@@ -20,8 +20,8 @@ export async function GET(req: Request) {
       AND menu_group = $1
   `;
 
-  const menuResult = includeEmptyShiftItems
-    ? await pool.query(
+  const menuRequest = includeEmptyShiftItems
+    ? pool.query(
       `${baseSql}
        AND (
          COALESCE(array_length(available_shifts, 1), 0) = 0
@@ -30,12 +30,26 @@ export async function GET(req: Request) {
        ORDER BY sort_order ASC, name ASC`,
       [mapped, effectiveShift]
     )
-    : await pool.query(
+    : pool.query(
       `${baseSql}
        AND $2 = ANY(available_shifts)
        ORDER BY sort_order ASC, name ASC`,
       [mapped, effectiveShift]
     );
+  // Both reads depend on the selected major category, not on one another.
+  // Keep dish-first category ordering and the pre-019 compatibility fallback.
+  const subcategoryRequest = pool.query<{ name: string }>(
+    `SELECT name
+     FROM menu_subcategories
+     WHERE is_active = true
+       AND shift_key = $1
+     ORDER BY sort_order ASC, name ASC`,
+    [effectiveShift]
+  ).catch((err: { code?: string }) => {
+    if (err?.code !== "42P01") throw err;
+    return { rows: [] };
+  });
+  const [menuResult, subRows] = await Promise.all([menuRequest, subcategoryRequest]);
   const { rows } = menuResult;
 
   const categories: string[] = [];
@@ -49,28 +63,13 @@ export async function GET(req: Request) {
     categories.push(category);
   }
 
-  try {
-    const subRows = await pool.query<{ name: string }>(
-      `SELECT name
-       FROM menu_subcategories
-       WHERE is_active = true
-         AND shift_key = $1
-       ORDER BY sort_order ASC, name ASC`,
-      [effectiveShift]
-    );
-    for (const row of subRows.rows) {
-      const category = String(row.name || "").trim();
-      if (!category) continue;
-      const key = category.toLowerCase();
-      if (seen.has(key)) continue;
-      seen.add(key);
-      categories.push(category);
-    }
-  } catch (err: any) {
-    // Compatibility fallback before migration 019 is applied.
-    if (err?.code !== "42P01") {
-      throw err;
-    }
+  for (const row of subRows.rows) {
+    const category = String(row.name || "").trim();
+    if (!category) continue;
+    const key = category.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    categories.push(category);
   }
 
   return NextResponse.json(

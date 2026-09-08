@@ -4,7 +4,6 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { apiFetchJson, getStoredAuth } from "../../../lib/client-api";
 import { useI18n } from "../../components/i18n-provider";
-import BottomNav from "../../components/bottom-nav";
 import { localizeMenuText } from "../../../lib/menu-text";
 import { BottomSheet, Button, EmptyState, Toast } from "../../../components/ui";
 import { RDV_TOPBAR_ACTION_EVENT, type TopbarActionDetail } from "../../../lib/topbar-events";
@@ -78,7 +77,6 @@ export default function MenuAdminPage() {
   const { t, lang } = useI18n();
   const [items, setItems] = useState<MenuItem[]>([]);
   const [showCreateForm, setShowCreateForm] = useState(false);
-  const [showAllItems, setShowAllItems] = useState(true);
   const [query, setQuery] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -91,7 +89,6 @@ export default function MenuAdminPage() {
   const [subcategories, setSubcategories] = useState<MenuSubcategory[]>([]);
   const [subcategoriesLoading, setSubcategoriesLoading] = useState(false);
   const [subcategoryError, setSubcategoryError] = useState("");
-  const [showSubcategories, setShowSubcategories] = useState(true);
   const [subcategoryShift, setSubcategoryShift] = useState<MenuShift>("beverage");
   const [subcategorySheetOpen, setSubcategorySheetOpen] = useState(false);
   const [creatingSubcategory, setCreatingSubcategory] = useState(false);
@@ -262,11 +259,12 @@ export default function MenuAdminPage() {
         price: "",
         menuGroup: form.menuGroup,
         itemType: "single",
-        category: getDefaultCategory(form.menuGroup),
+        category: form.category,
         allergens: "",
         sortOrder: "0"
       });
       await loadItems();
+      setToastMessage(lang === "en" ? `Added: ${form.name.trim()}` : `已新增：${form.name.trim()}`);
     } catch (err: any) {
       setError(err.message || "创建失败");
     } finally {
@@ -503,134 +501,18 @@ export default function MenuAdminPage() {
   return (
     <div className="stack manage-subpage-screen">
       <div className="manage-subpage-scroll stack">
-        <div className="panel stack">
-        <div className="row" style={{ justifyContent: "space-between" }}>
-          <h3 style={{ margin: 0 }}>{t("admin.newItem", "新增菜品")}</h3>
-          <button
-            type="button"
-            className="secondary compact-btn"
-            onClick={() => setShowCreateForm((v) => !v)}
-          >
-            {showCreateForm ? t("common.collapse", "收起") : t("common.expand", "展开")}
-          </button>
-        </div>
-
-        {showCreateForm ? (
-        <div className="menu-create-form">
-          <label className="stack">
-            <span>{t("admin.name", "名称")}</span>
-            <input
-              placeholder={t("admin.name", "名称")}
-              value={form.name}
-              onChange={(e) => setForm((prev) => ({ ...prev, name: e.target.value }))}
-            />
-          </label>
-
-          <label className="stack">
-            <span>{t("admin.price", "价格")}</span>
-            <input
-              placeholder={t("admin.price", "价格")}
-              inputMode="numeric"
-              value={form.price}
-              onChange={(e) => setForm((prev) => ({ ...prev, price: e.target.value }))}
-            />
-          </label>
-
-          <label className="stack">
-            <span>{t("admin.group", "菜单")}</span>
-            <select
-              value={form.menuGroup}
-              onChange={(e) => {
-                const nextGroup = e.target.value as MenuGroup;
-                setForm((prev) => ({
-                  ...prev,
-                  menuGroup: nextGroup,
-                  category: getDefaultCategory(nextGroup)
-                }));
-              }}
-            >
-              {GROUP_OPTIONS.map((option) => (
-                <option key={option.value} value={option.value}>{groupLabel(option.value)}</option>
-              ))}
-            </select>
-          </label>
-
-          <label className="stack">
-            <span>{t("admin.category", "分类")}</span>
-            <select value={form.category} onChange={(e) => setForm((prev) => ({ ...prev, category: e.target.value }))}>
-              {categoryOptions.map((category) => (
-                <option key={category} value={category}>{localizeMenuText(category, lang)}</option>
-              ))}
-            </select>
-          </label>
-
-          <label className="stack">
-            <span>{t("admin.type", "类型")}</span>
-            <select value={form.itemType} onChange={(e) => setForm((prev) => ({ ...prev, itemType: e.target.value as ItemType }))}>
-              <option value="single">Single</option>
-              <option value="set">Set</option>
-            </select>
-          </label>
-
-          <label className="stack">
-            <span>{t("admin.sort", "排序")}</span>
-            <select value={form.sortOrder} onChange={(e) => setForm((prev) => ({ ...prev, sortOrder: e.target.value }))}>
-              {SORT_OPTIONS.map((sort) => (
-                <option key={sort} value={String(sort)}>{sort}</option>
-              ))}
-            </select>
-          </label>
-
-          <label className="stack">
-            <span>过敏原（逗号分隔）</span>
-            <input
-              placeholder="eg. peanut, shellfish, dairy"
-              value={form.allergens}
-              onChange={(e) => setForm((prev) => ({ ...prev, allergens: e.target.value }))}
-            />
-          </label>
-
-          <button type="button" onClick={() => { void createItem(); }} disabled={savingNew}>
-            {savingNew ? t("admin.saving", "保存中...") : t("admin.create", "新增")}
-          </button>
-          <div className="muted">{t("admin.allergenHint", "过敏原标记：新增时在输入框填写，已存在菜品可在下方点“过敏原”修改。")}</div>
-        </div>
-        ) : null}
+        <div className="menu-create-actions">
+          <Button onClick={() => setShowCreateForm(true)}>{t("admin.newItem", "新增菜品")}</Button>
+          <Button variant="secondary" onClick={() => { setSubcategoryError(""); setMajorCategorySheetOpen(true); }}>
+            {lang === "en" ? "New main category" : "新增主目录"}
+          </Button>
+          <Button variant="secondary" onClick={() => { setSubcategoryError(""); setSubcategorySheetOpen(true); }}>
+            {lang === "en" ? "New subcategory" : "新增子目录"}
+          </Button>
         </div>
 
         <div className="panel stack">
-          <div className={styles.subcategoryHead}>
-            <h3 style={{ margin: 0 }}>{t("admin.subcategories", "子类目")}</h3>
-            <div className="row" style={{ justifyContent: "flex-end" }}>
-              <Button
-                variant="ghost"
-                onClick={() => {
-                  setSubcategoryError("");
-                  setMajorCategorySheetOpen(true);
-                }}
-              >
-                {t("admin.addMajorCategory", "+ Add main category")}
-              </Button>
-              <Button
-                variant="ghost"
-                onClick={() => {
-                  setSubcategoryError("");
-                  setSubcategorySheetOpen(true);
-                }}
-              >
-                {t("admin.addSubcategory", "+ Add subcategory")}
-              </Button>
-              <button
-                type="button"
-                className="secondary compact-btn"
-                onClick={() => setShowSubcategories((v) => !v)}
-              >
-                {showSubcategories ? t("common.collapse", "收起") : t("common.expand", "展开")}
-              </button>
-            </div>
-          </div>
-          {showSubcategories ? (
-            <>
+          <h3 style={{ margin: 0 }}>{lang === "en" ? "Categories" : "目录管理"}</h3>
               <div className={styles.majorCategoryList}>
                 {majorCategories.map((item) => (
                   <div key={item.key} className={styles.majorCategoryRow}>
@@ -699,10 +581,7 @@ export default function MenuAdminPage() {
                   )}
                 />
               )}
-            </>
-          ) : (
-            <div className="muted">{t("admin.subcategoryCollapsedHint", "Subcategory panel is collapsed.")}</div>
-          )}
+
         </div>
 
         <div className="panel stack">
@@ -715,18 +594,11 @@ export default function MenuAdminPage() {
               placeholder={t("common.search", "搜索")}
               style={{ maxWidth: 220 }}
             />
-            <button
-              type="button"
-              className="secondary compact-btn"
-              onClick={() => setShowAllItems((v) => !v)}
-            >
-              {showAllItems ? t("common.collapse", "收起") : t("common.expand", "展开")}
-            </button>
+
           </div>
         </div>
         {loading ? <div className="muted">{t("common.loading", "加载中...")}</div> : null}
         {error ? <div className="muted">{error}</div> : null}
-        {showAllItems ? (
         <div className="menu-simple-list">
           {filteredItems.map((item) => (
             <div key={item.id} className="menu-simple-row">
@@ -767,7 +639,6 @@ export default function MenuAdminPage() {
             </div>
           ))}
         </div>
-        ) : null}
         </div>
       </div>
 
@@ -780,6 +651,96 @@ export default function MenuAdminPage() {
           {savingBatch ? t("admin.saving", "保存中...") : t("common.save", "保存")}
         </button>
       </div>
+
+      <BottomSheet open={showCreateForm} onClose={() => { if (!savingNew) setShowCreateForm(false); }}
+        title={t("admin.newItem", "新增菜品")}
+        footer={<>
+          <Button variant="secondary" onClick={() => setShowCreateForm(false)} disabled={savingNew}>{t("common.close", "关闭")}</Button>
+          <Button onClick={() => { void createItem(); }} loading={savingNew}>{t("admin.create", "新增")}</Button>
+        </>}>
+        <div className="menu-create-form">
+          <label className="stack">
+            <span>{t("admin.name", "名称")}</span>
+            <input
+              placeholder={t("admin.name", "名称")}
+              value={form.name}
+              onChange={(e) => setForm((prev) => ({ ...prev, name: e.target.value }))}
+            />
+          </label>
+
+          <label className="stack">
+            <span>{t("admin.price", "价格")}</span>
+            <input
+              placeholder={t("admin.price", "价格")}
+              inputMode="numeric"
+              value={form.price}
+              onChange={(e) => setForm((prev) => ({ ...prev, price: e.target.value }))}
+            />
+          </label>
+
+          <label className="stack">
+            <span>{t("admin.group", "菜单")}</span>
+            <select
+              value={form.menuGroup}
+              onChange={(e) => {
+                const nextGroup = e.target.value as MenuGroup;
+                setForm((prev) => ({
+                  ...prev,
+                  menuGroup: nextGroup,
+                  category: getDefaultCategory(nextGroup)
+                }));
+              }}
+            >
+              {GROUP_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>{groupLabel(option.value)}</option>
+              ))}
+            </select>
+          </label>
+
+          <label className="stack">
+            <span>{t("admin.category", "分类")}</span>
+            <select value={form.category} onChange={(e) => setForm((prev) => ({ ...prev, category: e.target.value }))}>
+              {categoryOptions.map((category) => (
+                <option key={category} value={category}>{localizeMenuText(category, lang)}</option>
+              ))}
+            </select>
+          </label>
+
+          <details className="menu-create-options">
+            <summary>{lang === "en" ? "Type, order & allergens (optional)" : "类型、排序与过敏原（可选）"}</summary>
+            <div className="menu-create-form">
+          <label className="stack">
+            <span>{t("admin.type", "类型")}</span>
+            <select value={form.itemType} onChange={(e) => setForm((prev) => ({ ...prev, itemType: e.target.value as ItemType }))}>
+              <option value="single">Single</option>
+              <option value="set">Set</option>
+            </select>
+          </label>
+
+          <label className="stack">
+            <span>{t("admin.sort", "排序")}</span>
+            <select value={form.sortOrder} onChange={(e) => setForm((prev) => ({ ...prev, sortOrder: e.target.value }))}>
+              {SORT_OPTIONS.map((sort) => (
+                <option key={sort} value={String(sort)}>{sort}</option>
+              ))}
+            </select>
+          </label>
+
+          <label className="stack">
+            <span>过敏原（逗号分隔）</span>
+            <input
+              placeholder="eg. peanut, shellfish, dairy"
+              value={form.allergens}
+              onChange={(e) => setForm((prev) => ({ ...prev, allergens: e.target.value }))}
+            />
+          </label>
+
+
+            </div>
+          </details>
+          {error ? <div role="alert" className="muted">{error}</div> : null}
+        </div>
+      </BottomSheet>
 
       <BottomSheet
         open={subcategorySheetOpen}
@@ -918,7 +879,6 @@ export default function MenuAdminPage() {
         onClose={() => setToastMessage("")}
       />
 
-      <BottomNav />
     </div>
   );
 }

@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { SvgIcon } from "./svg-icon";
 
 type Props = {
   open: boolean;
@@ -21,7 +22,7 @@ export function Toast({ open, message, actionLabel, onAction, onClose }: Props) 
         ) : null}
         {onClose ? (
           <button type="button" className="ui-toast__close" onClick={onClose} aria-label="close toast">
-            ×
+            <SvgIcon name="x" />
           </button>
         ) : null}
       </div>

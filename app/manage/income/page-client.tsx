@@ -1,8 +1,9 @@
 "use client";
 
+import DatePresets from "../../components/date-presets";
+
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import BottomNav from "../../components/bottom-nav";
 import { apiFetchJson, getStoredAuth } from "../../../lib/client-api";
 import { useI18n } from "../../components/i18n-provider";
 import { type PresetKey, rangeByPreset, toDateInput } from "../../../lib/date-range";
@@ -65,14 +66,6 @@ export default function ManageIncomePage() {
   const [exportError, setExportError] = useState("");
   const [toastMessage, setToastMessage] = useState("");
 
-  const quickButtons: Array<{ key: PresetKey; label: string }> = useMemo(() => [
-    { key: "today", label: t("income.today", "当天") },
-    { key: "yesterday", label: t("income.yesterday", "昨天") },
-    { key: "week", label: t("income.week", "过去一周") },
-    { key: "month", label: t("income.month", "过去一月") },
-    { key: "3months", label: t("income.threeMonths", "过去三月") },
-    { key: "year", label: t("income.year", "过去一年") }
-  ], [t]);
 
   useEffect(() => {
     if (!toastMessage) return;
@@ -241,28 +234,14 @@ export default function ManageIncomePage() {
     <div className="stack manage-subpage-screen">
       <div className="manage-subpage-scroll stack">
         <div className="card stack manage-panel">
-          <div className="row income-export-header">
-            <h3 style={{ margin: 0 }}>{t("income.section", "收入")}</h3>
-            <Button variant="secondary" onClick={() => setExportSheetOpen(true)}>
-              {t("income.export", "Export")}
-            </Button>
-          </div>
-          <div className="row" style={{ flexWrap: "wrap" }}>
-            {quickButtons.map((btn) => (
-              <button
-                key={btn.key}
-                type="button"
-                className={preset === btn.key ? "compact-btn" : "secondary compact-btn"}
-                onClick={() => applyPreset(btn.key)}
-              >
-                {btn.label}
-              </button>
-            ))}
-          </div>
+          <DatePresets value={preset} onChange={(key) => { void applyPreset(key); }} />
           <div className="row" style={{ flexWrap: "wrap" }}>
             <input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} />
             <input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} />
+          </div>
+          <div className="report-range-actions">
             <button type="button" className="compact-btn" onClick={applyCustomRange}>{t("income.custom", "自定时间")}</button>
+            <Button variant="secondary" onClick={() => setExportSheetOpen(true)}>{t("income.export", "Export")}</Button>
           </div>
         </div>
 
@@ -391,7 +370,6 @@ export default function ManageIncomePage() {
         onClose={() => setToastMessage("")}
       />
 
-      <BottomNav />
     </div>
   );
 }

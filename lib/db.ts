@@ -37,6 +37,11 @@ function getPool() {
     statement_timeout: statementTimeout,
     keepAlive: true
   });
+  // pg emits this for idle connections; without a listener EventEmitter can
+  // terminate the process. The pool removes the broken client itself.
+  cachedPool.on("error", () => {
+    console.error("Database idle connection lost; pool will replace it.");
+  });
 
   return cachedPool;
 }

@@ -38,9 +38,10 @@
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  border: 1px solid var(--line-strong);
+  border: 0;
+  border-bottom: 1px solid var(--settings-line, var(--line-strong));
   border-radius: var(--radius-md);
-  background: #fff;
+  background: transparent;
   padding: 10px;
 }
 
@@ -49,9 +50,10 @@
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  border: 1px solid var(--line-strong);
+  border: 0;
+  border-bottom: 1px solid var(--settings-line, var(--line-strong));
   border-radius: var(--radius-md);
-  background: #fff;
+  background: transparent;
   padding: 10px;
 }
 

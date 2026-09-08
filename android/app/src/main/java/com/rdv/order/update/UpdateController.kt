@@ -13,9 +13,11 @@ data class UpdateState(
     val progress: Int = 0,
     val apk: File? = null,
     val failed: Boolean = false,
+    val latestRelease: AppRelease? = null,
+    val checkFailed: Boolean = false,
 )
 
-/** One check per app process; retained across rotation, foregrounding and installer visits. */
+/** One automatic check per process; an explicit Settings check may run again. */
 class UpdateController(
     private val currentVersion: Int,
     private val scope: CoroutineScope,
@@ -27,20 +29,27 @@ class UpdateController(
     private val mutable = MutableStateFlow(UpdateState())
     val state = mutable.asStateFlow()
     private var started = false
-    fun start() {
-        if (started) return
+    fun start(manual: Boolean = false) {
+        if (started && (!manual || state.value.checking)) return
         started = true
+        mutable.update { it.copy(checking = true) }
         scope.launch {
+            var latestRelease: AppRelease? = null
+            var checkFailed = false
             var required = withContext(Dispatchers.IO) {
                 runCatching { readKnown()?.let(AppRelease::parse)?.takeIf { it.versionCode > currentVersion } }.getOrNull()
             }
             try {
                 val remote = latest().validated()
+                latestRelease = remote
                 // A stale response must not undo an already confirmed update requirement.
                 if (remote.versionCode > currentVersion && remote.versionCode >= (required?.versionCode ?: 0)) required = remote
-            } catch (e: Exception) { if (e is CancellationException) throw e }
+            } catch (e: Exception) {
+                if (e is CancellationException) throw e
+                checkFailed = true
+            }
             withContext(Dispatchers.IO) { runCatching { saveKnown(required?.encode()) } }
-            mutable.value = UpdateState(checking = false, release = required)
+            mutable.value = UpdateState(checking = false, release = required, latestRelease = latestRelease, checkFailed = checkFailed)
         }
     }
     fun download() {

@@ -59,45 +59,40 @@ import kotlinx.serialization.json.*
     var preset by rememberSaveable { mutableStateOf("today") }
     var from by rememberSaveable { mutableStateOf(LocalDate.now().toString()) }
     var to by rememberSaveable { mutableStateOf(LocalDate.now().toString()) }
-    var table by rememberSaveable { mutableStateOf("") }
+    val table = state.filters["tableNo"].orEmpty()
     var export by rememberSaveable { mutableStateOf(false) }
-    var expanded by rememberSaveable { mutableStateOf(true) }
     val data = state.management
     val isOrders = state.screen == Screen.ORDERS
-    LaunchedEffect(state.filters["tableNo"]) { state.filters["tableNo"]?.let { table = it } }
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         RdvCard(Modifier.fillMaxWidth()) {
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Text(vm.text(if (isOrders) "orders.section" else if (state.screen == Screen.HOT) "manage.hot" else "income.section"), Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
-                if (state.screen == Screen.INCOME) RdvButton(vm.text("income.export"), { export = true }, secondary = true, enabled = !state.busy)
-                if (isOrders) TextButton(onClick = { expanded = !expanded }) { Text(vm.text(if (expanded) "common.collapse" else "common.expand")) }
+            ReportDatePresets(vm, preset, !state.busy) { key ->
+                preset = key
+                val range = DateRules.preset(key, LocalDate.now(), ZoneId.systemDefault())
+                from = range.from.atZone(ZoneId.systemDefault()).toLocalDate().toString()
+                to = range.to.atZone(ZoneId.systemDefault()).toLocalDate().toString()
+                vm.filters(mapOf("from" to range.from.toString(), "to" to range.to.toString()) +
+                    if (isOrders && table.isNotBlank()) mapOf("tableNo" to table) else emptyMap())
             }
-            if (expanded) {
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    listOf("today" to "income.today", "yesterday" to "income.yesterday", "week" to "income.week", "month" to "income.month", "3months" to "income.threeMonths", "year" to "income.year").forEach { (key, label) ->
-                        RdvChip(vm.text(label), preset == key, {
-                            preset = key
-                            val range = DateRules.preset(key, LocalDate.now(), ZoneId.systemDefault())
-                            from = range.from.atZone(ZoneId.systemDefault()).toLocalDate().toString()
-                            to = range.to.atZone(ZoneId.systemDefault()).toLocalDate().toString()
-                            vm.filters(mapOf("from" to range.from.toString(), "to" to range.to.toString()) + if (isOrders && table.isNotBlank()) mapOf("tableNo" to table.trim()) else emptyMap())
-                        }, enabled = !state.busy)
-                    }
-                }
-                DayField(vm.either("开始", "From"), from, { from = it }, !state.busy)
-                DayField(vm.either("结束", "To"), to, { to = it }, !state.busy)
-                if (isOrders) RdvField(vm.text("orders.tableFilter"), table, { table = it }, enabled = !state.busy)
-                RdvButton(vm.either("查询", "Apply"), {
+            DayField(vm.either("开始", "From"), from, { from = it }, !state.busy)
+            DayField(vm.either("结束", "To"), to, { to = it }, !state.busy)
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                RdvButton(vm.text("income.custom"), {
                     try {
                         val range = DateRules.custom(LocalDate.parse(from), LocalDate.parse(to), ZoneId.systemDefault())
-                        vm.filters(mapOf("from" to range.from.toString(), "to" to range.to.toString()) + if (isOrders && table.isNotBlank()) mapOf("tableNo" to table.trim()) else emptyMap())
+                        vm.filters(mapOf("from" to range.from.toString(), "to" to range.to.toString()) +
+                            if (isOrders && table.isNotBlank()) mapOf("tableNo" to table) else emptyMap())
                         preset = ""
                     } catch (_: Exception) { vm.error(vm.either("时间范围无效", "Invalid time range")) }
                 }, enabled = !state.busy)
+                if (state.screen == Screen.INCOME) RdvButton(vm.text("income.export"), { export = true }, secondary = true, enabled = !state.busy)
+            }
+            if (isOrders && table.isNotBlank()) Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                Text("${vm.either("桌号", "Table")} $table")
+                RdvButton(vm.either("全部订单", "All orders"), { vm.filters(state.filters - "tableNo") }, secondary = true, enabled = !state.busy)
             }
         }
         if (state.loading) LinearProgressIndicator(Modifier.fillMaxWidth())
-        if (expanded) when (state.screen) {
+        when (state.screen) {
             Screen.ORDERS -> {
                 val orders = data.rows("orders")
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -185,7 +180,7 @@ private fun dayLabel(value: String) = runCatching { Instant.parse(value).atZone(
         text = {
             if (operation == "delete") Text(vm.either("确认删除订单 ${id.take(8)} 吗？", "Delete order ${id.take(8)}?"))
             else RdvField(vm.text(if (operation == "cancel") "orders.cancelReasonPrompt" else "orders.reverseReasonPrompt"), reason, { reason = it })
-        }, confirmButton = { TextButton(onClick = {
+        }, confirmButton = { RdvTextButton(onClick = {
             when (operation) {
                 "delete" -> vm.manageAction("/api/orders/$id", "DELETE")
                 "cancel" -> vm.manageAction("/api/orders/$id/cancel", body = jsonBody("reason" to reason))
@@ -193,7 +188,7 @@ private fun dayLabel(value: String) = runCatching { Instant.parse(value).atZone(
             }
             operation = ""
         }, enabled = !state.busy && (operation == "delete" || reason.isNotBlank())) { Text(vm.text("common.done")) } },
-        dismissButton = { TextButton(onClick = { operation = "" }) { Text(vm.text("common.cancel")) } })
+        dismissButton = { RdvTextButton(onClick = { operation = "" }) { Text(vm.text("common.cancel")) } })
 }
 
 @Composable private fun ExportSheet(vm: RdvViewModel, state: UiState, onClose: () -> Unit) {
@@ -242,6 +237,6 @@ private fun dayLabel(value: String) = runCatching { Instant.parse(value).atZone(
         RdvField(vm.text(if (mode == "single") "income.exportMonth" else "income.exportStartMonth") + " (YYYY-MM)", start, { start = it }, enabled = !state.busy)
         if (mode == "range") RdvField(vm.text("income.exportEndMonth") + " (YYYY-MM)", end, { end = it }, enabled = !state.busy)
         if (!valid) Text(vm.either("请选择有效月份，结束月份不能早于开始月份", "Select valid months. End month must not be before start month."), color = RdvColors.Danger)
-        ErrorPanel(state.error, vm::dismissError)
+        ErrorPanel(state.error, vm::dismissError, vm.text("common.close"))
     }
 }

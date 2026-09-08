@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import BottomNav from "../../components/bottom-nav";
 import { apiFetchJson, getStoredAuth } from "../../../lib/client-api";
 import { useI18n } from "../../components/i18n-provider";
 import { useActionGuard } from "../../../lib/use-action-guard";
@@ -281,7 +280,6 @@ export default function ManageFeesPage() {
         ) : null}
       </div>
 
-      <BottomNav />
     </div>
   );
 }

@@ -28,6 +28,7 @@ User direction (2026-09-08): keep verification focused. Do not spend the develop
 - Rerun a check only after a relevant change, a failure, or concrete unresolved evidence. Fixing a test harness calls for rerunning that test, not all already-passing suites.
 - Once the relevant checks pass and no concrete issue remains, stop testing and deliver. Do not add extra cross-checks, screenshots, scenarios or repeated status polls solely for reassurance.
 - Group related changes into one delivery/push where practical, preserving scoped commits. Avoid repeatedly triggering deployment pipelines for intermediate documentation or evidence updates.
+- Release follow-up (2026-09-08): reuse completed batch tests for a copy-only removal and version bump. Run the affected type check and production packaging/signature/metadata checks; do not repeat full web/JVM/device suites. Vercel runs the production build, not a duplicate of the already-passing local test suite. Updater/signature/storage changes still require their relevant checks.
 - Record which results were reused and any material untested boundary briefly. Never describe unperformed checks as passed.
 
 ## Documentation Governance (SSOT)

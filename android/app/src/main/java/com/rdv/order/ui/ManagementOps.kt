@@ -14,8 +14,8 @@ import kotlinx.serialization.json.*
 
 @Composable fun ConfirmAction(message: String, vm: RdvViewModel, dismiss: () -> Unit, confirm: () -> Unit) {
     AlertDialog(onDismissRequest = dismiss, text = { Text(message) },
-        confirmButton = { TextButton(onClick = confirm) { Text(vm.text("common.done")) } },
-        dismissButton = { TextButton(onClick = dismiss) { Text(vm.text("common.cancel")) } })
+        confirmButton = { RdvTextButton(onClick = confirm) { Text(vm.text("common.done")) } },
+        dismissButton = { RdvTextButton(onClick = dismiss) { Text(vm.text("common.cancel")) } })
 }
 
 @Composable fun FeesScreen(vm: RdvViewModel, state: UiState) {
@@ -28,7 +28,7 @@ import kotlinx.serialization.json.*
         RdvCard(Modifier.fillMaxWidth()) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(vm.text("fees.section"), Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
-                TextButton(onClick = { expanded = !expanded }) { Text(vm.text(if (expanded) "common.collapse" else "common.expand")) }
+                RdvTextButton(onClick = { expanded = !expanded }) { Text(vm.text(if (expanded) "common.collapse" else "common.expand")) }
             }
             if (expanded) Text(vm.text("fees.hint"), color = RdvColors.Secondary)
         }
@@ -76,19 +76,17 @@ import kotlinx.serialization.json.*
 @OptIn(ExperimentalLayoutApi::class)
 @Composable fun DevicesScreen(vm: RdvViewModel, state: UiState) {
     var clearing by remember { mutableStateOf(false) }
-    var healthOpen by rememberSaveable { mutableStateOf(true) }
     val data = state.management
     val health = data["health"] as? JsonObject ?: JsonObject(emptyMap())
     val queue = data["printQueue"] as? JsonObject ?: JsonObject(emptyMap())
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         if (state.loading) LinearProgressIndicator(Modifier.fillMaxWidth())
-        RdvButton(vm.text("devices.retryPrint"), { vm.manageAction("/api/print/dispatch", body = jsonBody("limit" to 10)) }, enabled = !state.busy)
         RdvCard(Modifier.fillMaxWidth()) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(vm.text("devices.deployReadiness"), Modifier.weight(1f), fontWeight = FontWeight.Bold)
-                TextButton(onClick = { healthOpen = !healthOpen }) { Text(vm.text(if (healthOpen) "common.collapse" else "common.expand")) }
+                RdvButton(vm.text("devices.retryPrint"), { vm.manageAction("/api/print/dispatch", body = jsonBody("limit" to 10)) }, enabled = !state.busy)
             }
-            if (healthOpen) {
+            run {
                 val provider = health["provider"] as? JsonObject
                 val config = health["config"] as? JsonObject ?: JsonObject(emptyMap())
                 val primary = config["primary"] as? JsonObject
@@ -138,16 +136,9 @@ import kotlinx.serialization.json.*
 }
 
 @Composable fun PermissionsScreen(vm: RdvViewModel, state: UiState) {
-    var expanded by rememberSaveable { mutableStateOf(true) }
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        RdvCard(Modifier.fillMaxWidth()) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(vm.text("manage.rbac"), Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
-                TextButton(onClick = { expanded = !expanded }) { Text(vm.text(if (expanded) "common.collapse" else "common.expand")) }
-            }
-        }
         if (state.loading) LinearProgressIndicator(Modifier.fillMaxWidth())
-        if (expanded) listOf("waiter", "manager").forEach { role ->
+        listOf("waiter", "manager").forEach { role ->
             RdvCard(Modifier.fillMaxWidth()) {
                 Text(if (role == "waiter") vm.either("服务员", "Waiter") else vm.either("经理", "Manager"), fontWeight = FontWeight.Bold)
                 state.management.rows("rows").filter { it.text("role") == role }.forEach { permission ->

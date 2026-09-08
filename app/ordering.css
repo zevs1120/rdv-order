@@ -1,0 +1,66 @@
+/* Order-only surfaces: retain the existing grid, scrolling and action order. */
+.app-shell--ordering {
+  --order-section: #e8edf1;
+  --order-canvas: #f1f4f6;
+}
+
+.app-shell--ordering :is(.ui-card, .ui-btn, .ui-chip, .ui-badge, .ui-search, .ui-input, .ui-sheet, .panel) {
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.app-shell--ordering .ui-btn--secondary {
+  border-color: var(--gray-400);
+  background: #fff;
+}
+
+.app-shell--ordering .ui-chip {
+  min-height: 44px;
+  background: transparent;
+  border-color: transparent;
+  color: var(--text-secondary);
+}
+
+.app-shell--ordering .ui-chip.is-active {
+  background: var(--brand-500);
+  color: #fff;
+  border-color: var(--brand-500);
+  text-decoration: underline;
+  text-underline-offset: 5px;
+}
+
+.app-shell--ordering :is(.ui-search, .ui-input) {
+  background: var(--order-canvas);
+  border: 0;
+  border-bottom: 1px solid var(--gray-400);
+}
+
+.app-shell--ordering .ui-search__icon { color: var(--text-secondary); }
+.app-shell--ordering .ui-search:focus-within { border-bottom-color: var(--brand-500); }
+.app-shell--ordering .ui-badge { border: 0; }
+.app-shell--ordering .ui-sheet { background: #fff; }
+.app-shell--ordering .ui-sheet__body { background: var(--order-canvas); padding-top: 12px; }
+.app-shell--ordering .ui-sheet .ui-chip:not(.is-active) { border-color: var(--gray-400); background: #fff; }
+.app-shell--ordering .ui-sheet__footer { background: #fff; }
+.app-shell--ordering .ui-sheet__handle {
+  width: 44px;
+  height: 24px;
+  flex: 0 0 24px;
+  border-radius: 0;
+  margin: 0 auto;
+  background: linear-gradient(var(--gray-400), var(--gray-400)) center / 32px 3px no-repeat;
+}
+.app-shell--ordering .ui-sheet :is(button, input, select, textarea) {
+  border-radius: 0;
+  box-shadow: none;
+}
+.app-shell--ordering .ui-sheet :is(.panel, .cart-row) {
+  border-radius: 0;
+  background: #fff;
+  border: 0;
+  border-bottom: 1px solid var(--line-default);
+  padding: 12px;
+}
+
+/* Modal controls stay above the movable settings entry. */
+.app-shell--ordering:has(.ui-sheet) .settings-fab-area { visibility: hidden; }

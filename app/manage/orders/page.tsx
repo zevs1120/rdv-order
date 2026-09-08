@@ -1,8 +1,9 @@
 "use client";
 
+import DatePresets from "../../components/date-presets";
+
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import BottomNav from "../../components/bottom-nav";
 import { apiFetchJson, getStoredAuth } from "../../../lib/client-api";
 import { useI18n } from "../../components/i18n-provider";
 import { localizeMenuText } from "../../../lib/menu-text";
@@ -50,22 +51,10 @@ export default function ManageOrdersPage() {
   const [preset, setPreset] = useState<PresetKey>("today");
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
-  const [sectionOpen, setSectionOpen] = useState(true);
   const [renderLimit, setRenderLimit] = useState(ORDER_PROGRESSIVE_THRESHOLD);
   const loadMoreAnchorRef = useRef<HTMLDivElement | null>(null);
   const canRunAction = useActionGuard();
 
-  const quickButtons: Array<{ key: PresetKey; label: string }> = useMemo(
-    () => [
-      { key: "today", label: t("income.today", "当天") },
-      { key: "yesterday", label: t("income.yesterday", "昨天") },
-      { key: "week", label: t("income.week", "过去一周") },
-      { key: "month", label: t("income.month", "过去一月") },
-      { key: "3months", label: t("income.threeMonths", "过去三月") },
-      { key: "year", label: t("income.year", "过去一年") }
-    ],
-    [t]
-  );
 
   function getCurrentRange() {
     if (!fromDate || !toDate) return null;
@@ -329,31 +318,8 @@ export default function ManageOrdersPage() {
     <div className="stack manage-subpage-screen">
       <div className="manage-subpage-scroll stack">
         <div className="panel stack manage-panel">
-          <div className="row" style={{ justifyContent: "space-between" }}>
-            <h3 style={{ margin: 0 }}>{t("orders.section", "订单")}</h3>
-            <button
-              type="button"
-              className="secondary compact-btn"
-              onClick={() => setSectionOpen((v) => !v)}
-            >
-              {sectionOpen ? t("common.collapse", "收起") : t("common.expand", "展开")}
-            </button>
-          </div>
 
-          {sectionOpen ? (
-            <>
-              <div className="row" style={{ flexWrap: "wrap" }}>
-                {quickButtons.map((btn) => (
-                  <button
-                    key={btn.key}
-                    type="button"
-                    className={preset === btn.key ? "compact-btn" : "secondary compact-btn"}
-                    onClick={() => { void applyPreset(btn.key); }}
-                  >
-                    {btn.label}
-                  </button>
-                ))}
-              </div>
+              <DatePresets value={preset} onChange={(key) => { void applyPreset(key); }} />
 
               <div className="row" style={{ flexWrap: "wrap" }}>
                 <input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} />
@@ -363,22 +329,14 @@ export default function ManageOrdersPage() {
                 </button>
               </div>
 
-              <div className="row" style={{ flexWrap: "wrap" }}>
-                <input
-                  value={tableFilter}
-                  onChange={(e) => setTableFilter(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      e.preventDefault();
-                      void reloadWithCurrentRange();
-                    }
-                  }}
-                  placeholder={t("orders.tableFilter", "按桌号筛选（可选）")}
-                />
-                <button type="button" className="secondary compact-btn" onClick={() => { void reloadWithCurrentRange(); }}>
-                  {t("common.search", "搜索")}
-                </button>
-              </div>
+              {tableFilter && <div className="report-table-context">
+                <span>{lang === "en" ? "Table" : "桌号"} {tableFilter}</span>
+                <button type="button" className="secondary compact-btn" onClick={() => {
+                  setTableFilter("");
+                  const range = getCurrentRange();
+                  if (range) void loadOrders(range.from, range.to, "");
+                }}>{lang === "en" ? "All orders" : "全部订单"}</button>
+              </div>}
 
               {loading ? <div className="muted">{t("common.loading", "加载中...")}</div> : null}
               {error ? <div className="muted">{error}</div> : null}
@@ -523,12 +481,9 @@ export default function ManageOrdersPage() {
                   </>
                 ) : null}
               </div>
-            </>
-          ) : null}
         </div>
       </div>
 
-      <BottomNav />
     </div>
   );
 }

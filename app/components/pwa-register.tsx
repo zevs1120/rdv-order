@@ -9,7 +9,8 @@ export default function PwaRegister() {
     let cancelled = false;
     async function registerRuntime() {
       try {
-        const registration = await navigator.serviceWorker.register("/sw.js", { scope: "/" });
+        const workerUrl = process.env.NODE_ENV === "development" ? "/sw.js?preview=1" : "/sw.js";
+        const registration = await navigator.serviceWorker.register(workerUrl, { scope: "/", updateViaCache: "none" });
         if (cancelled) return;
 
         const timer = window.setInterval(() => {

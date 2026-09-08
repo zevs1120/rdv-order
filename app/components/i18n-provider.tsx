@@ -1,10 +1,10 @@
 "use client";
 
-import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { createContext, startTransition, useContext, useEffect, useMemo, useState, useSyncExternalStore, type ReactNode } from "react";
 import { safeStorageGet, safeStorageSet } from "../../lib/browser-storage";
+import { translate } from "../../lib/i18n";
 
 type Lang = "zh" | "en";
-type TranslateFn = (lang: Lang, key: string, fallback?: string) => string;
 
 type I18nContextValue = {
   lang: Lang;
@@ -13,59 +13,51 @@ type I18nContextValue = {
 };
 
 const I18nContext = createContext<I18nContextValue | null>(null);
+const subscribeHydration = () => () => {};
+const clientHydrationSnapshot = () => true;
+const serverHydrationSnapshot = () => false;
 
 export default function I18nProvider({ children }: { children: ReactNode }) {
-  const [lang, setLang] = useState<Lang>(() => {
-    if (typeof window === "undefined") return "en";
-    const stored = safeStorageGet("local", "rdv_lang");
-    if (stored === "zh" || stored === "en") return stored;
-    const browserLang = (navigator.language || "").toLowerCase();
-    return browserLang.startsWith("zh") ? "zh" : "en";
-  });
+  // Match SSR on the first render; restore the local preference after hydration.
+  const [lang, setLang] = useState<Lang>("en");
+  const [languageReady, setLanguageReady] = useState(false);
 
   useEffect(() => {
-    // client-only sync guard for environments where localStorage might change between mounts
     const stored = safeStorageGet("local", "rdv_lang");
-    if (stored === "zh" || stored === "en") {
-      setLang((prev) => (prev === stored ? prev : stored));
-    }
+    const browserLang = (navigator.language || "").toLowerCase();
+    // Let Suspense children (including the toolbar) hydrate before changing their text.
+    startTransition(() => {
+      setLang(stored === "zh" || stored === "en" ? stored : browserLang.startsWith("zh") ? "zh" : "en");
+      setLanguageReady(true);
+    });
   }, []);
 
   useEffect(() => {
+    if (!languageReady) return;
     safeStorageSet("local", "rdv_lang", lang);
     document.documentElement.lang = lang === "zh" ? "zh-CN" : "en";
-  }, [lang]);
-
-  const [translateFn, setTranslateFn] = useState<TranslateFn>(() => {
-    return (_lang: Lang, key: string, fallback?: string) => fallback || key;
-  });
-
-  useEffect(() => {
-    let alive = true;
-    import("../../lib/i18n")
-      .then((mod) => {
-        if (!alive) return;
-        setTranslateFn(() => mod.translate);
-      })
-      .catch(() => undefined);
-    return () => {
-      alive = false;
-    };
-  }, []);
+  }, [lang, languageReady]);
 
   const value = useMemo<I18nContextValue>(() => ({
     lang,
     setLang,
-    t: (key: string, fallback?: string) => translateFn(lang, key, fallback)
-  }), [lang, translateFn]);
+    t: (key: string, fallback?: string) => translate(lang, key, fallback)
+  }), [lang]);
 
   return <I18nContext.Provider value={value}>{children}</I18nContext.Provider>;
 }
 
 export function useI18n() {
   const ctx = useContext(I18nContext);
+  // Each streamed/Suspense boundary must match its own SSR snapshot, even if
+  // the provider already restored the language before that boundary hydrated.
+  const hydrated = useSyncExternalStore(subscribeHydration, clientHydrationSnapshot, serverHydrationSnapshot);
   if (!ctx) {
     throw new Error("useI18n must be used within I18nProvider");
   }
-  return ctx;
+  return hydrated ? ctx : {
+    lang: "en" as const,
+    setLang: ctx.setLang,
+    t: (key: string, fallback?: string) => translate("en", key, fallback)
+  };
 }

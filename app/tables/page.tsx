@@ -2,12 +2,12 @@
 
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import BottomNav from "../components/bottom-nav";
 import { apiFetchJson, getStoredAuth } from "../../lib/client-api";
 import { safeStorageGet, safeStorageRemove, safeStorageSet } from "../../lib/browser-storage";
 import { useI18n } from "../components/i18n-provider";
 import { useActionGuard } from "../../lib/use-action-guard";
 import { BottomSheet, Button, Card, EmptyState, IconButton, Skeleton } from "../../components/ui";
+import { SvgIcon } from "../../components/ui/svg-icon";
 import { dispatchTopbarState, RDV_TOPBAR_ACTION_EVENT, type TopbarActionDetail } from "../../lib/topbar-events";
 
 type TableItem = {
@@ -339,13 +339,13 @@ export default function TablesPage() {
           <div className="row" style={{ gap: 8 }}>
             <IconButton
               label={lang === "en" ? "Decrease guests" : "减少人数"}
-              icon="−"
+              icon={<SvgIcon name="minus" />}
               onClick={() => setGuestCount((prev) => Math.max(1, prev - 1))}
             />
             <strong style={{ minWidth: 42, textAlign: "center" }}>{guestCount}</strong>
             <IconButton
               label={lang === "en" ? "Increase guests" : "增加人数"}
-              icon="＋"
+              icon={<SvgIcon name="plus" />}
               onClick={() => setGuestCount((prev) => Math.min(20, prev + 1))}
             />
           </div>
@@ -358,9 +358,9 @@ export default function TablesPage() {
             {t("tables.selected", "Selected")}: {mergeSelection.join(" + ") || t("tables.noneSelected", "None")}
           </div>
           <div className="row" style={{ gap: 8 }}>
-            <Button variant="secondary" onClick={() => setMergeGuestCount((v) => Math.max(1, v - 1))}>-</Button>
+            <Button variant="secondary" aria-label={lang === "en" ? "Decrease guests" : "减少人数"} onClick={() => setMergeGuestCount((v) => Math.max(1, v - 1))}><SvgIcon name="minus" /></Button>
             <span>{mergeGuestCount}</span>
-            <Button variant="secondary" onClick={() => setMergeGuestCount((v) => Math.min(20, v + 1))}>+</Button>
+            <Button variant="secondary" aria-label={lang === "en" ? "Increase guests" : "增加人数"} onClick={() => setMergeGuestCount((v) => Math.min(20, v + 1))}><SvgIcon name="plus" /></Button>
             <Button onClick={confirmMerge} disabled={mergeSelection.length !== 2 || submitting} loading={submitting}>
               {t("tables.mergeConfirm", "Confirm Merge")}
             </Button>

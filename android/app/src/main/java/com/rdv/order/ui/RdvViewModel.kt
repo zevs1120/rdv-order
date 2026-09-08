@@ -10,7 +10,7 @@ import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
 import kotlinx.serialization.json.*
 
-enum class Screen { LOGIN, TABLES, ORDER, MORE, ORDERS, INCOME, FEES, HOT, DEVICES, RBAC, MENU, SUMMARY }
+enum class Screen { LOGIN, TABLES, ORDER, MORE, ORDERS, INCOME, FEES, HOT, DEVICES, RBAC, MENU, SUMMARY, UPDATES }
 data class UiState(
     val ready: Boolean = false,
     val lang: String = Strings.systemLanguage(),
@@ -100,7 +100,7 @@ class RdvViewModel(val repository: RdvRepository, val strings: Strings, private 
     }
     fun navigate(screen: Screen) {
         if (expiringSession) return
-        if (screen !in setOf(Screen.LOGIN, Screen.TABLES, Screen.ORDER, Screen.MORE, Screen.ORDERS) && !repository.isManager) return
+        if (screen !in setOf(Screen.LOGIN, Screen.TABLES, Screen.ORDER, Screen.MORE, Screen.ORDERS, Screen.UPDATES) && !repository.isManager) return
         epoch++
         loadJob?.cancel(); menuJob?.cancel()
         mutable.update { it.copy(screen = screen, sheet = "", error = "", loading = false,
@@ -112,7 +112,8 @@ class RdvViewModel(val repository: RdvRepository, val strings: Strings, private 
         if (state.value.sheet.isNotEmpty()) { sheet(""); return }
         when (state.value.screen) {
             Screen.ORDER -> navigate(Screen.TABLES)
-            Screen.LOGIN, Screen.TABLES, Screen.MORE -> Unit
+            Screen.MORE -> navigate(Screen.TABLES)
+            Screen.LOGIN, Screen.TABLES -> Unit
             else -> navigate(Screen.MORE)
         }
     }
@@ -120,7 +121,7 @@ class RdvViewModel(val repository: RdvRepository, val strings: Strings, private 
         when (state.value.screen) {
             Screen.TABLES -> load { val tables = repository.tables(); mutable.update { it.copy(tables = tables) } }
             Screen.ORDER -> selectShift(state.value.draft?.shift ?: "lunch")
-            Screen.LOGIN, Screen.MORE -> Unit
+            Screen.LOGIN, Screen.MORE, Screen.UPDATES -> Unit
             else -> loadManagement()
         }
     }
@@ -295,13 +296,13 @@ class RdvViewModel(val repository: RdvRepository, val strings: Strings, private 
             else -> return
         }
         load {
-            var result = repository.requestObject(path, query = if (screen in setOf(Screen.ORDERS, Screen.INCOME, Screen.HOT, Screen.SUMMARY)) query else emptyMap())
-            if (screen == Screen.DEVICES) result = JsonObject(result + ("health" to repository.requestObject("/api/print/health")))
-            if (screen == Screen.MENU) {
-                val categories = repository.requestObject("/api/admin/menu-categories")
-                val subcategories = repository.requestObject("/api/admin/menu-subcategories")
-                result = JsonObject(result + ("majorData" to categories) + ("subData" to subcategories))
+            val related = when (screen) {
+                Screen.DEVICES -> mapOf("health" to "/api/print/health")
+                Screen.MENU -> mapOf("majorData" to "/api/admin/menu-categories", "subData" to "/api/admin/menu-subcategories")
+                else -> emptyMap()
             }
+            val result = repository.management(path,
+                query = if (screen in setOf(Screen.ORDERS, Screen.INCOME, Screen.HOT, Screen.SUMMARY)) query else emptyMap(), related = related)
             mutable.update { it.copy(management = result) }
         }
     }

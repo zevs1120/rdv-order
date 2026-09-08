@@ -3,5 +3,5 @@
   "framework": "nextjs",
   "regions": ["sin1"],
   "installCommand": "npm ci --include=dev",
-  "buildCommand": "npm run verify"
+  "buildCommand": "npm run build"
 }

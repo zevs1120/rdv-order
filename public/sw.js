@@ -4,6 +4,9 @@ const MENU_CACHE = `${CACHE_PREFIX}menu-v2`;
 const STATIC_CACHE = `${CACHE_PREFIX}static-v2`;
 const APP_SHELL_URLS = ["/", "/tables", "/order"];
 const MAX_MENU_ENTRIES = 18;
+// Local development assets keep the same URL across edits; always use the current server response.
+const LOCAL_PREVIEW = ["localhost", "127.0.0.1", "[::1]", "::1"].includes(self.location.hostname) ||
+  new URL(self.location.href).searchParams.get("preview") === "1";
 
 async function trimCache(cacheName, maxEntries) {
   const cache = await caches.open(cacheName);
@@ -22,6 +25,10 @@ function isStaticAsset(url) {
 }
 
 self.addEventListener("install", (event) => {
+  if (LOCAL_PREVIEW) {
+    event.waitUntil(self.skipWaiting());
+    return;
+  }
   event.waitUntil(
     caches.open(STATIC_CACHE)
       .then((cache) => cache.addAll(APP_SHELL_URLS))
@@ -30,6 +37,16 @@ self.addEventListener("install", (event) => {
 });
 
 self.addEventListener("activate", (event) => {
+  if (LOCAL_PREVIEW) {
+    // Only obsolete preview assets/pages: never touch login, drafts, or menu data.
+    event.waitUntil((async () => {
+      const keys = await caches.keys();
+      await Promise.all(keys.filter((key) => key.startsWith("rdv-static-") || key.startsWith("rdv-runtime-"))
+        .map((key) => caches.delete(key)));
+      await self.clients.claim();
+    })());
+    return;
+  }
   event.waitUntil(
     caches.keys().then((keys) => Promise.all(
       keys
@@ -41,6 +58,7 @@ self.addEventListener("activate", (event) => {
 });
 
 self.addEventListener("fetch", (event) => {
+  if (LOCAL_PREVIEW) return;
   const request = event.request;
   if (request.method !== "GET") return;
 

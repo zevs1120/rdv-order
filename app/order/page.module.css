@@ -17,9 +17,9 @@
 
 .searchPanel {
   padding: 10px;
-  border-color: color-mix(in srgb, var(--glass-border) 88%, #fff);
+  border: 0;
   background: #fff;
-  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
+  box-shadow: none;
 }
 
 .searchHeader {
@@ -63,7 +63,7 @@
   width: 100%;
   min-height: 46px;
   border: 1px solid var(--glass-border);
-  border-radius: 12px;
+  border-radius: 0;
   background: color-mix(in srgb, #ffffff 90%, #f8fafc);
   color: var(--text-primary);
   text-align: left;
@@ -80,9 +80,9 @@
 
 .shiftPanel {
   padding: 10px;
-  border-color: color-mix(in srgb, var(--line-default) 92%, #fff);
-  background: #fff;
-  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.035);
+  border: 0;
+  background: var(--order-section);
+  box-shadow: none;
 }
 
 .shiftRow {
@@ -114,21 +114,22 @@
   width: var(--sidebar-width);
   max-width: var(--sidebar-width);
   padding: 4px;
-  border: 1px solid color-mix(in srgb, var(--line-default) 92%, #fff);
-  border-radius: 18px;
-  background: color-mix(in srgb, #ffffff 88%, #f8fafc);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.65);
+  border: 0;
+  border-radius: 0;
+  background: var(--order-section);
+  box-shadow: none;
   display: grid;
   gap: 4px;
   align-content: start;
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
 }
 
 .categoryBtn {
   width: 100%;
   min-height: 38px;
   border: 1px solid transparent;
-  border-radius: 14px;
+  border-radius: 0;
   background: transparent;
   color: var(--text-primary);
   text-align: left;
@@ -141,22 +142,22 @@
 }
 
 .categoryBtnActive {
-  border-color: color-mix(in srgb, var(--brand-500) 24%, #fff);
+  border-color: transparent;
   border-left: 3px solid var(--brand-500);
   color: var(--brand-500);
   font-weight: 650;
-  background: color-mix(in srgb, var(--brand-500) 7%, #fff);
-  box-shadow: 0 6px 14px rgba(127, 15, 22, 0.06);
+  background: #fff;
+  box-shadow: none;
 }
 
 .menuPane {
   min-width: 0;
   min-height: 0;
-  border: 1px solid color-mix(in srgb, var(--line-default) 92%, #fff);
-  border-radius: 18px;
-  background: color-mix(in srgb, #ffffff 90%, #f8fafc);
+  border: 0;
+  border-radius: 0;
+  background: var(--order-canvas);
   padding: 8px;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.62);
+  box-shadow: none;
   overflow-y: auto;
   overflow-x: hidden;
   -webkit-overflow-scrolling: touch;
@@ -190,10 +191,10 @@
     "price add";
   align-items: end;
   gap: 8px;
-  border: 1px solid color-mix(in srgb, var(--line-default) 92%, #fff);
-  border-radius: 18px;
-  background: color-mix(in srgb, #ffffff 94%, #f8fafc);
-  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.04);
+  border: 0;
+  border-radius: 0;
+  background: #fff;
+  box-shadow: none;
   padding: 12px 13px;
   contain: layout paint;
 }
@@ -243,9 +244,9 @@
   padding: 0 12px;
   justify-self: end;
   white-space: nowrap;
-  border-color: color-mix(in srgb, var(--brand-500) 30%, #fff) !important;
-  color: var(--brand-500) !important;
-  background: color-mix(in srgb, var(--brand-500) 6%, #fff) !important;
+  border-color: transparent !important;
+  color: #fff !important;
+  background: var(--brand-500) !important;
   font-weight: 640;
   box-shadow: none !important;
 }
@@ -270,10 +271,11 @@
   gap: 8px;
   align-items: center;
   padding: 10px;
-  border-color: color-mix(in srgb, var(--glass-border) 88%, #fff);
-  border-radius: 16px;
+  border: 0;
+  border-top: 1px solid var(--line-default);
+  border-radius: 0;
   background: #fff;
-  box-shadow: 0 -2px 10px rgba(15, 23, 42, 0.05);
+  box-shadow: none;
 }
 
 .cartSummaryBtn {
@@ -421,3 +423,17 @@
     min-height: 44px;
   }
 }
+
+/* Keep the icon button round and comfortably tappable at every breakpoint. */
+.page .addBtn {
+  width: 44px;
+  min-width: 44px;
+  height: 44px;
+  min-height: 44px;
+  padding: 0;
+  border-radius: 50%;
+}
+.page .addBtn:hover { background: var(--brand-600) !important; }
+.page .addBtn :global(.rdv-icon) { width: 24px; height: 24px; }
+.page .categoryBtn { box-shadow: none; min-height: 44px; }
+.page .categoryBtn:not(.categoryBtnActive):hover { background: var(--order-canvas); }

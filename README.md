@@ -67,10 +67,12 @@ The configured function region is `sin1` (Singapore), matching the existing data
 New orders automatically trigger their own queued kitchen print through Next.js `after()`. Failed jobs retain the original retry/clear controls. No always-on service or cron is needed; the optional `worker:print` utility remains off. The restored trigger has isolated regression coverage; physical printing must still be verified after deployment.
 
 ## Quality Baseline
-Before any commit, run:
+Follow the proportional checks in `CONTRIBUTING.md`; verify a completed web batch with:
 ```bash
 npm run verify
 ```
+
+When a local preview is running, `RDV_BUILD_DIR=.next-verify npm run verify` keeps production build output separate from `.next`. Next.js regenerates type references for that directory; normal development uses `.next` again. Both build directories are local/ignored. The optional variable does not change the production default. See `docs/performance-2026-09-08.md` for optimization evidence and untested boundaries.
 
 ## Default Accounts (seed)
 - Manager: `Mercy / admin`

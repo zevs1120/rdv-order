@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import BottomNav from "../../components/bottom-nav";
 import { apiFetchJson, getStoredAuth } from "../../../lib/client-api";
 import { useI18n } from "../../components/i18n-provider";
 import { Button } from "../../../components/ui";
@@ -66,7 +65,6 @@ export default function ManageDevicesPage() {
   const [testing, setTesting] = useState("");
   const [clearingQueue, setClearingQueue] = useState(false);
   const [health, setHealth] = useState<PrintHealth | null>(null);
-  const [healthOpen, setHealthOpen] = useState(true);
 
   async function loadData() {
     setLoading(true);
@@ -193,23 +191,11 @@ export default function ManageDevicesPage() {
   return (
     <div className="stack manage-subpage-screen">
       <div className="manage-subpage-scroll stack">
-        <div className="row devices-actions" style={{ justifyContent: "flex-end" }}>
-          <Button onClick={() => { void retryPrintJobs(); }}>
-            {t("devices.retryPrint", "重试打印")}
-          </Button>
-        </div>
         <div className="panel stack">
           <div className="row" style={{ justifyContent: "space-between" }}>
             <strong>{t("devices.deployReadiness", "打印部署就绪")}</strong>
-            <button
-              type="button"
-              className="secondary compact-btn"
-              onClick={() => setHealthOpen((v) => !v)}
-            >
-              {healthOpen ? t("common.collapse", "收起") : t("common.expand", "展开")}
-            </button>
+            <Button onClick={() => { void retryPrintJobs(); }}>{t("devices.retryPrint", "重试打印")}</Button>
           </div>
-          {healthOpen ? (
             <div className="order-list">
               <div className="row" style={{ justifyContent: "space-between" }}>
                 <span>{t("devices.overall", "整体状态")}</span>
@@ -250,7 +236,6 @@ export default function ManageDevicesPage() {
                 </div>
               ) : null}
             </div>
-          ) : null}
         </div>
 
         <div className="panel stack">
@@ -355,7 +340,6 @@ export default function ManageDevicesPage() {
         </div>
       </div>
 
-      <BottomNav />
     </div>
   );
 }
