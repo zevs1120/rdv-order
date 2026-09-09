@@ -41,6 +41,7 @@ class RdvViewModel(val repository: RdvRepository, val strings: Strings, private 
     val state: StateFlow<UiState> = mutable.asStateFlow()
     private var persistJob: Job? = null
     private var persistError: Throwable? = null
+    private val reportRead = LatestReportRead<JsonObject>(viewModelScope)
     private var loadJob: Job? = null
     private var menuJob: Job? = null
     private var connectionReadJob: Job? = null
@@ -90,7 +91,7 @@ class RdvViewModel(val repository: RdvRepository, val strings: Strings, private 
         if (error is ApiException && error.status == 401 && state.value.screen != Screen.LOGIN && !expiringSession) {
             expiringSession = true
             epoch++
-            loadJob?.cancel(); menuJob?.cancel()
+            loadJob?.cancel(); menuJob?.cancel(); reportRead.cancel()
             mutable.update { it.copy(busy = true, loading = false) }
             viewModelScope.launch {
                 var message = strings.error(state.value.lang, error)
@@ -118,14 +119,14 @@ class RdvViewModel(val repository: RdvRepository, val strings: Strings, private 
         persistJob?.join()
         repository.logout()
         epoch++
-        loadJob?.cancel(); menuJob?.cancel()
+        loadJob?.cancel(); menuJob?.cancel(); reportRead.cancel()
         mutable.update { UiState(ready = true, lang = it.lang) }
     }
     fun navigate(screen: Screen) {
         if (expiringSession) return
         if (screen !in setOf(Screen.LOGIN, Screen.TABLES, Screen.ORDER, Screen.MORE, Screen.ORDERS, Screen.UPDATES) && !repository.isManager) return
         epoch++
-        loadJob?.cancel(); menuJob?.cancel()
+        loadJob?.cancel(); menuJob?.cancel(); reportRead.cancel()
         mutable.update { it.copy(screen = screen, sheet = "", error = "", loading = false,
             management = JsonObject(emptyMap()), filters = emptyMap(), orderReturnToTable = false, selectMode = false, selectedTables = emptyList()) }
         refresh()
@@ -182,6 +183,7 @@ class RdvViewModel(val repository: RdvRepository, val strings: Strings, private 
         }
     }
     private fun load(block: suspend () -> Unit) {
+        reportRead.cancel()
         connectionReadJob?.cancel()
         loadJob?.cancel()
         loadJob = viewModelScope.launch {
@@ -394,7 +396,19 @@ class RdvViewModel(val repository: RdvRepository, val strings: Strings, private 
     fun updateManagement(data: JsonObject) { mutable.update { it.copy(management = data) } }
     fun loadManagement() {
         val snapshot = state.value
-        load { val result = readManagement(snapshot); mutable.update { it.copy(management = result) } }
+        if (snapshot.screen !in setOf(Screen.ORDERS, Screen.INCOME, Screen.HOT, Screen.SUMMARY)) {
+            load { val result = readManagement(snapshot); mutable.update { it.copy(management = result) } }
+            return
+        }
+        connectionReadJob?.cancel(); loadJob?.cancel()
+        mutable.update { it.copy(loading = true, error = "", management = JsonObject(emptyMap())) }
+        reportRead.submit({ readManagement(snapshot) }, { result ->
+            readError = null
+            mutable.update { it.copy(management = result, loading = false) }
+        }, { error ->
+            fail(error); readError = state.value.error
+            mutable.update { it.copy(loading = false) }
+        })
     }
     private suspend fun readManagement(snapshot: UiState): JsonObject {
         val screen = snapshot.screen

@@ -173,7 +173,9 @@ class RdvRepository(val api: Transport, private val store: KeyValueStore, privat
     }
     suspend fun management(path: String, query: Map<String, String> = emptyMap(),
         related: Map<String, String> = emptyMap()): JsonObject = coroutineScope {
-        val primary = async { requestObject(path, query = query) }
+        val report = path in setOf("/api/manage/orders", "/api/manage/income", "/api/manage/hot-items", "/api/summary")
+        val primary = async { requestObject(path, query = query,
+            timeoutMs = if (report) 20_000 else 6_000, retries = if (report) 0 else 1) }
         val extras = related.mapValues { (_, endpoint) -> async { requestObject(endpoint) } }
         val result = primary.await()
         JsonObject(result + extras.mapValues { (_, pending) -> pending.await() })

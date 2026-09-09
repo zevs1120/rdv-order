@@ -20,6 +20,11 @@ class FixtureTransport : Transport {
     var loseFirstSubmitResponse = false
     var sessionRejected = false
     var role = "waiter"
+    var reportOrderCount = 0
+    var reportDelayMs = 0L
+    var activeReportReads = 0
+    var maxActiveReportReads = 0
+    val reportQueries = mutableListOf<Map<String, String>>()
     private val opened = mutableMapOf<String, Int>()
     private val savedOrders = linkedMapOf<String, Pair<SubmitPayload, String>>()
     val rice = MenuItem("11111111-1111-4111-8111-111111111111", "Rice", 80, "Rice")
@@ -37,6 +42,12 @@ class FixtureTransport : Transport {
     override suspend fun request(path: String, method: String, body: JsonElement?, query: Map<String, String>, idempotencyKey: String?, timeoutMs: Long, retries: Int, authenticated: Boolean): ApiResponse {
         calls.add(Call(path, method, body, idempotencyKey))
         if (sessionRejected && authenticated) throw ApiException(401, "未登录")
+        if (path in setOf("/api/manage/orders", "/api/manage/income")) {
+            reportQueries += query
+            activeReportReads++
+            maxActiveReportReads = maxOf(maxActiveReportReads, activeReportReads)
+            try { kotlinx.coroutines.delay(reportDelayMs) } finally { activeReportReads-- }
+        }
         val request = body as? JsonObject ?: JsonObject(emptyMap())
         val result: String = when (path) {
             "/api/login" -> {
@@ -77,7 +88,14 @@ class FixtureTransport : Transport {
                 val table = request.text("tableNo"); val bill = bill(table); opened.remove(table)
                 RdvJson.encodeToString(CheckoutResult(bill.orders.size, bill.totalAmount))
             }
-            "/api/manage/orders" -> "{\"orders\":[],\"viewerRole\":\"$role\"}"
+            "/api/manage/orders" -> buildJsonObject {
+                put("viewerRole", role)
+                put("orders", buildJsonArray {
+                    repeat(reportOrderCount) { index -> add(jsonBody("id" to "fixture-$index", "table_no" to "T$index",
+                        "created_at" to "2026-09-09T00:00:00Z", "status" to "paid", "amount" to 100,
+                        "item_qty" to 1, "items" to JsonArray(emptyList()))) }
+                })
+            }.toString()
             "/api/manage/income" -> "{\"orderCount\":2,\"totalAmount\":600,\"byDay\":[{\"day\":\"2026-09-07T00:00:00Z\",\"order_count\":2,\"amount\":600}]}"
             "/api/manage/hot-items" -> "{\"hotItems\":[{\"name\":\"Rice\",\"qty\":3}]}"
             "/api/pricing/rules" -> "{\"rules\":[{\"id\":\"fee-1\",\"name\":\"Service Fee\",\"charge_type\":\"service_fee\",\"mode\":\"percent\",\"value\":10,\"is_active\":true,\"sort_order\":10}]}"

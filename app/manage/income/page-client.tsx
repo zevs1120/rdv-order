@@ -1,6 +1,7 @@
 "use client";
 
 import { beginConnectionRequest, connectionResponded, connectionFailed } from "../../../lib/connection";
+import { LatestReportRead } from "../../../lib/latest-report-read";
 import { useConnectionRefresh } from "../../../lib/use-connection-refresh";
 
 import DatePresets from "../../components/date-presets";
@@ -68,6 +69,7 @@ export default function ManageIncomePage() {
   const [exporting, setExporting] = useState(false);
   const [exportError, setExportError] = useState("");
   const [toastMessage, setToastMessage] = useState("");
+  const reportRead = useRef(new LatestReportRead());
   const incomeRequestRef = useRef<AbortController | null>(null);
 
 
@@ -94,10 +96,10 @@ export default function ManageIncomePage() {
         return;
       }
 
-      const body = await apiFetchJson<{ orderCount: number; totalAmount: number; byDay: IncomeDay[] }>(
+      const body = await reportRead.current.read(() => apiFetchJson<{ orderCount: number; totalAmount: number; byDay: IncomeDay[] }>(
         `/api/manage/income?from=${encodeURIComponent(from.toISOString())}&to=${encodeURIComponent(to.toISOString())}`,
-        { timeoutMs: 6000, retries: 1, signal: controller.signal }
-      );
+        { timeoutMs: 20000, retries: 0, adaptiveTimeout: false }
+      ));
       if (controller.signal.aborted || getStoredAuth().token !== token) return;
       setOrderCount(body.orderCount || 0);
       setTotalAmount(body.totalAmount || 0);
@@ -131,7 +133,7 @@ export default function ManageIncomePage() {
     setStartMonth(currentMonth);
     setEndMonth(currentMonth);
     void loadIncome(r.from, r.to);
-    return () => { incomeRequestRef.current?.abort(); incomeRequestRef.current = null; };
+    return () => { incomeRequestRef.current?.abort(); incomeRequestRef.current = null; reportRead.current.cancelPending(); };
   }, []);
 
   async function applyPreset(next: PresetKey) {

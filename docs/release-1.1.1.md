@@ -21,3 +21,15 @@ Source commit `d348fe3` is pushed to main. Its production backend deployment `rd
 Full signed APK: `distribution/site/public/releases/rdv-order-1.1.1.apk`, 1,625,081 bytes, SHA-256 `0d395cb92cfd33efb53dded6785e56b341e29a150d52e6025a9e757677aff269`.
 
 Delta from code 9: `distribution/site/public/releases/rdv-order-1.1.1-from-9.rdvdelta`, 1,288,712 bytes (20.7% less download), SHA-256 `a1b3c4fbd6399f571b72f93bbf96044d25d8896223e97c361fa0d62564760788`. Metadata, bilingual details, stable link and download page are staged together. Final public identity/deployment evidence follows after the release push. No physical hotel-device/printer output is claimed by emulator checks.
+
+
+## Final delivery evidence
+
+Release commit `7442fa3` pushed to main after source `d348fe3`. Both Git-based production deployments are READY:
+
+- Backend: `dpl_28Ub2FUordn75SRvzk5sFP6np7P1`, `rdv-order-31qvy2s3u-renfei-zhaos-projects.vercel.app`.
+- Downloads: `dpl_77chYoyygpFCJLcYgHQUsCPCBCQY`, `rdv-downloads-p8cfum8fg-renfei-zhaos-projects.vercel.app`.
+
+Direct, no-proxy HTTPS checks passed: public `release.json` exactly matches staged metadata; backend `/api/app-release` returns 1.1.1/code 10 with matching bilingual details; new checkout GET route rejects unauthenticated requests with 401. Public full APK and delta size/SHA-256 match the identities above. Reconstructing the downloaded delta against the unchanged 1.1.0 APK produces byte-for-byte the downloaded signed 1.1.1 APK.
+
+Public download: https://download.resortdejavu.cn ; full APK: https://download.resortdejavu.cn/releases/rdv-order-1.1.1.apk . Existing updater cold-start/Updates checks and mandatory installation remain; delta is applicable from code 9 with full fallback. No release blocker remains from performed checks. Actual hotel-device upgrade and physical printer acceptance are not claimed; no live business/printing/queue writes were performed. This final local evidence update does not trigger a third documentation-only deployment.

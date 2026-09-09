@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.1.2 — 2026-09-09
+
+- 修复 Android 历史订单与收入报表频繁切换时间范围时的卡顿及请求堆积；历史列表按需渲染，查询仅显示最后一次选择。
+- Improve historical order/revenue report responsiveness with lazy Android rows and serialized latest-selection reads on Android and web. Report reads no longer automatically replay at the previous six-second deadline.
+- Signed Android release code 11, Android 8+, full APK and differential update from 1.1.1/code 10. See `docs/release-1.1.2.md` for verification and deployment state.
+
 All notable changes to this project are documented in this file.
 
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).

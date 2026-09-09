@@ -50,6 +50,37 @@ class NativeFlowTest {
         add.performScrollTo().assertIsDisplayed()
         compose.onNodeWithTag("submit").assertIsDisplayed()
     }
+    @Test fun largeReportsStayLazyAndRapidSelectionsPublishOnlyLatest() {
+        transport.reportOrderCount = 2_000
+        login("manager")
+        compose.onNodeWithText("Table T1999 · #fixture-").assertDoesNotExist()
+        compose.onNodeWithTag("report-list").performScrollToIndex(2001)
+        compose.onNodeWithText("Table T1999 · #fixture-").assertIsDisplayed()
+        compose.onNodeWithTag("report-list").performScrollToIndex(0)
+        transport.reportDelayMs = 700
+        val before = transport.reportQueries.size
+        fun range(month: String) = mapOf("from" to "2026-$month-01T00:00:00Z", "to" to "2026-09-09T23:59:59Z")
+        compose.runOnIdle { vm.filters(range("01")) }
+        compose.waitUntil(5_000) { transport.activeReportReads == 1 }
+        compose.runOnIdle {
+            repeat(20) { vm.filters(range(if (it % 2 == 0) "06" else "08")) }
+        }
+        compose.waitUntil(10_000) { !vm.state.value.loading }
+        assertEquals(before + 2, transport.reportQueries.size)
+        assertEquals(range("08"), transport.reportQueries.last())
+        assertEquals(1, transport.maxActiveReportReads)
+        assertEquals(2_000, vm.state.value.management.rows("orders").size)
+        assertEquals("", vm.state.value.error)
+        compose.runOnIdle { vm.navigate(Screen.INCOME) }
+        compose.waitUntil(10_000) { !vm.state.value.loading }
+        compose.onNodeWithContentDescription("Last Year").performClick()
+        compose.onNodeWithContentDescription("Last 3 Months").performClick()
+        compose.onNodeWithContentDescription("Last Month").performClick()
+        compose.waitUntil(10_000) { !vm.state.value.loading }
+        assertEquals("", vm.state.value.error)
+        assertEquals(1, transport.maxActiveReportReads)
+    }
+
     @Test fun draftBadgeAndCheckoutProtectionKeepOrderingVisible() {
         login(); openTable()
         repeat(3) { compose.onNodeWithTag("add-${transport.rice.id}").performClick() }

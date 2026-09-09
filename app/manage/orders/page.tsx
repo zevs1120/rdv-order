@@ -1,5 +1,6 @@
 "use client";
 
+import { LatestReportRead } from "../../../lib/latest-report-read";
 import { useConnectionRefresh } from "../../../lib/use-connection-refresh";
 
 import DatePresets from "../../components/date-presets";
@@ -59,6 +60,7 @@ export default function ManageOrdersPage() {
   const [toDate, setToDate] = useState("");
   const [renderLimit, setRenderLimit] = useState(ORDER_PROGRESSIVE_THRESHOLD);
   const loadMoreAnchorRef = useRef<HTMLDivElement | null>(null);
+  const reportRead = useRef(new LatestReportRead());
   const ordersRequestRef = useRef<AbortController | null>(null);
   const canRunAction = useActionGuard();
 
@@ -94,10 +96,10 @@ export default function ManageOrdersPage() {
         params.set("tableNo", tableNo);
       }
 
-      const body = await apiFetchJson<{ orders: OrderRow[]; viewerRole?: string }>(
+      const body = await reportRead.current.read(() => apiFetchJson<{ orders: OrderRow[]; viewerRole?: string }>(
         `/api/manage/orders?${params.toString()}`,
-        { timeoutMs: 6000, retries: 1, signal: controller.signal }
-      );
+        { timeoutMs: 20000, retries: 0, adaptiveTimeout: false }
+      ));
       if (controller.signal.aborted || getStoredAuth().token !== token) return;
       if (body.viewerRole) {
         setRole(body.viewerRole);
@@ -279,7 +281,7 @@ export default function ManageOrdersPage() {
     setFromDate(toDateInput(range.from));
     setToDate(toDateInput(range.to));
     void loadOrders(range.from, range.to, initialTable, initialSession);
-    return () => { ordersRequestRef.current?.abort(); ordersRequestRef.current = null; };
+    return () => { ordersRequestRef.current?.abort(); ordersRequestRef.current = null; reportRead.current.cancelPending(); };
   }, []);
 
   useEffect(() => {

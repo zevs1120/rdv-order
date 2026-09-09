@@ -5,6 +5,10 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.ui.platform.testTag
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -63,7 +67,12 @@ import kotlinx.serialization.json.*
     var export by rememberSaveable { mutableStateOf(false) }
     val data = state.management
     val isOrders = state.screen == Screen.ORDERS
-    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+    val orders = remember(data) { data.rows("orders") }
+    val amount = remember(orders) { orders.sumOf { it.number("amount").toLong() } }
+    val hotItems = remember(data) { data.rows("hotItems") }
+    val rows = remember(data, state.screen) { data.rows(if (state.screen == Screen.SUMMARY) "items" else "byDay") }
+    LazyColumn(Modifier.fillMaxSize().testTag("report-list"), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        item(key = "filters") {
         if (!state.orderReturnToTable) RdvCard(Modifier.fillMaxWidth()) {
             ReportDatePresets(vm, preset, !state.busy) { key ->
                 preset = key
@@ -91,34 +100,36 @@ import kotlinx.serialization.json.*
                 RdvButton(vm.either("全部订单", "All orders"), { vm.filters(state.filters - "tableNo") }, secondary = true, enabled = !state.busy)
             }
         }
-        if (state.loading) LinearProgressIndicator(Modifier.fillMaxWidth())
+
+        }
+        if (state.loading) item(key = "loading") { LinearProgressIndicator(Modifier.fillMaxWidth()) }
         when (state.screen) {
             Screen.ORDERS -> {
-                val orders = remember(data) { data.rows("orders") }
-                val amount = remember(orders) { orders.sumOf { it.number("amount").toLong() } }
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    StatCard(vm.text("orders.totalCount"), orders.size.toString(), Modifier.weight(1f))
-                    StatCard(vm.text("orders.totalRevenue"), "₱$amount", Modifier.weight(1f))
+                item(key = "totals") {
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        StatCard(vm.text("orders.totalCount"), orders.size.toString(), Modifier.weight(1f))
+                        StatCard(vm.text("orders.totalRevenue"), "₱$amount", Modifier.weight(1f))
+                    }
+                    if (orders.isEmpty() && !state.loading) Text(vm.text("orders.empty"))
                 }
-                if (orders.isEmpty() && !state.loading) Text(vm.text("orders.empty"))
-                orders.forEach { order -> key(order.text("id")) { OrderManagementCard(vm, state, order) } }
+                items(orders, key = { it.text("id") }) { order -> OrderManagementCard(vm, state, order) }
             }
             Screen.HOT -> {
-                val items = remember(data) { data.rows("hotItems") }
-                if (items.isEmpty() && !state.loading) Text(vm.either("当前时段暂无数据", "No data for this period"))
-                items.forEachIndexed { index, item -> RdvCard(Modifier.fillMaxWidth()) {
-                    Text("${index + 1}. ${vm.localized(item.text("name"))}", fontWeight = FontWeight.SemiBold)
-                    Text(Seafood.quantity(item.text("name"), item.number("qty").toInt(), state.lang))
+                if (hotItems.isEmpty() && !state.loading) item { Text(vm.either("当前时段暂无数据", "No data for this period")) }
+                itemsIndexed(hotItems) { index, entry -> RdvCard(Modifier.fillMaxWidth()) {
+                    Text("${index + 1}. ${vm.localized(entry.text("name"))}", fontWeight = FontWeight.SemiBold)
+                    Text(Seafood.quantity(entry.text("name"), entry.number("qty").toInt(), state.lang))
                 } }
             }
             else -> {
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    StatCard(vm.text("income.orderCount"), data.number("orderCount").toLong().toString(), Modifier.weight(1f))
-                    StatCard(vm.text("income.total"), "₱${data.number("totalAmount").toLong()}", Modifier.weight(1f))
+                item(key = "totals") {
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        StatCard(vm.text("income.orderCount"), data.number("orderCount").toLong().toString(), Modifier.weight(1f))
+                        StatCard(vm.text("income.total"), "₱${data.number("totalAmount").toLong()}", Modifier.weight(1f))
+                    }
+                    if (rows.isEmpty() && !state.loading) Text(vm.either("当前时段暂无收入数据", "No revenue data for this period"))
                 }
-                val rows = remember(data, state.screen) { data.rows(if (state.screen == Screen.SUMMARY) "items" else "byDay") }
-                if (rows.isEmpty() && !state.loading) Text(vm.either("当前时段暂无收入数据", "No revenue data for this period"))
-                rows.forEach { row -> RdvCard(Modifier.fillMaxWidth()) {
+                items(rows) { row -> RdvCard(Modifier.fillMaxWidth()) {
                     Text(if (state.screen == Screen.SUMMARY) vm.localized(row.text("name")) else remember(row) { dayLabel(row.text("day")) })
                     Text(if (state.screen == Screen.SUMMARY) "${row.number("qty").toInt()}" else "${vm.either("订单", "Orders")} ${row.number("order_count").toInt()} · ₱${row.number("amount").toLong()}")
                 } }
