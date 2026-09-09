@@ -1,24 +1,24 @@
 {
   "name": "RDV Order",
-  "version": "1.1.0",
-  "versionCode": 9,
+  "version": "1.1.1",
+  "versionCode": 10,
   "minAndroid": "8.0",
   "apiOrigin": "https://order.resortdejavu.cn",
-  "file": "/releases/rdv-order-1.1.0.apk",
-  "bytes": 1608565,
-  "sha256": "9c634275e7bd4998726d42eb38a96bdebaf8e926ce24d1d06950223412090992",
+  "file": "/releases/rdv-order-1.1.1.apk",
+  "bytes": 1625081,
+  "sha256": "0d395cb92cfd33efb53dded6785e56b341e29a150d52e6025a9e757677aff269",
   "notes": {
-    "zh": "更新菜单价格与菜品编号，支持套餐及饮品选择；优化断网自动恢复、菜单和管理界面，新增增量更新支持。",
-    "en": "Updated menu prices and dish codes, with meal and drink choices. Improved connection recovery, menu and management screens, and added incremental update support."
+    "zh": "优化点菜、账单及打印机操作，支持修改人数和菜品选项，提升使用体验。",
+    "en": "Improved ordering, billing and printer controls, with guest-count and dish-choice editing."
   },
   "deltas": [
     {
       "format": "rdv-copy-add-v1",
-      "baseVersionCode": 8,
-      "baseSha256": "bd9295dbfae3b631bbebd2dccd52be41eb005c0b87481132e62ab6c80b98c503",
-      "file": "/releases/rdv-order-1.1.0-from-8.rdvdelta",
-      "bytes": 1269076,
-      "sha256": "5d8da3a9402f3cbd551580c3e5cc038544e0682689f088d5e9564142c490cc34"
+      "baseVersionCode": 9,
+      "baseSha256": "9c634275e7bd4998726d42eb38a96bdebaf8e926ce24d1d06950223412090992",
+      "file": "/releases/rdv-order-1.1.1-from-9.rdvdelta",
+      "bytes": 1288712,
+      "sha256": "a1b3c4fbd6399f571b72f93bbf96044d25d8896223e97c361fa0d62564760788"
     }
   ]
 }
