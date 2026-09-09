@@ -3,6 +3,7 @@ import { pool } from "../../../../lib/db";
 import { requirePermission } from "../../../../lib/permissions";
 import { writeAuditLogSafe } from "../../../../lib/audit";
 import { lockSessionName } from "../../../../lib/table-lock";
+import { checkoutTaxAmount, getCheckoutQuote } from "../../../../lib/checkout-quote";
 
 type SessionRow = {
   id: string;
@@ -10,11 +11,49 @@ type SessionRow = {
   opened_at: string;
 };
 
+export async function GET(req: Request) {
+  try {
+    await requirePermission(req, "order.create");
+    const tableNo = (new URL(req.url).searchParams.get("tableNo") || "").trim();
+    if (!tableNo) return NextResponse.json({ error: "缺少桌号" }, { status: 400 });
+    const client = await pool.connect();
+    try {
+      await client.query("BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY");
+      const session = await client.query<SessionRow>(
+        `SELECT id, table_no, opened_at FROM table_sessions
+         WHERE table_no = $1 AND closed_at IS NULL LIMIT 1`, [tableNo]
+      );
+      if (!session.rows[0]) {
+        await client.query("ROLLBACK");
+        return NextResponse.json({ error: "桌台未开台" }, { status: 404 });
+      }
+      const quote = await getCheckoutQuote(client, session.rows[0]);
+      await client.query("COMMIT");
+      return NextResponse.json(quote, { headers: { "Cache-Control": "no-store" } });
+    } catch (err) {
+      await client.query("ROLLBACK");
+      throw err;
+    } finally {
+      client.release();
+    }
+  } catch (err: any) {
+    if (err.message === "UNAUTHORIZED") return NextResponse.json({ error: "未登录" }, { status: 401 });
+    if (err.message === "FORBIDDEN") return NextResponse.json({ error: "无权限" }, { status: 403 });
+    return NextResponse.json({ error: "结账金额查询失败" }, { status: 500 });
+  }
+}
+
 export async function POST(req: Request) {
   try {
     const auth = await requirePermission(req, "order.create");
     const body = await req.json().catch(() => null);
     const tableNo = String(body?.tableNo || "").trim();
+    const expectedSessionId = body?.expectedSessionId;
+    const expectedTotalAmount = body?.expectedTotalAmount;
+    if ((expectedSessionId !== undefined && (typeof expectedSessionId !== "string" || !expectedSessionId)) ||
+        (expectedTotalAmount !== undefined && !Number.isSafeInteger(expectedTotalAmount))) {
+      return NextResponse.json({ error: "结账确认信息无效" }, { status: 400 });
+    }
 
     if (!tableNo) {
       return NextResponse.json({ error: "缺少桌号" }, { status: 400 });
@@ -40,6 +79,10 @@ export async function POST(req: Request) {
       }
 
       const s = session.rows[0];
+      if (expectedSessionId !== undefined && expectedSessionId !== s.id) {
+        await client.query("ROLLBACK");
+        return NextResponse.json({ error: "开台记录已变更，请重新确认结账" }, { status: 409 });
+      }
 
       const openOrders = await client.query<{ id: string; status: string }>(
         `SELECT id, status
@@ -54,6 +97,14 @@ export async function POST(req: Request) {
       if (openOrders.rows.length === 0) {
         await client.query("ROLLBACK");
         return NextResponse.json({ error: "当前无可结账订单" }, { status: 409 });
+      }
+
+      if (expectedTotalAmount !== undefined) {
+        const quote = await getCheckoutQuote(client, s);
+        if (quote.totalAmount !== expectedTotalAmount) {
+          await client.query("ROLLBACK");
+          return NextResponse.json({ error: "账单金额已变更，请重新确认结账" }, { status: 409 });
+        }
       }
 
       const taxRules = await client.query<{
@@ -86,9 +137,7 @@ export async function POST(req: Request) {
         if (baseAmount <= 0) continue;
 
         for (const rule of taxRules.rows) {
-          const amount = rule.mode === "percent"
-            ? Math.round((baseAmount * rule.value) / 100)
-            : rule.value;
+          const amount = checkoutTaxAmount(baseAmount, rule);
 
           await client.query(
             `INSERT INTO order_charges (order_id, charge_type, mode, value, amount, note, created_by, rule_id, source)
@@ -142,6 +191,11 @@ export async function POST(req: Request) {
          FROM order_total`,
         [s.table_no, s.opened_at]
       );
+
+      if (expectedTotalAmount !== undefined && summary.rows[0]?.total_amount !== expectedTotalAmount) {
+        await client.query("ROLLBACK");
+        return NextResponse.json({ error: "账单金额已变更，请重新确认结账" }, { status: 409 });
+      }
 
       await client.query(
         `INSERT INTO order_events (order_id, event_type, payload, created_by)

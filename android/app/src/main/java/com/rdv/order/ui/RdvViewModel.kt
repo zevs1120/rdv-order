@@ -27,6 +27,9 @@ data class UiState(
     val sheet: String = "",
     val noteItem: MenuItem? = null,
     val noteChoices: Map<String, String> = emptyMap(),
+    val editingChoices: Boolean = false,
+    val orderReturnToTable: Boolean = false,
+    val checkoutQuote: JsonObject? = null,
     val selectMode: Boolean = false,
     val selectedTables: List<String> = emptyList(),
     val management: JsonObject = JsonObject(emptyMap()),
@@ -60,6 +63,23 @@ class RdvViewModel(val repository: RdvRepository, val strings: Strings, private 
     fun text(key: String, fallback: String = key) = strings.text(state.value.lang, key, fallback)
     fun either(zh: String, en: String) = if (state.value.lang == "zh") zh else en
     fun localized(name: String) = strings.menu(state.value.lang, name)
+    fun orderStatus(status: String, cancelled: Boolean = false): String = if (cancelled) either("已取消", "Cancelled") else when (status) {
+        "draft" -> either("待下单", "Draft")
+        "submitted" -> either("已提交", "Submitted")
+        "preparing" -> either("制作中", "Preparing")
+        "served" -> either("已上菜", "Served")
+        "paid" -> either("已结账", "Paid")
+        "closed" -> either("已关闭", "Closed")
+        "cancelled" -> either("已取消", "Cancelled")
+        "merged" -> either("已并入", "Merged")
+        else -> either("未知状态", "Unknown status")
+    }
+    fun chargeLabel(type: String): String = when (type) {
+        "discount" -> text("orders.discount")
+        "service_fee" -> text("orders.serviceFee")
+        "tax" -> either("税费", "Tax")
+        else -> either("调整", "Adjustment")
+    }
     fun dismissError() { mutable.update { it.copy(error = "") } }
     fun dismissMessage() { mutable.update { it.copy(message = "") } }
     fun message(value: String) { mutable.update { it.copy(message = value) } }
@@ -107,12 +127,15 @@ class RdvViewModel(val repository: RdvRepository, val strings: Strings, private 
         epoch++
         loadJob?.cancel(); menuJob?.cancel()
         mutable.update { it.copy(screen = screen, sheet = "", error = "", loading = false,
-            management = JsonObject(emptyMap()), filters = emptyMap(), selectMode = false, selectedTables = emptyList()) }
+            management = JsonObject(emptyMap()), filters = emptyMap(), orderReturnToTable = false, selectMode = false, selectedTables = emptyList()) }
         refresh()
     }
     fun back() {
         if (state.value.busy) return
         if (state.value.sheet.isNotEmpty()) { sheet(""); return }
+        if (state.value.screen == Screen.ORDERS && state.value.orderReturnToTable) {
+            navigate(Screen.ORDER); showBill(); return
+        }
         when (state.value.screen) {
             Screen.ORDER -> navigate(Screen.TABLES)
             Screen.MORE -> navigate(Screen.TABLES)
@@ -261,24 +284,55 @@ class RdvViewModel(val repository: RdvRepository, val strings: Strings, private 
         if (!MenuOptions.complete(item, choices)) return
         val current = state.value.draft?.lines?.find { it.item.id == item.id && it.choices == choices }
         quantity(item, (current?.qty ?: 0) + 1, current?.note, choices)
-        sheet("cart")
+        sheet("")
+    }
+    fun editChoices(line: CartLine) { mutable.update { it.copy(noteItem = line.item, noteChoices = line.choices, editingChoices = true, sheet = "choices") } }
+    fun saveChoices(item: MenuItem, choices: Map<String, String>) {
+        if (!MenuOptions.complete(item, choices)) return
+        val original = state.value.noteChoices
+        try { editDraft { draft -> draft.copy(lines = OrderRules.editChoices(draft.lines, item.id, original, choices)) } }
+        catch (e: IllegalArgumentException) { error(e.message.orEmpty()); return }
+        mutable.update { it.copy(editingChoices = false, sheet = "cart") }
     }
     fun add(item: MenuItem) {
         if (item.optionGroups.isNotEmpty()) {
-            mutable.update { it.copy(noteItem = item, noteChoices = emptyMap(), sheet = "choices") }
+            mutable.update { it.copy(noteItem = item, noteChoices = emptyMap(), editingChoices = false, sheet = "choices") }
             return
         }
         val qty = state.value.draft?.lines?.find { it.item.id == item.id }?.qty ?: 0
         quantity(item, qty + 1)
         if (Seafood.config(item.name) != null) {
             mutable.update { it.copy(noteItem = item, sheet = "note") }
-        } else mutable.update { it.copy(sheet = "cart") }
+        }
     }
     fun note(item: MenuItem, choices: Map<String, String> = emptyMap()) { mutable.update { it.copy(noteItem = item, noteChoices = choices, sheet = "note") } }
     fun sheet(value: String) { if (!state.value.busy) mutable.update { it.copy(sheet = value) } }
     fun showBill() {
         mutable.update { it.copy(sheet = "bill") }
         load { val result = repository.bill(state.value.draft!!.tableNo); mutable.update { it.copy(bill = result) } }
+    }
+    fun showSessionOrders() {
+        val bill = state.value.bill ?: return
+        val sessionId = bill.sessionId ?: return
+        navigate(Screen.ORDERS)
+        mutable.update { it.copy(orderReturnToTable = true, filters = mapOf("sessionId" to sessionId, "tableNo" to bill.tableNo)) }
+        loadManagement()
+    }
+    fun updateGuests(count: Int) = action {
+        require(count in 1..20)
+        val draft = state.value.draft ?: return@action
+        repository.requestObject("/api/tables/guests", "PATCH", jsonBody("tableNo" to draft.tableNo, "guestCount" to count))
+        val next = draft.copy(guests = count)
+        persistJob?.join(); repository.saveDraft(next)
+        mutable.update { it.copy(draft = next, bill = it.bill?.copy(guestCount = count), sheet = "") }
+    }
+    fun prepareCheckout() {
+        if (state.value.draft?.lines?.isNotEmpty() == true) { sheet("draft-protection"); return }
+        mutable.update { it.copy(checkoutQuote = null, sheet = "checkout") }
+        load {
+            val quote = repository.requestObject("/api/tables/checkout", query = mapOf("tableNo" to state.value.draft!!.tableNo))
+            mutable.update { it.copy(checkoutQuote = quote) }
+        }
     }
     fun submit() = action {
         persistJob?.join()
@@ -297,7 +351,9 @@ class RdvViewModel(val repository: RdvRepository, val strings: Strings, private 
     fun checkout() = action {
         val draft = state.value.draft ?: return@action
         persistJob?.join()
-        val result = repository.checkout(draft.tableNo)
+        require(draft.lines.isEmpty()) { either("请先处理待下单菜品", "Please handle draft items first") }
+        val quote = state.value.checkoutQuote ?: return@action
+        val result = repository.checkout(draft.tableNo, quote.text("sessionId"), quote.number("totalAmount").toLong())
         repository.clearDraft(draft)
         mutable.update { it.copy(draft = draft.copy(lines = emptyList())) }
         message(either("结账完成\n订单数：${result.orderCount}\n总金额：₱${result.totalAmount}", "Checkout complete\nOrders: ${result.orderCount}\nTotal: ₱${result.totalAmount}"))
@@ -305,6 +361,7 @@ class RdvViewModel(val repository: RdvRepository, val strings: Strings, private 
     }
     fun closeTable() = action {
         val draft = state.value.draft ?: return@action
+        require(draft.lines.isEmpty()) { either("请先处理待下单菜品", "Please handle draft items first") }
         persistJob?.join(); repository.close(draft.tableNo); repository.clearDraft(draft)
         navigate(Screen.TABLES)
     }

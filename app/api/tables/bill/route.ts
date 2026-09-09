@@ -179,6 +179,8 @@ export async function GET(req: Request) {
 
     return NextResponse.json({
       tableNo: s.table_no,
+      sessionId: s.id,
+      openedAt: s.opened_at,
       guestCount: s.guest_count,
       items: items.rows,
       orders: orders.rows,

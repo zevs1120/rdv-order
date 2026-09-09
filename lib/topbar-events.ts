@@ -3,6 +3,8 @@ export const RDV_TOPBAR_ACTION_EVENT = "rdv:topbar-action";
 
 export type TopbarStateDetail = {
   route: "tables" | "order";
+  tableNo?: string;
+  guestCount?: number;
   selectMode?: boolean;
   disableMultiSelect?: boolean;
 };

@@ -64,7 +64,7 @@ import kotlinx.serialization.json.*
     val data = state.management
     val isOrders = state.screen == Screen.ORDERS
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        RdvCard(Modifier.fillMaxWidth()) {
+        if (!state.orderReturnToTable) RdvCard(Modifier.fillMaxWidth()) {
             ReportDatePresets(vm, preset, !state.busy) { key ->
                 preset = key
                 val range = DateRules.preset(key, LocalDate.now(), ZoneId.systemDefault())
@@ -133,7 +133,9 @@ private fun dayLabel(value: String) = runCatching { Instant.parse(value).atZone(
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable private fun OrderManagementCard(vm: RdvViewModel, state: UiState, order: JsonObject) {
-    var expanded by rememberSaveable { mutableStateOf(false) }
+    var expanded by rememberSaveable { mutableStateOf(state.orderReturnToTable) }
+    var returning by remember { mutableStateOf<JsonObject?>(null) }
+    var returnQty by rememberSaveable { mutableStateOf("1") }
     var operation by rememberSaveable { mutableStateOf("") }
     var reason by rememberSaveable { mutableStateOf("") }
     val id = order.text("id")
@@ -142,9 +144,9 @@ private fun dayLabel(value: String) = runCatching { Instant.parse(value).atZone(
         runCatching { Instant.parse(order.text("created_at")).atZone(ZoneId.systemDefault())
             .format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")) }.getOrDefault(order.text("created_at"))
     }
-    val status = if (cancelled) vm.either("已取消", "Cancelled") else when (order.text("status")) {
-        "submitted" -> vm.either("已提交", "Submitted"); "paid" -> vm.either("已结账", "Paid"); "closed" -> vm.either("已关闭", "Closed"); else -> order.text("status")
-    }
+    val actionHeight = with(androidx.compose.ui.platform.LocalDensity.current) { (24.sp.toDp() + 20.dp).coerceAtLeast(48.dp) }
+    val actionModifier = Modifier.height(actionHeight)
+    val status = vm.orderStatus(order.text("status"), cancelled)
     RdvCard(Modifier.fillMaxWidth()) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
@@ -152,18 +154,20 @@ private fun dayLabel(value: String) = runCatching { Instant.parse(value).atZone(
                 Text("x${order.number("item_qty").toInt()} · $status · ₱${order.number("amount").toLong()}")
                 Text(createdLabel, color = RdvColors.Secondary, fontSize = 12.sp)
             }
-            RdvButton(vm.text(if (expanded) "orders.hideDetail" else "orders.detail"), { expanded = !expanded }, secondary = true)
         }
-        if (state.role == "manager") FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            if (!cancelled && order.text("status") == "submitted") {
-                RdvButton(vm.text("orders.cancel"), { operation = "cancel"; reason = "" }, secondary = true, enabled = !state.busy)
-                RdvButton(vm.text("orders.discount"), { vm.manageAction("/api/orders/$id/charges", body = jsonBody("type" to "discount")) }, secondary = true, enabled = !state.busy)
-                RdvButton(vm.text("orders.serviceFee"), { vm.manageAction("/api/orders/$id/charges", body = jsonBody("type" to "service_fee")) }, secondary = true, enabled = !state.busy)
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            RdvButton(vm.text(if (expanded) "orders.hideDetail" else "orders.detail"), { expanded = !expanded }, modifier = actionModifier, secondary = true)
+            if (state.role == "manager") {
+                if (!cancelled && order.text("status") == "submitted") {
+                    RdvButton(vm.text("orders.cancel"), { operation = "cancel"; reason = "" }, modifier = actionModifier, secondary = true, enabled = !state.busy)
+                    RdvButton(vm.text("orders.discount"), { vm.manageAction("/api/orders/$id/charges", body = jsonBody("type" to "discount")) }, modifier = actionModifier, secondary = true, enabled = !state.busy)
+                    RdvButton(vm.text("orders.serviceFee"), { vm.manageAction("/api/orders/$id/charges", body = jsonBody("type" to "service_fee")) }, modifier = actionModifier, secondary = true, enabled = !state.busy)
+                }
+                if (order.text("status") == "closed" && order.number("amount") > 0) {
+                    RdvButton(vm.text("orders.reverseCheckout"), { operation = "reverse"; reason = "" }, modifier = actionModifier, secondary = true, enabled = !state.busy)
+                }
+                RdvButton(vm.text("orders.delete"), { operation = "delete" }, modifier = actionModifier, secondary = true, danger = true, enabled = !state.busy)
             }
-            if (order.text("status") == "closed" && order.number("amount") > 0) {
-                RdvButton(vm.text("orders.reverseCheckout"), { operation = "reverse"; reason = "" }, secondary = true, enabled = !state.busy)
-            }
-            RdvButton(vm.text("orders.delete"), { operation = "delete" }, secondary = true, danger = true, enabled = !state.busy)
         }
         if (expanded) {
             order.rows("items").forEach { item ->
@@ -173,12 +177,23 @@ private fun dayLabel(value: String) = runCatching { Instant.parse(value).atZone(
                         if (item.text("note").isNotBlank()) Text(item.text("note"), color = RdvColors.Secondary)
                         Text("₱${item.number("unit_price").toLong()} · ₱${item.number("amount").toLong()}")
                     }
-                    if (!cancelled && order.text("status") == "submitted") RdvButton(vm.text("orders.returnDish"), {
-                        vm.manageAction("/api/orders/$id/return-item", body = jsonBody("menuItemId" to item.text("menu_item_id"), "orderItemId" to item.text("order_item_id"), "qty" to 1, "reason" to "manual"))
+                    if (!cancelled && order.text("status") in setOf("submitted", "preparing", "served")) RdvButton(vm.text("orders.returnDish"), {
+                        returning = item; returnQty = "1"
                     }, secondary = true, enabled = !state.busy)
                 }
             }
         }
+    }
+    returning?.let { item ->
+        val qty = returnQty.toIntOrNull()
+        val max = item.number("qty").toInt()
+        AlertDialog(onDismissRequest = { returning = null }, title = { Text(vm.text("orders.returnDish")) },
+            text = { RdvField(vm.either("${vm.localized(item.text("name"))} 退菜数量（最多 $max）", "Return qty for ${vm.localized(item.text("name"))} (max $max)"), returnQty, { returnQty = it }, numeric = true) },
+            confirmButton = { TextButton(enabled = !state.busy && qty != null && qty in 1..max, onClick = {
+                vm.manageAction("/api/orders/$id/return-item", body = jsonBody("menuItemId" to item.text("menu_item_id"), "orderItemId" to item.text("order_item_id"), "qty" to qty, "reason" to "manual"))
+                returning = null
+            }) { Text(vm.either("确认退菜", "Confirm return")) } },
+            dismissButton = { TextButton(onClick = { returning = null }) { Text(vm.text("common.cancel")) } })
     }
     if (operation.isNotBlank()) AlertDialog(onDismissRequest = { operation = "" },
         text = {

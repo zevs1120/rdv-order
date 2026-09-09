@@ -50,6 +50,37 @@ class NativeFlowTest {
         add.performScrollTo().assertIsDisplayed()
         compose.onNodeWithTag("submit").assertIsDisplayed()
     }
+    @Test fun draftBadgeAndCheckoutProtectionKeepOrderingVisible() {
+        login(); openTable()
+        repeat(3) { compose.onNodeWithTag("add-${transport.rice.id}").performClick() }
+        compose.onNodeWithContentDescription("Draft count 3").assertIsDisplayed()
+        assertEquals("", vm.state.value.sheet)
+        compose.onNodeWithText("Table bill").assertIsDisplayed()
+        compose.runOnIdle { vm.prepareCheckout() }
+        compose.onNodeWithText("Review draft").assertIsDisplayed().performClick()
+        assertEquals("cart", vm.state.value.sheet)
+        assertEquals(3, vm.state.value.draft!!.lines.single().qty)
+        assertFalse(transport.calls.any { it.path == "/api/tables/checkout" })
+    }
+    @Test fun guestEditAndBillReturnPreserveDraftAndSearch() {
+        login("manager")
+        compose.runOnIdle { vm.navigate(Screen.TABLES) }
+        compose.waitUntil { !vm.state.value.loading && vm.state.value.tables.isNotEmpty() }
+        openTable()
+        compose.onNodeWithTag("add-${transport.rice.id}").performClick()
+        compose.runOnIdle { vm.keyword("Rice"); vm.updateGuests(5) }
+        compose.waitUntil { !vm.state.value.busy && vm.state.value.draft!!.guests == 5 }
+        compose.runOnIdle { vm.showBill() }
+        compose.waitUntil { !vm.state.value.loading && vm.state.value.bill != null }
+        compose.runOnIdle { vm.showSessionOrders() }
+        compose.waitUntil { !vm.state.value.loading && vm.state.value.screen == Screen.ORDERS }
+        compose.onNodeWithContentDescription("Back").performClick()
+        compose.waitUntil { !vm.state.value.loading && vm.state.value.screen == Screen.ORDER }
+        assertEquals("Rice", vm.state.value.draft!!.keyword)
+        assertEquals(5, vm.state.value.draft!!.guests)
+        assertEquals(1, vm.state.value.draft!!.lines.single().qty)
+        assertEquals("bill", vm.state.value.sheet)
+    }
     @Test fun connectionDialogRecoversWithoutLosingDraftOrReplayingWrites() {
         login(); openTable()
         compose.onNodeWithTag("add-${transport.rice.id}").performClick()
@@ -76,19 +107,20 @@ class NativeFlowTest {
         compose.onNodeWithTag("table-01").assertExists()
         openTable()
         compose.onNodeWithTag("add-${transport.rice.id}").performClick()
-        compose.waitUntil { vm.state.value.sheet == "cart" }
-        // Existing behavior: adding an ordinary dish immediately opens the basket.
+        compose.waitUntil { vm.state.value.draft!!.lines.isNotEmpty() }
+        assertEquals("", vm.state.value.sheet)
         assertEquals(1, vm.state.value.draft!!.lines.single().qty)
         compose.onAllNodesWithText("Submit Order").onLast().performClick()
         compose.waitUntil(10_000) { vm.state.value.bill != null && !vm.state.value.busy }
         assertTrue(vm.state.value.draft!!.lines.isEmpty())
         assertEquals(80L, vm.state.value.bill!!.totalAmount)
-        compose.onNodeWithText("Print Receipt").performClick()
+        compose.onNodeWithText("Print bill").performClick()
         compose.waitUntil { vm.state.value.message.isNotEmpty() }
         assertTrue(transport.calls.any { it.path == "/api/tables/print-bill" && it.method == "POST" })
         compose.onNodeWithText("Done").performClick()
-        compose.onNodeWithText("Checkout + Close").performClick()
-        compose.onNodeWithText("Done").performClick()
+        compose.onNodeWithText("Checkout").performClick()
+        compose.waitUntil { vm.state.value.checkoutQuote != null && !vm.state.value.loading }
+        compose.onNodeWithText("Confirm payment received").performClick()
         compose.waitUntil(10_000) { vm.state.value.screen == Screen.TABLES && !vm.state.value.busy }
         assertEquals("idle", vm.state.value.tables.first { it.tableNo == "01" }.status)
     }
@@ -127,7 +159,7 @@ class NativeFlowTest {
         login("manager")
         assertEquals(Screen.ORDERS, vm.state.value.screen)
         compose.onNodeWithContentDescription("Back").performClick()
-        listOf("Orders", "Revenue", "Fees", "Hot Items", "Devices", "Access", "Menu").forEach { compose.onNodeWithText(it).assertExists() }
+        listOf("Order history", "Revenue", "Fees", "Hot Items", "Printers", "Access", "Menu").forEach { compose.onNodeWithText(it).assertExists() }
         compose.onNodeWithText("Revenue").performClick()
         compose.waitUntil(10_000) { !vm.state.value.loading && vm.state.value.management.number("totalAmount") == 600.0 }
         compose.onNodeWithText("₱600").assertExists()
@@ -149,6 +181,7 @@ class NativeFlowTest {
     @Test fun closingOrdinaryNoteSavesTypedTextAfterDismissingTheKeyboard() {
         login(); openTable()
         compose.onNodeWithTag("add-${transport.rice.id}").performClick()
+        compose.runOnIdle { vm.sheet("cart") }
         compose.onNodeWithText(vm.text("order.noteAction")).performClick()
         compose.onNodeWithTag("note-input").performTextInput("onion")
         Espresso.pressBack()
@@ -160,12 +193,12 @@ class NativeFlowTest {
     @Test fun waiterHasOrdersOnlyInManagement() {
         login()
         compose.onNodeWithTag("settings").performClick()
-        compose.onNodeWithText("Orders").assertExists()
-        listOf("Revenue", "Fees", "Hot Items", "Devices", "Access", "Menu").forEach { compose.onNodeWithText(it).assertDoesNotExist() }
+        compose.onNodeWithText("Order history").assertExists()
+        listOf("Revenue", "Fees", "Hot Items", "Printers", "Access", "Menu").forEach { compose.onNodeWithText(it).assertDoesNotExist() }
     }
     @Test fun managerModulesLoadAsNativeScreensWithoutErrors() {
         login("manager")
-        val targets = listOf("Fees" to Screen.FEES, "Hot Items" to Screen.HOT, "Devices" to Screen.DEVICES, "Access" to Screen.RBAC, "Menu" to Screen.MENU)
+        val targets = listOf("Fees" to Screen.FEES, "Hot Items" to Screen.HOT, "Printers" to Screen.DEVICES, "Access" to Screen.RBAC, "Menu" to Screen.MENU)
         targets.forEach { (label, target) ->
             compose.onNodeWithContentDescription("Back").performClick()
             compose.onNodeWithText(label).performClick()
@@ -189,7 +222,8 @@ class NativeFlowTest {
     @Test fun deviceControlsRemainAvailableAndClearRequiresConfirmation() {
         login("manager")
         compose.onNodeWithContentDescription("Back").performClick()
-        compose.onNodeWithText("Devices").performClick()
+        compose.onNodeWithText("Printers").performClick()
+        compose.onNodeWithText("Advanced diagnostics +").performScrollTo().performClick()
         compose.waitUntil { !vm.state.value.loading && vm.state.value.screen == Screen.DEVICES }
         compose.onNodeWithText(vm.text("common.collapse")).assertDoesNotExist()
         compose.onNodeWithText(vm.text("devices.retryPrint")).assertIsDisplayed()
@@ -212,7 +246,7 @@ class NativeFlowTest {
         compose.runOnIdle { assertEquals("", vm.state.value.draft!!.keyword) }
         compose.onNodeWithTag("menu-search").performTextReplacement("161")
         compose.onNodeWithTag("add-${transport.freeBreakfast.id}").performScrollTo().performClick()
-        compose.onNodeWithText("Add to order").assertIsNotEnabled()
+        compose.onNodeWithText("Add to draft").assertIsNotEnabled()
         compose.onNodeWithTag("choice-beverage-tea").performScrollTo().assertIsDisplayed()
         compose.onNodeWithTag("choice-beverage-coke_zero").performScrollTo().assertIsDisplayed().performClick()
         val context = InstrumentationRegistry.getInstrumentation().targetContext
@@ -221,18 +255,16 @@ class NativeFlowTest {
         File(context.filesDir, "android-evidence/menu-choice.png").outputStream().use {
             requireNotNull(InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot()).compress(Bitmap.CompressFormat.PNG, 100, it)
         }
-        compose.onNodeWithText("Add to order").performClick()
+        compose.onNodeWithText("Add to draft").performClick()
         assertEquals(0L, com.rdv.order.domain.OrderRules.total(vm.state.value.draft!!.lines))
-        Espresso.pressBack()
         compose.onNodeWithTag("add-${transport.freeBreakfast.id}").performScrollTo().performClick()
         compose.onNodeWithTag("choice-beverage-coke").performScrollTo().performClick()
-        compose.onNodeWithText("Add to order").performClick()
+        compose.onNodeWithText("Add to draft").performClick()
         assertEquals(2, vm.state.value.draft!!.lines.size)
-        Espresso.pressBack()
         compose.onNodeWithTag("menu-search").performTextReplacement("018")
         compose.onNodeWithTag("add-${transport.chop.id}").performScrollTo().performClick()
         compose.onNodeWithTag("choice-protein-pork").performScrollTo().performClick()
-        compose.onNodeWithText("Add to order · ₱450").performClick()
+        compose.onNodeWithText("Add to draft · ₱450").performClick()
         assertEquals(450L, com.rdv.order.domain.OrderRules.total(vm.state.value.draft!!.lines))
         compose.onAllNodesWithText("Submit Order").onLast().performClick()
         compose.waitUntil(10000) { !vm.state.value.busy && vm.state.value.bill != null }
@@ -257,7 +289,7 @@ class NativeFlowTest {
         }
         capture("login-en")
         login(); capture("tables-en"); openTable(); capture("order-en")
-        compose.onNodeWithTag("add-${transport.rice.id}").performClick(); capture("cart-en")
+        compose.onNodeWithTag("add-${transport.rice.id}").performClick(); compose.runOnIdle { vm.sheet("cart") }; capture("cart-en")
         Espresso.pressBack(); compose.waitUntil { vm.state.value.sheet.isEmpty() }
         compose.onNodeWithContentDescription("切换到中文").performClick(); capture("order-zh")
     }

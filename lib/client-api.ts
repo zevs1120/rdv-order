@@ -31,6 +31,14 @@ class HttpResponseError extends Error {
 type UiLang = "zh" | "en";
 
 const serverErrorEn: Record<string, string> = {
+  "开台记录无效": "Invalid table session",
+  "开台记录不存在": "Table session not found",
+  "结账金额查询失败": "Unable to load checkout amount",
+  "结账确认信息无效": "Invalid checkout confirmation",
+  "开台记录已变更，请重新确认结账": "This table has changed. Review checkout again.",
+  "账单金额已变更，请重新确认结账": "The bill has changed. Review checkout again.",
+  "开台记录已变更，请刷新后重试": "This table has changed. Refresh and try again.",
+  "修改人数失败": "Unable to update guest count",
   "未登录": "Not signed in",
   "无权限": "Insufficient permission",
   "缺少桌号": "Table number is required",

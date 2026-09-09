@@ -13,6 +13,8 @@ import { useActionGuard } from "../../lib/use-action-guard";
 import { createDebounced, scheduleIdleTask } from "../../lib/scheduler";
 import { Badge, BottomSheet, Button, Card, Chip, EmptyState, SearchField, Toast } from "../../components/ui";
 import { dispatchTopbarState, RDV_TOPBAR_ACTION_EVENT, type TopbarActionDetail } from "../../lib/topbar-events";
+import { ReturnDishSheet } from "../../components/ui/return-dish-sheet";
+import { orderStatusLabel } from "../../lib/order-status";
 import styles from "./page.module.css";
 
 type ShiftKey = string;
@@ -57,7 +59,7 @@ type BillOrder = {
   items: BillItem[];
   charges: Array<{
     id: string;
-    charge_type: "discount" | "service_fee";
+    charge_type: "discount" | "service_fee" | "tax";
     amount: number;
     mode: "amount" | "percent";
     value: number;
@@ -85,6 +87,7 @@ type OrderDraft = {
 type BillCachePayload = {
   tableNo: string;
   fetchedAt: number;
+  sessionId?: string;
   items: BillItem[];
   orders: BillOrder[];
   totalAmount: number;
@@ -311,6 +314,16 @@ export default function OrderPage() {
   const [menu, setMenu] = useState<MenuItem[]>([]);
   const [searchMenu, setSearchMenu] = useState<MenuItem[]>([]);
   const [choiceItem, setChoiceItem] = useState<MenuItem | null>(null);
+  const [editingChoiceKey, setEditingChoiceKey] = useState("");
+  const [cartPulse, setCartPulse] = useState(0);
+  const [guestEditor, setGuestEditor] = useState(false);
+  const [guestInput, setGuestInput] = useState("2");
+  const [guestSaving, setGuestSaving] = useState(false);
+  const [billSessionId, setBillSessionId] = useState("");
+  const [checkoutQuote, setCheckoutQuote] = useState<{ sessionId: string; totalAmount: number; orderCount: number } | null>(null);
+  const [checkoutPreparing, setCheckoutPreparing] = useState(false);
+  const [closeConfirm, setCloseConfirm] = useState(false);
+  const [draftWarning, setDraftWarning] = useState(false);
   const [choiceDraft, setChoiceDraft] = useState<MenuChoices>({});
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -335,6 +348,7 @@ export default function OrderPage() {
   const [printingBillReceipt, setPrintingBillReceipt] = useState(false);
   const [billItems, setBillItems] = useState<BillItem[]>([]);
   const [billOrders, setBillOrders] = useState<BillOrder[]>([]);
+  const [returnTarget, setReturnTarget] = useState<{ orderId: string; item: BillItem } | null>(null);
   const [returningItemKey, setReturningItemKey] = useState("");
   const [billTotal, setBillTotal] = useState(0);
   const [billQty, setBillQty] = useState(0);
@@ -453,7 +467,8 @@ export default function OrderPage() {
   }
 
   const updateCartSelection = useCallback((id: string, nextQty: number, nextNote?: string, choices?: MenuChoices, item?: MenuItem) => {
-    setCartSelections((prev) => {
+    const prev = cartSelectionsRef.current;
+    const next = (() => {
       const current = prev[id];
       if (nextQty <= 0) {
         if (!current) return prev;
@@ -476,7 +491,9 @@ export default function OrderPage() {
           item: item ?? current?.item
         }
       };
-    });
+    })();
+    cartSelectionsRef.current = next;
+    setCartSelections(next);
   }, []);
 
   useEffect(() => {
@@ -739,6 +756,23 @@ export default function OrderPage() {
     };
   }, [paramsReady, tableNo, shift, keywordInput, selectedCategory, cartSelections]);
 
+  useEffect(() => {
+    if (tableNo && new URLSearchParams(window.location.search).get("bill") === "1") {
+      setShowBill(true);
+      void loadBill();
+    }
+  }, [tableNo]);
+
+  useEffect(() => {
+    if (!menu.length || !tableNo || !menuPaneRef.current) return;
+    const key = `rdv_order_scroll:${tableNo}`;
+    const saved = safeStorageGet("session", key);
+    if (saved !== null) {
+      menuPaneRef.current.scrollTop = Number(saved) || 0;
+      safeStorageRemove("session", key);
+    }
+  }, [menu, tableNo]);
+
   const normalizedKeyword = keyword.trim().toLowerCase();
   const codeSearch = /^\d+$/.test(normalizedKeyword);
   const displayMenu = codeSearch ? searchMenu : menu;
@@ -945,6 +979,7 @@ export default function OrderPage() {
       .sort()
       .join("|");
   }, [cart]);
+  const cartCount = useMemo(() => cart.reduce((sum, item) => sum + (getSeafoodConfig(item)?.unit === "100g" ? 1 : item.qty), 0), [cart]);
   const total = useMemo(() => cart.reduce((sum, item) => sum + item.price * item.qty, 0), [cart]);
   const menuById = useMemo(() => {
     const map = new Map<string, MenuItem>();
@@ -1063,6 +1098,7 @@ export default function OrderPage() {
     const nextQty = previousQty + 1;
     const item = menuById.get(itemId) || menuMetaRef.current.get(itemId) || null;
     if (item?.option_groups?.length) {
+      setEditingChoiceKey("");
       setChoiceDraft({});
       setChoiceItem(item);
       setCartSheetOpen(false);
@@ -1076,7 +1112,7 @@ export default function OrderPage() {
     } else {
       setQty(itemId, nextQty);
       setNoteSheetOpen(false);
-      setCartSheetOpen(true);
+      setCartPulse((value) => value + 1);
     }
   }, [menuById, openNoteSheetFor, setQty, updateCartSelection]);
 
@@ -1145,6 +1181,7 @@ export default function OrderPage() {
       cached.tableNo === tableNo &&
       Date.now() - cached.fetchedAt < 1800
     ) {
+      setBillSessionId(cached.sessionId || "");
       setBillItems(cached.items);
       setBillOrders(cached.orders);
       setBillTotal(cached.totalAmount);
@@ -1153,10 +1190,12 @@ export default function OrderPage() {
     }
     setBillLoading(true);
     try {
-      const body = await apiFetchJson<{ items: BillItem[]; orders?: BillOrder[]; totalAmount: number; totalQty: number }>(
+      const body = await apiFetchJson<{ sessionId?: string; guestCount?: number; items: BillItem[]; orders?: BillOrder[]; totalAmount: number; totalQty: number }>(
         `/api/tables/bill?tableNo=${encodeURIComponent(tableNo)}`,
         { timeoutMs: 6000, retries: 1, cacheTtlMs: 1800 }
       );
+      setBillSessionId(body.sessionId || "");
+      if (body.guestCount) setGuests(body.guestCount);
       const nextItems = body.items || [];
       const nextOrders = body.orders || [];
       const nextTotalAmount = body.totalAmount || 0;
@@ -1168,6 +1207,7 @@ export default function OrderPage() {
       billCacheRef.current = {
         tableNo,
         fetchedAt: Date.now(),
+        sessionId: body.sessionId,
         items: nextItems,
         orders: nextOrders,
         totalAmount: nextTotalAmount,
@@ -1201,27 +1241,8 @@ export default function OrderPage() {
     }
   }
 
-  async function returnDish(orderId: string, item: BillItem) {
-    if (!canRunAction()) return;
-
-    const input = window.prompt(
-      lang === "en"
-        ? `Return qty for ${localizeMenuText(item.name, lang)} (max ${item.qty})`
-        : `${localizeMenuText(item.name, lang)} 退菜数量（最多 ${item.qty}）`,
-      "1"
-    );
-    if (!input) return;
-
-    const qty = Number(input);
-    if (!Number.isInteger(qty) || qty <= 0) {
-      setError(lang === "en" ? "Invalid return quantity" : "退菜数量无效");
-      return;
-    }
-    if (qty > item.qty) {
-      setError(lang === "en" ? "Return quantity exceeds ordered quantity" : "退菜数量超过已点数量");
-      return;
-    }
-
+  async function returnDish(orderId: string, item: BillItem, qty: number) {
+    if (!canRunAction() || returningItemKey || !Number.isInteger(qty) || qty < 1 || qty > item.qty) return;
     setError("");
     const opKey = `${orderId}:${item.menu_item_id}`;
     setReturningItemKey(opKey);
@@ -1237,6 +1258,7 @@ export default function OrderPage() {
         timeoutMs: 7000,
         retries: 0
       });
+      setReturnTarget(null);
       billCacheRef.current = null;
       await loadBill();
       setToast({
@@ -1434,26 +1456,86 @@ export default function OrderPage() {
     }
   }
 
-  async function checkout() {
-    if (!canRunAction()) {
-      return;
-    }
-    const confirmed = window.confirm(
-      lang === "en"
-        ? `Confirm checkout and close table?\nTable: ${tableNo}`
-        : `确认结账并关台吗？\n桌号：${tableNo}`
-    );
-    if (!confirmed) {
-      return;
-    }
+  function openCurrentOrders() {
+    if (!billSessionId) return;
+    const items = Object.entries(cartSelectionsRef.current).map(([id, line]) => ({ id, ...line }));
+    safeStorageSet("local", `rdv_order_draft:${tableNo}`, JSON.stringify({ tableNo, shift, keyword: keywordInput, selectedCategory, items, updatedAt: Date.now() }));
+    safeStorageSet("session", `rdv_order_scroll:${tableNo}`, String(menuPaneRef.current?.scrollTop || 0));
+    const returnTo = `/order?${new URLSearchParams({ tableNo, guests: String(guests), bill: "1" })}`;
+    router.push(`/manage/orders?${new URLSearchParams({ tableNo, sessionId: billSessionId, returnTo })}`);
+  }
 
+  async function saveGuests() {
+    const guestCount = Number(guestInput);
+    if (guestSaving || !Number.isInteger(guestCount) || guestCount < 1 || guestCount > 20 || !canRunAction()) return;
+    setGuestSaving(true);
+    setError("");
+    try {
+      const result = await apiFetchJson<{ guestCount: number }>("/api/tables/guests", { method: "PATCH", body: { tableNo, guestCount }, retries: 0 });
+      setGuests(result.guestCount);
+      const url = new URL(window.location.href);
+      url.searchParams.set("guests", String(result.guestCount));
+      window.history.replaceState(window.history.state, "", url);
+      billCacheRef.current = null;
+      setGuestEditor(false);
+    } catch (err: any) { setError(err.message || (lang === "en" ? "Unable to update guest count" : "修改人数失败")); }
+    finally { setGuestSaving(false); }
+  }
+
+  function finishChoices() {
+    if (!choiceItem || !choicesComplete(choiceItem, choiceDraft)) return;
+    const baseKey = cartLineKey(choiceItem.id, choiceDraft);
+    const source = editingChoiceKey ? cartSelectionsRef.current[editingChoiceKey] : undefined;
+    if (editingChoiceKey && !source) return;
+    const target = cartSelectionsRef.current[baseKey];
+    const key = baseKey;
+    if (source && baseKey !== editingChoiceKey && target && (target.note || "") !== (source.note || "")) {
+      setError(lang === "en" ? "These choices already exist with a different note. Update the note first." : "相同选项已有不同备注，请先统一备注再修改选项。");
+      return;
+    }
+    const existing = cartSelectionsRef.current[key];
+    const qty = source ? source.qty + (key !== editingChoiceKey ? existing?.qty || 0 : 0) : (existing?.qty || 0) + 1;
+    const note = source ? source.note : existing?.note;
+    if (source && editingChoiceKey !== key) updateCartSelection(editingChoiceKey, 0);
+    updateCartSelection(key, qty, note, choiceDraft, choiceItem);
+    setChoiceItem(null);
+    setEditingChoiceKey("");
+    if (source) setCartSheetOpen(true);
+    else setCartPulse((value) => value + 1);
+  }
+
+  function requireEmptyDraft() {
+    if (!Object.values(cartSelectionsRef.current).some((line) => line.qty > 0)) return true;
+    setActionMenuOpen(false);
+    setShowBill(false);
+    setCheckoutQuote(null);
+    setCloseConfirm(false);
+    setDraftWarning(true);
+    return false;
+  }
+
+  async function checkout() {
+    if (checkoutPreparing || loading || !canRunAction() || !requireEmptyDraft()) return;
+    setCheckoutPreparing(true);
+    setError("");
+    try {
+      const quote = await apiFetchJson<{ sessionId: string; totalAmount: number; orderCount: number }>(
+        `/api/tables/checkout?tableNo=${encodeURIComponent(tableNo)}`, { retries: 0 });
+      if (!quote.orderCount) { setError(lang === "en" ? "No payable orders for this table" : "当前无可结账订单"); return; }
+      setCheckoutQuote(quote);
+    } catch (err: any) { setError(err.message || t("order.checkoutFailed")); }
+    finally { setCheckoutPreparing(false); }
+  }
+
+  async function confirmCheckout() {
+    if (!checkoutQuote || loading || !canRunAction() || !requireEmptyDraft()) return;
     const checkoutStartedAt = performance.now();
     setLoading(true);
     setError("");
     try {
       const body = await apiFetchJson<{ orderCount: number; totalAmount: number }>("/api/tables/checkout", {
         method: "POST",
-        body: { tableNo },
+        body: { tableNo, expectedSessionId: checkoutQuote.sessionId, expectedTotalAmount: checkoutQuote.totalAmount },
         timeoutMs: 8000,
         retries: 1
       });
@@ -1471,6 +1553,7 @@ export default function OrderPage() {
       billCacheRef.current = null;
       router.replace("/tables");
     } catch (err: any) {
+      setCheckoutQuote(null);
       setError(err.message || t("order.checkoutFailed", "Checkout failed"));
     } finally {
       setLoading(false);
@@ -1509,15 +1592,13 @@ export default function OrderPage() {
     }
   }
 
-  async function closeTable() {
-    if (!canRunAction()) return;
-    const confirmed = window.confirm(
-      lang === "en"
-        ? `Confirm close table?\nTable: ${tableNo}`
-        : `确认关台吗？\n桌号：${tableNo}`
-    );
-    if (!confirmed) return;
+  function closeTable() {
+    if (loading || !canRunAction() || !requireEmptyDraft()) return;
+    setCloseConfirm(true);
+  }
 
+  async function confirmCloseTable() {
+    if (loading || !canRunAction() || !requireEmptyDraft()) return;
     setLoading(true);
     setError("");
     try {
@@ -1536,6 +1617,7 @@ export default function OrderPage() {
       billCacheRef.current = null;
       router.replace("/tables");
     } catch (err: any) {
+      setCloseConfirm(false);
       setError(err.message || t("order.closeFailed", "Failed to close table"));
     } finally {
       setLoading(false);
@@ -1565,7 +1647,7 @@ export default function OrderPage() {
   }, []);
 
   useEffect(() => {
-    dispatchTopbarState({ route: "order" });
+    dispatchTopbarState({ route: "order", tableNo, guestCount: guests });
   }, [guests, tableNo]);
 
   useEffect(() => {
@@ -1586,8 +1668,9 @@ export default function OrderPage() {
           <div className={styles.searchHeader}>
             <div className={styles.searchTableMeta}>
               <span className={styles.searchTableLabel}>{lang === "en" ? `Table ${tableNo}` : `桌号 ${tableNo}`}</span>
-              <Badge tone="brand">{lang === "en" ? `${guests} Guests` : `${guests} 人`}</Badge>
+              <button className={styles.guestButton} onClick={() => { setError(""); setGuestInput(String(guests)); setGuestEditor(true); }} aria-label={lang === "en" ? "Edit guest count" : "修改用餐人数"}>{lang === "en" ? `${guests} Guests` : `${guests} 人`} <SvgIcon name="chevron-left" className={styles.guestChevron} /></button>
             </div>
+            <Button variant="secondary" className={styles.billButton} onClick={() => { setShowBill(true); void loadBill(); }}>{t("order.ordered")}</Button>
           </div>
           <SearchField
             value={keywordInput}
@@ -1661,7 +1744,9 @@ export default function OrderPage() {
               setCartSheetOpen(true);
             }}
           >
-            {t("order.currentOrder", "Current Order")} · {cart.length} · ₱{total}
+            <span className={styles.cartCaption}>{t("order.currentOrder")}</span>
+            <span key={cartPulse} className={`${styles.cartCount} ${cartPulse ? styles.cartCountPulse : ""}`} aria-live="polite" aria-atomic="true">{cartCount}</span>
+            <span className={styles.cartAmount}>₱{total}</span>
           </Button>
           <Button
             onClick={() => { void submitOrder(); }}
@@ -1687,6 +1772,32 @@ export default function OrderPage() {
         </div>
       </div>
 
+      {returnTarget ? <ReturnDishSheet key={`${returnTarget.orderId}:${returnTarget.item.order_item_id || returnTarget.item.menu_item_id}`}
+        name={localizeMenuText(returnTarget.item.name, lang)} maxQty={returnTarget.item.qty} lang={lang} busy={Boolean(returningItemKey)} error={error}
+        onClose={() => setReturnTarget(null)} onConfirm={(qty) => { void returnDish(returnTarget.orderId, returnTarget.item, qty); }} /> : null}
+
+      <BottomSheet open={guestEditor} onClose={() => { if (!guestSaving) setGuestEditor(false); }} title={lang === "en" ? "Guest count" : "用餐人数"}
+        footer={<><Button variant="secondary" disabled={guestSaving} onClick={() => setGuestEditor(false)}>{t("common.cancel")}</Button><Button onClick={saveGuests} loading={guestSaving} disabled={!Number.isInteger(Number(guestInput)) || Number(guestInput) < 1 || Number(guestInput) > 20}>{t("common.save")}</Button></>}>
+        <label className="stack"><span>{lang === "en" ? "Guests (1–20)" : "用餐人数（1–20）"}</span><input type="number" min={1} max={20} step={1} inputMode="numeric" value={guestInput} onChange={(event) => setGuestInput(event.target.value)} /></label>
+        {error ? <p role="alert">{error}</p> : null}
+      </BottomSheet>
+      <BottomSheet open={draftWarning} onClose={() => setDraftWarning(false)} title={lang === "en" ? "Unsubmitted dishes" : "还有未下单菜品"}
+        footer={<Button onClick={() => { setDraftWarning(false); setCartSheetOpen(true); }}>{lang === "en" ? "Review draft" : "查看待下单"}</Button>}>
+        <p>{lang === "en" ? "These dishes are not included in the bill. Submit them or remove them before checkout or closing the table." : "这些菜品尚未计入账单。请先下单或移除，再结账或关台。"}</p>
+      </BottomSheet>
+      <BottomSheet open={Boolean(checkoutQuote)} onClose={() => { if (!loading) setCheckoutQuote(null); }} title={t("order.checkout")}
+        footer={<><Button variant="secondary" disabled={loading} onClick={() => setCheckoutQuote(null)}>{t("common.cancel")}</Button><Button onClick={confirmCheckout} loading={loading}>{lang === "en" ? "Confirm payment received" : "确认已收款并结账"}</Button></>}>
+        <strong>{lang === "en" ? `Table ${tableNo}` : `桌号 ${tableNo}`}</strong>
+        <p>{lang === "en" ? "This visit" : "本次用餐"} · {checkoutQuote?.orderCount} {lang === "en" ? "orders" : "单"}</p>
+        <strong>{lang === "en" ? "Amount due" : "应收金额"}：₱{checkoutQuote?.totalAmount}</strong>
+        <p>{lang === "en" ? "Confirm that payment has been received. Checkout records revenue and closes this table." : "请确认已收到款项。结账后将记录收入并关台。"}</p>
+      </BottomSheet>
+      <BottomSheet open={closeConfirm} onClose={() => { if (!loading) setCloseConfirm(false); }} title={t("order.closeTable")}
+        footer={<><Button variant="secondary" disabled={loading} onClick={() => setCloseConfirm(false)}>{t("common.cancel")}</Button><Button onClick={confirmCloseTable} loading={loading}>{t("order.closeTable")}</Button></>}>
+        <strong>{lang === "en" ? `Table ${tableNo}` : `桌号 ${tableNo}`}</strong>
+        <p>{lang === "en" ? "Close this table without recording payment. Tables with unpaid orders must be checked out first." : "仅关闭桌台，不记录收款。有未结订单时需先结账。"}</p>
+      </BottomSheet>
+
       <BottomSheet
         open={actionMenuOpen}
         onClose={closeActionMenu}
@@ -1696,33 +1807,12 @@ export default function OrderPage() {
           <button
             type="button"
             className={styles.actionsSheetRow}
-            onClick={async () => {
-              setActionMenuOpen(false);
-              setShowBill(true);
-              await loadBill();
-            }}
-          >
-            {t("order.ordered", "Items")}
-          </button>
-          <button
-            type="button"
-            className={styles.actionsSheetRow}
             onClick={() => {
               setActionMenuOpen(false);
               setShowAddDish(true);
             }}
           >
             {t("order.addDish", "Add")}
-          </button>
-          <button
-            type="button"
-            className={styles.actionsSheetRow}
-            onClick={() => {
-              setActionMenuOpen(false);
-              router.push(`/manage/orders?tableNo=${encodeURIComponent(tableNo)}`);
-            }}
-          >
-            {t("orders.title", "Orders")}
           </button>
           {isMergedTable ? (
             <button
@@ -1807,7 +1897,7 @@ export default function OrderPage() {
       </BottomSheet>
 
       <BottomSheet
-        open={showBill}
+        open={showBill && !returnTarget && !checkoutQuote && !closeConfirm && !draftWarning}
         onClose={() => setShowBill(false)}
         title={`${t("order.billTitle", "Ordered Items")} (${tableNo})`}
         footer={(
@@ -1820,12 +1910,13 @@ export default function OrderPage() {
             >
               {t("order.printReceipt", "Print Receipt")}
             </Button>
-            <Button onClick={checkout} loading={loading}>
-              {`${t("order.checkout", "Checkout")} + ${t("order.closeTable", "Close")}`}
+            <Button onClick={checkout} loading={loading || checkoutPreparing}>
+              {t("order.checkout")}
             </Button>
           </>
         )}
       >
+        {error ? <p role="alert">{error}</p> : null}
         {billLoading ? <div className="muted">{t("common.loading", "Loading...")}</div> : null}
         {!billLoading && billItems.length === 0 ? <EmptyState title={t("order.billEmpty", "No items yet")} /> : null}
         {!billLoading ? (
@@ -1851,13 +1942,13 @@ export default function OrderPage() {
 
         {!billLoading && billOrders.length > 0 ? (
           <div className="stack" style={{ marginTop: 12 }}>
-            <strong>{lang === "en" ? "Order Details (Return Dish)" : "订单明细（退菜）"}</strong>
+            <details><summary className={styles.detailsSummary}>{lang === "en" ? "Order details" : "订单明细"}</summary>
             {billOrders.map((order) => {
               const canReturn = !order.cancelled_at && ["submitted", "preparing", "served"].includes(order.status);
               return (
                 <div key={`bill-order-${order.id}`} className="panel stack" style={{ padding: 10 }}>
                   <div className="row" style={{ justifyContent: "space-between", alignItems: "center" }}>
-                    <span>#{order.id.slice(0, 8)} · {order.status}</span>
+                    <span>#{order.id.slice(0, 8)} · {orderStatusLabel(order.status, order.cancelled_at, lang)}</span>
                     <strong>₱{order.total_amount}</strong>
                   </div>
                   {(order.items || []).map((item) => {
@@ -1880,7 +1971,7 @@ export default function OrderPage() {
                               type="button"
                               className="secondary compact-btn"
                               disabled={returningItemKey === opKey}
-                              onClick={() => { void returnDish(order.id, item); }}
+                              onClick={() => { setError(""); setReturnTarget({ orderId: order.id, item }); }}
                             >
                               {returningItemKey === opKey
                                 ? (lang === "en" ? "Returning..." : "退菜中...")
@@ -1891,22 +1982,25 @@ export default function OrderPage() {
                       </div>
                     );
                   })}
+                  {(order.charges || []).map((charge) => <div key={charge.id} className="row" style={{ justifyContent: "space-between" }}>
+                    <span>{charge.charge_type === "discount" ? t("orders.discount") : charge.charge_type === "service_fee" ? t("orders.serviceFee") : (lang === "en" ? "Tax" : "税费")}</span><span>₱{charge.amount}</span>
+                  </div>)}
                 </div>
               );
             })}
+            </details>
+            {role === "manager" && billSessionId ? <Button variant="secondary" onClick={openCurrentOrders}>{lang === "en" ? "Manage this bill" : "管理本桌订单"}</Button> : null}
           </div>
         ) : null}
       </BottomSheet>
 
-      <BottomSheet open={Boolean(choiceItem)} onClose={() => setChoiceItem(null)}
+      <BottomSheet open={Boolean(choiceItem)} onClose={() => { setChoiceItem(null); if (editingChoiceKey) setCartSheetOpen(true); setEditingChoiceKey(""); }}
         title={choiceItem ? localizeMenuText(choiceItem.name, lang) : ''}
-        footer={<Button disabled={!choiceItem || !choicesComplete(choiceItem, choiceDraft)} onClick={() => {
-          if (!choiceItem || !choicesComplete(choiceItem, choiceDraft)) return;
-          const key = cartLineKey(choiceItem.id, choiceDraft);
-          const current = cartSelectionsRef.current[key];
-          updateCartSelection(key, (current?.qty || 0) + 1, current?.note, choiceDraft, choiceItem);
-          setChoiceItem(null); setCartSheetOpen(true);
-        }}>{lang === 'en' ? 'Add to order' : '加入订单'}{choiceItem && !choiceItem.is_complimentary ? ` · ₱${selectedPrice(choiceItem, choiceDraft)}` : ''}</Button>}>
+        footer={<Button disabled={!choiceItem || !choicesComplete(choiceItem, choiceDraft)} onClick={finishChoices}>
+          {editingChoiceKey ? (lang === "en" ? "Save choices" : "保存选项") : (lang === "en" ? "Add to draft" : "加入待下单")}
+          {choiceItem && !choiceItem.is_complimentary ? ` · ₱${selectedPrice(choiceItem, choiceDraft)}` : ''}
+        </Button>}>
+        {error ? <p role="alert">{error}</p> : null}
         {choiceItem?.option_groups?.map((group) => <fieldset key={group.id} style={{ border: 0, padding: 0, margin: '0 0 16px' }}>
           <legend style={{ marginBottom: 8 }}>{lang === 'zh' ? group.label_zh || group.label_en : group.label_en}</legend>
           <div className="stack" style={{ gap: 8 }}>
@@ -1950,6 +2044,13 @@ export default function OrderPage() {
                   <Button variant="secondary" aria-label={lang === "en" ? "Decrease quantity" : "减少数量"} onClick={() => setQty(item.lineKey, Math.max(0, item.qty - 1))}><SvgIcon name="minus" /></Button>
                   <span>{formatQtyWithUnit(item.qty, seafoodConfig)}</span>
                   <Button variant="secondary" aria-label={lang === "en" ? "Increase quantity" : "增加数量"} onClick={() => setQty(item.lineKey, item.qty + 1)}><SvgIcon name="plus" /></Button>
+                  {item.option_groups?.length ? <Button variant="secondary" onClick={() => {
+                    setError("");
+                    setEditingChoiceKey(item.lineKey);
+                    setChoiceDraft(item.choices || {});
+                    setChoiceItem(menuById.get(item.id) || menuMetaRef.current.get(item.id) || cartSelections[item.lineKey]?.item || item);
+                    setCartSheetOpen(false);
+                  }}>{lang === "en" ? "Edit options" : "修改选项"}</Button> : null}
                   <Button variant="secondary" onClick={() => openNoteSheetFor(item.lineKey)}>
                     {t("order.noteAction", "Note")}
                   </Button>

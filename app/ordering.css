@@ -64,3 +64,5 @@
 
 /* Modal controls stay above the movable settings entry. */
 .app-shell--ordering:has(.ui-sheet) .settings-fab-area { visibility: hidden; }
+/* Keep the movable settings control clear of the ordering dock. */
+.app-shell--ordering .settings-fab-area { bottom: calc(108px + env(safe-area-inset-bottom, 0px)); }

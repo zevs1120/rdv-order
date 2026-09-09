@@ -69,7 +69,11 @@ class FixtureTransport : Transport {
             "/api/orders/request-status" -> savedOrders[query["key"]]?.let { RdvJson.encodeToString(SubmissionStatus(true, it.second)) } ?: "{\"found\":false}"
             "/api/tables/bill" -> RdvJson.encodeToString(bill(query["tableNo"] ?: "01"))
             "/api/tables/print-bill" -> "{\"queued\":true}"
-            "/api/tables/checkout" -> {
+            "/api/tables/guests" -> { val table = request.text("tableNo"); opened[table] = request.number("guestCount").toInt(); request.toString() }
+            "/api/tables/checkout" -> if (method == "GET") {
+                val table = query["tableNo"] ?: "01"; val current = bill(table)
+                jsonBody("tableNo" to table, "sessionId" to "fixture-session", "openedAt" to "2026-09-07T00:00:00Z", "orderCount" to current.orders.size, "totalAmount" to current.totalAmount).toString()
+            } else {
                 val table = request.text("tableNo"); val bill = bill(table); opened.remove(table)
                 RdvJson.encodeToString(CheckoutResult(bill.orders.size, bill.totalAmount))
             }
@@ -97,6 +101,6 @@ class FixtureTransport : Transport {
             }
             BillOrder(id, "submitted", totalAmount = items.sumOf { it.amount }, itemAmount = items.sumOf { it.amount }, items = items)
         }
-        return Bill(table, opened[table] ?: 2, orders.flatMap { it.items }, orders, orders.sumOf { it.items.sumOf { item -> item.qty } }, orders.sumOf { it.totalAmount })
+        return Bill(table, opened[table] ?: 2, orders.flatMap { it.items }, orders, orders.sumOf { it.items.sumOf { item -> item.qty } }, orders.sumOf { it.totalAmount }, sessionId = "fixture-session", openedAt = "2026-09-07T00:00:00Z")
     }
 }

@@ -7,6 +7,7 @@ import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -19,6 +20,9 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 
 @Composable fun RdvRoot(vm: RdvViewModel) {
     val state by vm.state.collectAsStateWithLifecycle()
+    val orderState = rememberSaveableStateHolder()
+    val orderKey = state.draft?.let { "${it.tableNo}:${it.openedAt}" } ?: "none"
+    DisposableEffect(orderKey) { onDispose { orderState.removeState(orderKey) } }
     val subpage = state.screen !in setOf(Screen.LOGIN, Screen.TABLES)
     BackHandler(enabled = subpage || state.sheet.isNotEmpty() || state.busy) { vm.back() }
     val linearSettings = state.screen !in setOf(Screen.LOGIN, Screen.TABLES, Screen.ORDER)
@@ -66,7 +70,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
                     when (state.screen) {
                         Screen.LOGIN -> LoginScreen(vm, state)
                         Screen.TABLES -> TablesScreen(vm, state)
-                        Screen.ORDER -> OrderScreen(vm, state)
+                        Screen.ORDER -> orderState.SaveableStateProvider(orderKey) { OrderScreen(vm, state) }
                         Screen.MORE -> MoreScreen(vm, state)
                         Screen.UPDATES -> UpdatesScreen(vm)
                         else -> ManagementScreen(vm, state)
@@ -74,7 +78,9 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
                 }
             }
             if (state.screen in setOf(Screen.TABLES, Screen.ORDER)) {
-                DraggableSettingsFab(vm.text("nav.settings"), state.lang, !state.busy) { vm.navigate(Screen.MORE) }
+                Box(Modifier.fillMaxSize().padding(bottom = if (state.screen == Screen.ORDER) 88.dp else 0.dp)) {
+                    DraggableSettingsFab(vm.text("nav.settings"), state.lang, !state.busy) { vm.navigate(Screen.MORE) }
+                }
             }
             }
         }

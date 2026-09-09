@@ -31,7 +31,8 @@ Base: Next.js Route Handlers under `app/api`.
 | POST | `/api/tables/unmerge` | `order.create` |
 | GET | `/api/tables/bill` | `report.orders` |
 | POST | `/api/tables/print-bill` | `order.create` |
-| POST | `/api/tables/checkout` | `order.create` |
+| GET, POST | `/api/tables/checkout` | `order.create` |
+| PATCH | `/api/tables/guests` | `order.create` |
 | POST | `/api/tables/close` | `order.create` |
 | POST | `/api/tables/reverse-checkout` | `cashier.reverse_checkout` |
 | POST, GET | `/api/orders` | `order.create` / `report.orders` |
@@ -95,6 +96,19 @@ Order/items/queue are saved atomically. On a new insertion, `after()` automatica
 { "tableNo": "05", "guestCount": 2 }
 ```
 
+### Change Current Guest Count
+`PATCH /api/tables/guests`
+```json
+{ "tableNo": "05", "guestCount": 4, "expectedSessionId": "uuid" }
+```
+
+`guestCount` must be an integer from 1 to 20. The optional `expectedSessionId` rejects a stale/reopened table with 409. The update locks the open session, writes an audit entry and returns `{ tableNo, guestCount, sessionId, openedAt }`. Only current session headcount changes; existing order guest-count snapshots and accounting remain unchanged.
+
+### Current Table Bill and Orders
+`GET /api/tables/bill?tableNo=05` also returns `sessionId` and `openedAt` alongside the existing bill fields.
+
+`GET /api/manage/orders?sessionId=<uuid>` uses the recorded session's table number and opening/closing boundaries instead of the default daily date filter. Closed-session end boundaries are exclusive. An optional `tableNo` must match that session (otherwise 404); invalid UUIDs return 400. Existing date/table-only requests retain their behavior and permissions.
+
 ### Merge Tables
 `POST /api/tables/merge`
 ```json
@@ -102,10 +116,14 @@ Order/items/queue are saved atomically. On a new insertion, `after()` automatica
 ```
 
 ### Checkout
+`GET /api/tables/checkout?tableNo=05` returns `{ tableNo, sessionId, openedAt, orderCount, totalAmount }` from a read-only transaction. The amount projects the existing automatic tax rules and includes charges already applied, without duplicating automatic taxes. Fetch it immediately before displaying payment confirmation.
+
 `POST /api/tables/checkout`
 ```json
-{ "tableNo": "05" }
+{ "tableNo": "05", "expectedSessionId": "uuid", "expectedTotalAmount": 225 }
 ```
+
+The optional confirmation fields reject changed sessions or amounts with 409, before committing any checkout changes. Clients should refresh and request confirmation again. Original `{ "tableNo": "05" }` requests remain supported. This does not change discount/service-fee or reverse-checkout workflows.
 
 ### Update Pricing Rules
 `PATCH /api/pricing/rules`

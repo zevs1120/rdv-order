@@ -26,6 +26,19 @@ object OrderRules {
         Math.addExact(total, Math.multiplyExact(MenuOptions.price(line.item, line.choices), line.qty.toLong()))
     }
 
+    fun draftCount(lines: List<CartLine>): Int = lines.sumOf { if (Seafood.config(it.item.name)?.unit == "100g") 1 else it.qty }
+
+    fun editChoices(lines: List<CartLine>, itemId: String, original: Map<String, String>, choices: Map<String, String>): List<CartLine> {
+        if (original == choices) return lines
+        val source = lines.find { it.item.id == itemId && it.choices == original } ?: return lines
+        val target = lines.find { it.item.id == itemId && it.choices == choices }
+        require(target == null || target.note.orEmpty().trim() == source.note.orEmpty().trim()) {
+            "相同选项已有不同备注，请先调整备注 / These choices already exist with a different note. Update the note first."
+        }
+        val updated = source.copy(choices = choices, qty = source.qty + (target?.qty ?: 0))
+        return lines.filterNot { it.item.id == itemId && (it.choices == original || it.choices == choices) } + updated
+    }
+
     fun addNote(existing: String?, mode: String, input: String): String? {
         require(mode == "no" || mode == "more")
         if (input.trim().isEmpty()) return existing

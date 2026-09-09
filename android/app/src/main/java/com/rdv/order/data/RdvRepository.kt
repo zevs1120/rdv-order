@@ -157,7 +157,7 @@ class RdvRepository(val api: Transport, private val store: KeyValueStore, privat
     }
     suspend fun bill(table: String): Bill = decodeResponse<Bill>(api.request("/api/tables/bill", query = mapOf("tableNo" to table), timeoutMs = 6_000).text)
     suspend fun printBill(table: String) { api.request("/api/tables/print-bill", "POST", jsonBody("tableNo" to table), timeoutMs = 1_800) }
-    suspend fun checkout(table: String): CheckoutResult = RdvJson.decodeFromString<CheckoutResult>(api.request("/api/tables/checkout", "POST", jsonBody("tableNo" to table), timeoutMs = 8_000, retries = 1).text)
+    suspend fun checkout(table: String, expectedSessionId: String? = null, expectedTotalAmount: Long? = null): CheckoutResult = RdvJson.decodeFromString<CheckoutResult>(api.request("/api/tables/checkout", "POST", jsonBody("tableNo" to table, "expectedSessionId" to expectedSessionId, "expectedTotalAmount" to expectedTotalAmount), timeoutMs = 8_000, retries = 1).text)
     suspend fun close(table: String) { api.request("/api/tables/close", "POST", jsonBody("tableNo" to table), timeoutMs = 7_000, retries = 1) }
     suspend fun unmerge(table: String): JsonObject = requestObject("/api/tables/unmerge", "POST", jsonBody("tableNo" to table), timeoutMs = 7_000, retries = 1)
     suspend fun returnItem(orderId: String, item: String, qty: Int, reason: String = "manual correction", orderItemId: String? = null) {

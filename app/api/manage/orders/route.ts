@@ -18,21 +18,35 @@ export async function GET(req: Request) {
     const url = new URL(req.url);
     const from = url.searchParams.get("from");
     const to = url.searchParams.get("to");
-    const tableNo = (url.searchParams.get("tableNo") || "").trim();
+    let tableNo = (url.searchParams.get("tableNo") || "").trim();
+    const sessionId = (url.searchParams.get("sessionId") || "").trim();
 
-    const defaultRange = getTodayRange();
-    const rangeFrom = from ? new Date(from) : defaultRange.start;
-    const rangeTo = to ? new Date(to) : defaultRange.end;
-
-    if (Number.isNaN(rangeFrom.getTime()) || Number.isNaN(rangeTo.getTime())) {
-      return NextResponse.json({ error: "时间格式错误" }, { status: 400 });
-    }
-    if (rangeFrom.getTime() > rangeTo.getTime()) {
-      return NextResponse.json({ error: "时间范围无效" }, { status: 400 });
-    }
-    const maxRangeDays = 370;
-    if (rangeTo.getTime() - rangeFrom.getTime() > maxRangeDays * 24 * 60 * 60 * 1000) {
-      return NextResponse.json({ error: "时间范围无效" }, { status: 400 });
+    let rangeFrom: Date;
+    let rangeTo: Date;
+    if (sessionId) {
+      if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(sessionId)) {
+        return NextResponse.json({ error: "开台记录无效" }, { status: 400 });
+      }
+      const session = await pool.query<{ table_no: string; opened_at: string; closed_at: string | null }>(
+        "SELECT table_no, opened_at, closed_at FROM table_sessions WHERE id = $1", [sessionId]
+      );
+      const row = session.rows[0];
+      if (!row || (tableNo && row.table_no !== tableNo)) {
+        return NextResponse.json({ error: "开台记录不存在" }, { status: 404 });
+      }
+      tableNo = row.table_no;
+      rangeFrom = new Date(row.opened_at);
+      rangeTo = row.closed_at ? new Date(row.closed_at) : new Date();
+    } else {
+      const defaultRange = getTodayRange();
+      rangeFrom = from ? new Date(from) : defaultRange.start;
+      rangeTo = to ? new Date(to) : defaultRange.end;
+      if (Number.isNaN(rangeFrom.getTime()) || Number.isNaN(rangeTo.getTime())) {
+        return NextResponse.json({ error: "时间格式错误" }, { status: 400 });
+      }
+      if (rangeFrom > rangeTo || rangeTo.getTime() - rangeFrom.getTime() > 370 * 24 * 60 * 60 * 1000) {
+        return NextResponse.json({ error: "时间范围无效" }, { status: 400 });
+      }
     }
 
     const params: string[] = [rangeFrom.toISOString(), rangeTo.toISOString()];
@@ -47,7 +61,7 @@ export async function GET(req: Request) {
          SELECT o.id, o.table_no, o.status, o.cancelled_at, o.created_at
          FROM orders o
          WHERE o.created_at >= $1
-           AND o.created_at <= $2
+           AND o.created_at ${sessionId ? "<" : "<="} $2
            ${tableSql}
        ),
        item_data AS (

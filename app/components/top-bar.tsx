@@ -17,6 +17,18 @@ type BarMeta = {
   backHref: string | null;
 };
 
+function orderReturnHref(value?: string | null): string {
+  if (!value?.startsWith("/order?")) return "/manage";
+  const url = new URL(value, "https://local.invalid");
+  if (url.origin !== "https://local.invalid" || url.pathname !== "/order" || !url.searchParams.get("tableNo")) return "/manage";
+  const params = new URLSearchParams();
+  for (const key of ["tableNo", "guests", "sessionId", "bill"]) {
+    const item = url.searchParams.get(key);
+    if (item) params.set(key, item);
+  }
+  return `/order?${params}`;
+}
+
 function resolveBarMeta(pathname: string, lang: "zh" | "en", searchParams: URLSearchParams | null): BarMeta {
   if (pathname === "/tables") {
     return {
@@ -56,11 +68,11 @@ function resolveBarMeta(pathname: string, lang: "zh" | "en", searchParams: URLSe
 
   const map: Array<{ match: (value: string) => boolean; title: string; titleEn: string; backHref: string | null }> = [
     { match: (value) => value === "/manage/updates", title: "更新管理", titleEn: "Updates", backHref: "/manage" },
-    { match: (value) => value === "/manage/orders", title: "订单", titleEn: "Orders", backHref: "/manage" },
+    { match: (value) => value === "/manage/orders", title: "订单记录", titleEn: "Order history", backHref: "/manage" },
     { match: (value) => value === "/manage/income", title: "收入", titleEn: "Revenue", backHref: "/manage" },
     { match: (value) => value === "/manage/fees", title: "费用", titleEn: "Fees", backHref: "/manage" },
     { match: (value) => value === "/manage/hot", title: "热销菜", titleEn: "Hot Items", backHref: "/manage" },
-    { match: (value) => value === "/manage/devices", title: "设备", titleEn: "Devices", backHref: "/manage" },
+    { match: (value) => value === "/manage/devices", title: "打印机", titleEn: "Printers", backHref: "/manage" },
     { match: (value) => value === "/manage/rbac", title: "权限", titleEn: "Access", backHref: "/manage" },
     { match: (value) => value.startsWith("/admin/menu"), title: "菜单管理", titleEn: "Menu", backHref: "/manage" }
   ];
@@ -75,7 +87,7 @@ function resolveBarMeta(pathname: string, lang: "zh" | "en", searchParams: URLSe
 
   return {
     title: lang === "en" ? hit.titleEn : hit.title,
-    backHref: hit.backHref
+    backHref: pathname === "/manage/orders" ? orderReturnHref(searchParams?.get("returnTo")) : hit.backHref
   };
 }
 
@@ -100,6 +112,9 @@ export default function TopBar() {
   }, []);
 
   const barMeta = resolveBarMeta(pathname, lang, searchParams);
+  if (pathname === "/order" && routeState?.route === "order" && routeState.tableNo === searchParams?.get("tableNo") && routeState.guestCount) {
+    barMeta.title = lang === "en" ? `Table ${routeState.tableNo} · ${routeState.guestCount} Guests` : `桌号 ${routeState.tableNo} · ${routeState.guestCount} 人`;
+  }
   const isTables = pathname === "/tables";
   const isOrder = pathname === "/order";
   const tablesSelectMode = isTables && routeState?.route === "tables" ? Boolean(routeState.selectMode) : false;

@@ -13,18 +13,18 @@ type Entry = {
 };
 
 const MANAGER_ENTRIES: Entry[] = [
-  { href: "/manage/orders", labelZh: "订单", labelEn: "Orders" },
+  { href: "/manage/orders", labelZh: "订单记录", labelEn: "Order history" },
   { href: "/manage/income", labelZh: "收入", labelEn: "Revenue" },
   { href: "/manage/fees", labelZh: "费用", labelEn: "Fees" },
   { href: "/manage/hot", labelZh: "热销", labelEn: "Hot Items" },
-  { href: "/manage/devices", labelZh: "设备", labelEn: "Devices" },
+  { href: "/manage/devices", labelZh: "打印机", labelEn: "Printers" },
   { href: "/manage/rbac", labelZh: "权限", labelEn: "Access" },
   { href: "/admin/menu", labelZh: "菜单管理", labelEn: "Menu" },
   { href: "/manage/updates", labelZh: "更新管理", labelEn: "Updates" }
 ];
 
 const WAITER_ENTRIES: Entry[] = [
-  { href: "/manage/orders", labelZh: "订单", labelEn: "Orders" },
+  { href: "/manage/orders", labelZh: "订单记录", labelEn: "Order history" },
   { href: "/manage/updates", labelZh: "更新管理", labelEn: "Updates" }
 ];
 

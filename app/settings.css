@@ -240,3 +240,15 @@
   border-color: var(--brand);
   background: color-mix(in srgb, var(--brand) 4%, transparent);
 }
+
+/* Order actions share a height while retaining natural label widths. */
+.app-shell--settings .order-record-actions { flex-wrap: wrap; gap: 8px; }
+.app-shell--settings .order-record-actions > button {
+  height: 3rem;
+  min-height: 44px;
+  padding: 0 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  white-space: nowrap;
+}

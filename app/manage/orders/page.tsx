@@ -12,7 +12,8 @@ import { localizeMenuText } from "../../../lib/menu-text";
 import { formatItemQtyDisplay } from "../../../lib/qty-display";
 import { useActionGuard } from "../../../lib/use-action-guard";
 import { type PresetKey, rangeByPreset, toDateInput } from "../../../lib/date-range";
-import { Button } from "../../../components/ui";
+import { ReturnDishSheet } from "../../../components/ui/return-dish-sheet";
+import { orderStatusLabel } from "../../../lib/order-status";
 import { RDV_TOPBAR_ACTION_EVENT, type TopbarActionDetail } from "../../../lib/topbar-events";
 
 type OrderItemDetail = {
@@ -46,11 +47,13 @@ export default function ManageOrdersPage() {
   const [orders, setOrders] = useState<OrderRow[]>([]);
   const [role, setRole] = useState("");
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+  const [returnTarget, setReturnTarget] = useState<{ orderId: string; item: OrderItemDetail } | null>(null);
   const [deletingId, setDeletingId] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [workingId, setWorkingId] = useState("");
   const [tableFilter, setTableFilter] = useState("");
+  const [sessionFilter, setSessionFilter] = useState("");
   const [preset, setPreset] = useState<PresetKey>("today");
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
@@ -68,23 +71,7 @@ export default function ManageOrdersPage() {
     return { from, to };
   }
 
-  function statusLabel(order: OrderRow) {
-    if (order.cancelled_at) {
-      return lang === "en" ? "Cancelled" : "已取消";
-    }
-    if (order.status === "submitted") {
-      return lang === "en" ? "Submitted" : "已提交";
-    }
-    if (order.status === "paid") {
-      return lang === "en" ? "Paid" : "已结账";
-    }
-    if (order.status === "closed") {
-      return lang === "en" ? "Closed" : "已关闭";
-    }
-    return order.status;
-  }
-
-  async function loadOrders(from: Date, to: Date, tableNoOverride?: string) {
+  async function loadOrders(from: Date, to: Date, tableNoOverride?: string, sessionIdOverride?: string) {
     ordersRequestRef.current?.abort();
     const controller = new AbortController();
     ordersRequestRef.current = controller;
@@ -99,10 +86,10 @@ export default function ManageOrdersPage() {
       }
 
       const tableNo = (tableNoOverride ?? tableFilter).trim();
-      const params = new URLSearchParams({
-        from: from.toISOString(),
-        to: to.toISOString()
-      });
+      const sessionId = sessionIdOverride ?? sessionFilter;
+      const params = sessionId
+        ? new URLSearchParams({ sessionId })
+        : new URLSearchParams({ from: from.toISOString(), to: to.toISOString() });
       if (tableNo) {
         params.set("tableNo", tableNo);
       }
@@ -211,22 +198,23 @@ export default function ManageOrdersPage() {
     }
   }
 
-  async function returnOne(orderId: string, menuItemId: string, orderItemId?: string) {
-    if (!canRunAction()) return;
+  async function returnDish(orderId: string, item: OrderItemDetail, qty: number) {
+    if (!canRunAction() || !Number.isInteger(qty) || qty <= 0 || qty > item.qty) return;
     setWorkingId(orderId);
     setError("");
     try {
       await apiFetchJson(`/api/orders/${orderId}/return-item`, {
         method: "POST",
         body: {
-          menuItemId,
-          orderItemId,
-          qty: 1,
-          reason: "manual"
+          menuItemId: item.menu_item_id,
+          orderItemId: item.order_item_id,
+          qty,
+          reason: "manual correction"
         },
         timeoutMs: 7000,
         retries: 0
       });
+      setReturnTarget(null);
       await reloadWithCurrentRange();
     } catch (err: any) {
       setError(err.message || t("orders.returnFailed", "Failed to return item"));
@@ -284,11 +272,13 @@ export default function ManageOrdersPage() {
     const params = new URLSearchParams(window.location.search);
     const initialTable = (params.get("tableNo") || "").trim();
     setTableFilter(initialTable);
+    const initialSession = params.get("sessionId") || "";
+    setSessionFilter(initialSession);
 
     const range = rangeByPreset("today");
     setFromDate(toDateInput(range.from));
     setToDate(toDateInput(range.to));
-    void loadOrders(range.from, range.to, initialTable);
+    void loadOrders(range.from, range.to, initialTable, initialSession);
     return () => { ordersRequestRef.current?.abort(); ordersRequestRef.current = null; };
   }, []);
 
@@ -301,7 +291,7 @@ export default function ManageOrdersPage() {
     }
     window.addEventListener(RDV_TOPBAR_ACTION_EVENT, onTopbarAction as EventListener);
     return () => window.removeEventListener(RDV_TOPBAR_ACTION_EVENT, onTopbarAction as EventListener);
-  }, [fromDate, toDate, tableFilter]);
+  }, [fromDate, toDate, tableFilter, sessionFilter]);
 
   useEffect(() => {
     if (orders.length <= ORDER_PROGRESSIVE_THRESHOLD) {
@@ -335,6 +325,7 @@ export default function ManageOrdersPage() {
       <div className="manage-subpage-scroll stack">
         <div className="panel stack manage-panel">
 
+              {!sessionFilter && <>
               <DatePresets value={preset} onChange={(key) => { void applyPreset(key); }} />
 
               <div className="row" style={{ flexWrap: "wrap" }}>
@@ -345,12 +336,16 @@ export default function ManageOrdersPage() {
                 </button>
               </div>
 
-              {tableFilter && <div className="report-table-context">
-                <span>{lang === "en" ? "Table" : "桌号"} {tableFilter}</span>
+              </>}
+
+              {(tableFilter || sessionFilter) && <div className="report-table-context">
+                <span>{lang === "en" ? "Table" : "桌号"} {tableFilter}{sessionFilter ? (lang === "en" ? " · This visit" : " · 本次用餐") : ""}</span>
                 <button type="button" className="secondary compact-btn" onClick={() => {
                   setTableFilter("");
+                  setSessionFilter("");
+                  router.replace("/manage/orders");
                   const range = getCurrentRange();
-                  if (range) void loadOrders(range.from, range.to, "");
+                  if (range) void loadOrders(range.from, range.to, "", "");
                 }}>{lang === "en" ? "All orders" : "全部订单"}</button>
               </div>}
 
@@ -363,7 +358,7 @@ export default function ManageOrdersPage() {
                     <div className="manage-kpi-value">{orders.length}</div>
                   </div>
                   <div className="manage-kpi-card">
-                    <div className="manage-kpi-label">{t("orders.totalRevenue", "营业额")}</div>
+                    <div className="manage-kpi-label">{t("orders.totalRevenue", "订单金额")}</div>
                     <div className="manage-kpi-value">₱{totalAmount}</div>
                   </div>
                 </div>
@@ -394,10 +389,10 @@ export default function ManageOrdersPage() {
                       </div>
                       <div className="muted">#{order.id.slice(0, 8)} · {new Date(order.created_at).toLocaleString()}</div>
                       <div className="muted">
-                        x{order.item_qty} · {statusLabel(order)} · {lang === "en" ? "charge" : "费用"} {order.charge_amount >= 0 ? "+" : ""}{order.charge_amount}
+                        x{order.item_qty} · {orderStatusLabel(order.status, order.cancelled_at, lang)} · {lang === "en" ? "charge" : "费用"} {order.charge_amount >= 0 ? "+" : ""}{order.charge_amount}
                       </div>
 
-                      <div className="row" style={{ flexWrap: "wrap" }}>
+                      <div className="row order-record-actions">
                         <button
                           className="secondary compact-btn"
                           type="button"
@@ -465,7 +460,7 @@ export default function ManageOrdersPage() {
                       {opened ? (
                         <div className="order-detail-list">
                           {(order.items || []).map((item) => (
-                            <div key={`${order.id}-${item.menu_item_id}-${item.note || ""}`} className="row" style={{ justifyContent: "space-between", flexWrap: "wrap" }}>
+                            <div key={item.order_item_id || `${order.id}-${item.menu_item_id}-${item.note || ""}`} className="row" style={{ justifyContent: "space-between", flexWrap: "wrap" }}>
                               <div className="stack" style={{ gap: 2 }}>
                                 <span>{localizeMenuText(item.name, lang)} · {formatItemQtyDisplay(item.name, item.qty, lang)}</span>
                                 {item.note ? <span className="muted">{t("order.noteLabel", "备注")}: {item.note}</span> : null}
@@ -476,7 +471,7 @@ export default function ManageOrdersPage() {
                                   <button
                                     className="secondary compact-btn"
                                     type="button"
-                                    onClick={() => { void returnOne(order.id, item.menu_item_id, item.order_item_id); }}
+                                    onClick={() => { setError(""); setReturnTarget({ orderId: order.id, item }); }}
                                     disabled={workingId === order.id}
                                   >
                                     {t("orders.returnDish", "退菜")}
@@ -500,6 +495,12 @@ export default function ManageOrdersPage() {
         </div>
       </div>
 
+      {returnTarget && <ReturnDishSheet
+        key={`${returnTarget.orderId}:${returnTarget.item.order_item_id || returnTarget.item.menu_item_id}`}
+        name={localizeMenuText(returnTarget.item.name, lang)} maxQty={returnTarget.item.qty} lang={lang}
+        busy={workingId === returnTarget.orderId} error={error} onClose={() => setReturnTarget(null)}
+        onConfirm={(qty) => { void returnDish(returnTarget.orderId, returnTarget.item, qty); }}
+      />}
     </div>
   );
 }

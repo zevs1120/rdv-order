@@ -59,16 +59,17 @@ type PrintHealth = {
 
 export default function ManageDevicesPage() {
   const router = useRouter();
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
   const [data, setData] = useState<Payload | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [updating, setUpdating] = useState("");
+  const [retrying, setRetrying] = useState(false);
   const [testing, setTesting] = useState("");
   const [clearingQueue, setClearingQueue] = useState(false);
   const [health, setHealth] = useState<PrintHealth | null>(null);
 
-  useConnectionRefresh(loadData, !loading && !updating && !testing && !clearingQueue);
+  useConnectionRefresh(loadData, !loading && !updating && !testing && !clearingQueue && !retrying);
 
   async function loadData() {
     setLoading(true);
@@ -123,6 +124,8 @@ export default function ManageDevicesPage() {
   }
 
   async function retryPrintJobs() {
+    if (retrying) return;
+    setRetrying(true);
     setError("");
     try {
       await apiFetchJson("/api/print/dispatch", {
@@ -134,6 +137,8 @@ export default function ManageDevicesPage() {
       await loadData();
     } catch (err: any) {
       setError(err.message || "重试失败");
+    } finally {
+      setRetrying(false);
     }
   }
 
@@ -192,13 +197,82 @@ export default function ManageDevicesPage() {
     return () => window.removeEventListener(RDV_TOPBAR_ACTION_EVENT, onTopbarAction as EventListener);
   }, []);
 
+  function deviceLabel(device: Device) {
+    const label = device.label;
+    const known: Record<string, [string, string]> = {
+      "Primary Printer": ["主打印机", "Primary printer"], "Backup Printer": ["备用打印机", "Backup printer"],
+      "后厨主打印机": ["后厨打印机", "Kitchen printer"], "吧台主打印机": ["吧台打印机", "Bar printer"],
+      "后厨打印机": ["后厨打印机", "Kitchen printer"], "吧台打印机": ["吧台打印机", "Bar printer"]
+    };
+    return known[label]?.[lang === "en" ? 1 : 0] || label;
+  }
+
   return (
     <div className="stack manage-subpage-screen">
       <div className="manage-subpage-scroll stack">
+        {loading ? null : <div className="panel stack">
+          <strong>{lang === "en" ? "Print queue" : "打印队列"}</strong>
+          <div className="row" style={{ justifyContent: "space-between", flexWrap: "wrap" }}>
+            <span>{t("devices.pendingJobs", "待打印")}：{data?.printQueue.pending ?? "—"}</span>
+            <span>{t("devices.failedJobs", "打印失败")}：{data?.printQueue.failed ?? "—"}</span>
+          </div>
+          <Button disabled={retrying || !data} onClick={() => { void retryPrintJobs(); }}>{retrying ? t("common.loading", "加载中...") : (lang === "en" ? "Retry queued jobs" : "重试队列任务")}</Button>
+        </div>}
         <div className="panel stack">
+          <strong>{lang === "en" ? "Print test page" : "打印测试单"}</strong>
+          <div className="row" style={{ flexWrap: "wrap" }}>
+            {(["kitchen", "bar", "both"] as const).map((target) => <button key={target} className="secondary compact-btn" type="button"
+              onClick={() => { void runSelfTest(target); }} disabled={testing !== "" || clearingQueue}>
+              {testing === target ? t("common.loading", "加载中...") : target === "kitchen" ? (lang === "en" ? "Kitchen" : "后厨") : target === "bar" ? (lang === "en" ? "Bar" : "吧台") : (lang === "en" ? "Both printers" : "两台打印机")}
+            </button>)}
+          </div>
+        </div>
+
+        {loading ? <div className="muted">{t("common.loading", "加载中...")}</div> : null}
+        {error ? <div className="muted">{error}</div> : null}
+        {(data?.alerts || []).length > 0 ? (
+          <div className="panel stack device-alert-panel">
+            <strong>{t("devices.alertTitle", "打印告警")}</strong>
+            {(data?.alerts || []).map((alert) => (
+              <div key={`${alert.code}-${alert.message}`} className="muted">
+                - {lang === "en" && alert.code === "print_queue_failed_high"
+                  ? `${data?.printQueue.failed || 0} failed print jobs. Check the printers.`
+                  : lang === "en" && alert.code === "device_fail_count_high"
+                    ? (() => {
+                      const device = data?.devices.find((item) => alert.message.startsWith(item.device_code + " "));
+                      return device ? `${deviceLabel(device)}: ${device.fail_count} consecutive failures` : "Printer failures recorded";
+                    })()
+                    : alert.message}
+              </div>
+            ))}
+            <div className="muted">{t("devices.alertHint", "建议优先检查主打印机网络，必要时切换备用通道。")}</div>
+          </div>
+        ) : null}
+
+        <div className="order-list">
+          {(data?.devices || []).map((device) => (
+            <div key={device.id} className="panel stack">
+              <div className="row" style={{ justifyContent: "space-between" }}>
+                <strong>{deviceLabel(device)}</strong>
+                <span className="tag">
+                  {!device.last_seen_at ? (lang === "en" ? "Unknown" : "未知") : device.status === "online"
+                    ? t("devices.online", "在线")
+                    : device.status === "degraded"
+                      ? t("devices.degraded", "降级")
+                      : t("devices.offline", "离线")}
+                </span>
+              </div>
+              <div className="muted">{lang === "en" ? "Recorded status · Last seen" : "记录状态 · 最近联系"}：{device.last_seen_at ? new Date(device.last_seen_at).toLocaleString() : (lang === "en" ? "Unknown" : "未知")}</div>
+
+            </div>
+          ))}
+        </div>
+        <details className="panel stack">
+          <summary>{lang === "en" ? "Advanced diagnostics" : "高级诊断"}</summary>
+        <div className="stack">
           <div className="row" style={{ justifyContent: "space-between" }}>
             <strong>{t("devices.deployReadiness", "打印部署就绪")}</strong>
-            <Button onClick={() => { void retryPrintJobs(); }}>{t("devices.retryPrint", "重试打印")}</Button>
+
           </div>
             <div className="order-list">
               <div className="row" style={{ justifyContent: "space-between" }}>
@@ -242,77 +316,12 @@ export default function ManageDevicesPage() {
             </div>
         </div>
 
-        <div className="panel stack">
-          <div className="row" style={{ justifyContent: "space-between" }}>
-            <strong>{t("devices.pendingJobs", "待打印")}：{data?.printQueue.pending || 0}</strong>
-            <strong>{t("devices.failedJobs", "打印失败")}：{data?.printQueue.failed || 0}</strong>
-          </div>
-          <div className="row" style={{ flexWrap: "wrap" }}>
-            <button
-              className="secondary compact-btn"
-              type="button"
-              onClick={() => { void runSelfTest("kitchen"); }}
-              disabled={testing !== "" || clearingQueue}
-            >
-              {testing === "kitchen" ? t("common.loading", "加载中...") : t("devices.testKitchen", "自检后厨")}
-            </button>
-            <button
-              className="secondary compact-btn"
-              type="button"
-              onClick={() => { void runSelfTest("bar"); }}
-              disabled={testing !== "" || clearingQueue}
-            >
-              {testing === "bar" ? t("common.loading", "加载中...") : t("devices.testBar", "自检吧台")}
-            </button>
-            <button
-              className="secondary compact-btn"
-              type="button"
-              onClick={() => { void runSelfTest("both"); }}
-              disabled={testing !== "" || clearingQueue}
-            >
-              {testing === "both" ? t("common.loading", "加载中...") : t("devices.testBoth", "双通道自检")}
-            </button>
-            <button
-              className="secondary compact-btn"
-              type="button"
-              onClick={() => { void clearPrintQueue(); }}
-              disabled={testing !== "" || clearingQueue}
-            >
-              {clearingQueue ? t("common.loading", "加载中...") : t("devices.clearQueue", "清空打印队列")}
-            </button>
-          </div>
-        </div>
-
-        {loading ? <div className="muted">{t("common.loading", "加载中...")}</div> : null}
-        {error ? <div className="muted">{error}</div> : null}
-        {(data?.alerts || []).length > 0 ? (
-          <div className="panel stack device-alert-panel">
-            <strong>{t("devices.alertTitle", "打印告警")}</strong>
-            {(data?.alerts || []).map((alert) => (
-              <div key={`${alert.code}-${alert.message}`} className="muted">
-                - {alert.message}
-              </div>
-            ))}
-            <div className="muted">{t("devices.alertHint", "建议优先检查主打印机网络，必要时切换备用通道。")}</div>
-          </div>
-        ) : null}
-
-        <div className="order-list">
-          {(data?.devices || []).map((device) => (
-            <div key={device.id} className="panel stack">
-              <div className="row" style={{ justifyContent: "space-between" }}>
-                <strong>{device.label}</strong>
-                <span className="tag">
-                  {device.status === "online"
-                    ? t("devices.online", "在线")
-                    : device.status === "degraded"
-                      ? t("devices.degraded", "降级")
-                      : t("devices.offline", "离线")}
-                </span>
-              </div>
-              <div className="muted">{device.device_code} · {device.device_type}{device.is_backup ? " · backup" : ""}</div>
-              <div className="muted">fail={device.fail_count} · lastSeen={device.last_seen_at ? new Date(device.last_seen_at).toLocaleString() : "-"}</div>
-              {device.last_error ? <div className="muted">{device.last_error}</div> : null}
+          <div className="stack">
+            {(data?.devices || []).map((device) => <div key={device.id} className="stack">
+              <strong>{deviceLabel(device)}</strong>
+              <div className="muted">{device.device_code} · {device.device_type}{device.is_backup ? (lang === "en" ? " · backup" : " · 备用") : ""}</div>
+              <div className="muted">{lang === "en" ? "Consecutive failures" : "连续失败"}：{device.fail_count}</div>
+              {device.last_error && <div className="muted">{device.last_error}</div>}
               <div className="row" style={{ flexWrap: "wrap" }}>
                 <button
                   type="button"
@@ -339,9 +348,13 @@ export default function ManageDevicesPage() {
                   {t("devices.markOffline", "设为离线")}
                 </button>
               </div>
-            </div>
-          ))}
-        </div>
+            </div>)}
+            <button className="secondary compact-btn" type="button" onClick={() => { void clearPrintQueue(); }} disabled={testing !== "" || clearingQueue}>
+              {clearingQueue ? t("common.loading", "加载中...") : t("devices.clearQueue", "清空打印队列")}
+            </button>
+          </div>
+        </details>
+
       </div>
 
     </div>

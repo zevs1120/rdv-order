@@ -1,0 +1,35 @@
+# Product experience refinement — local review, 2026-09-09
+
+User approved the research scope A1–A5, A8–A10, B1–B2 and an always-visible animated cart count. A6 (reverse-checkout targeting) and A7 (discount/service-fee interaction) are explicitly deferred to a future major update. The user approved the local preview and authorized commit, in-app delta update and full APK publication as 1.1.1 / code 10. Release progress and evidence: `release-1.1.1.md`. The scope below records the reviewed implementation.
+
+## Implemented in Web and native Android
+
+- Printers / 打印机, Table bill / 本桌账单, Draft order / 待下单, Custom dish / 自定义菜品 and Order history / 订单记录 distinguish the task and state. Order aggregate is Order total / 订单金额 rather than collected revenue. Status and charge types use bilingual business labels; closed is not treated as proof of payment.
+- Table bill is directly visible beside table/guest information. The overflow retains custom dish, conditional unmerge, checkout and separate close table. Current-session management is reached through the bill; returning restores the current table/draft. Session queries use authoritative opened/closed boundaries instead of the default today filter.
+- Ordinary additions keep the menu visible. A separate count badge gives short local scale feedback, with no dependency or network call; Web respects reduced motion. Ordinary/pcs quantities accumulate, while a weighted dish line counts once rather than counting its 100g units as dishes. Required options/cooking controls remain available. This follows the user's Concierge Supplies interaction reference without importing another application's runtime.
+- Draft options can be edited, preserving quantity and note. Same options with matching notes merge; conflicting notes are rejected with an explanation so different kitchen requirements are not silently combined.
+- Guest count can be edited (1–20). Only the open table session changes; historic order guest counts and revenue rules remain unchanged.
+- Checkout first obtains a fresh read-only quote. Confirmation names the table, amount, payment receipt and automatic closing. The POST checks the expected session and total. A zero-price visit with orders remains valid. Draft items must be submitted or explicitly removed before checkout/close; neither operation silently removes a nonempty draft.
+- Both return-dish entry points ask for the dish quantity and explicit confirmation. User follow-up restores Delete directly alongside Details, Cancel, Discount and Service fee; the one-item More menu is removed. Action heights match, with natural label widths and wrapping on both clients. Existing reverse-checkout and default charge actions are preserved.
+- Printer queue, test-print actions and recorded printer status are normal content. Configuration, manual state overrides and queue clearing are in collapsed Advanced diagnostics. Configuration readiness is not presented as proof of a physical printer being online.
+- Settings drag bounds on the ordering screen reserve the bottom action area. Device/browser inspection caught the old default floating position covering Submit after removing auto-open cart; both implementations now avoid the dock.
+
+Native uses Compose sheets/dialogs and the Web uses the existing BottomSheet; common business semantics are aligned, not claimed to be pixel-identical across platforms. No new library, periodic business polling, database migration or architecture replacement.
+
+## Local evidence
+
+- Web `RDV_BUILD_DIR=.next-ux-verify npm run verify`: type check, 31 test files / 130 tests, production build passed. Includes 8 new PGlite integration cases for session scope, guests, quote and stale confirmation; the API author's 10 focused checks are reused inside this run, not additional distinct cases.
+- Final Web type check and whitespace review after narrow UI adjustments. No full suite rerun for label/style changes.
+- Native: 59 JVM tests (including 3 new domain cases), debug build and lint passed; 3 distinct API-35 isolated fixture cases passed: badge/draft protection, guest/context return, checkout quote flow. The checkout fixture was rerun after fixing the observed settings-button overlap; the other passing device cases were reused. Final native compile/device build includes the updated resources and confirmation labels. A final guest-form error hint/busy-state guard and draft status label were Kotlin-compiled afterward; unrelated tests were not repeated.
+- Internal debug artifact: `android/app/build/outputs/apk/debug/app-debug.apk` (ignored), test application, Android 8/API 26 minimum. This is the internal QA build (before the final compile-only guest hint refinement), not a production release; existing signed 1.1.0 download remains unchanged.
+- Browser used normal manager login against the isolated local gateway. Reviewed 390×844 Chinese and English ordering and 1280×900 English ordering; confirmed repeated same-dish count, no automatic cart sheet, draft protection, checkout quote copy, return sheet, session-scoped management/back, guest editing, option editing and diagnostic collapse. English narrow-screen review found/fixed the header's intrinsic grid width hiding Table bill. Button/viewport inspection and browser console checks supplement screenshots in the task conversation. Guest save was rechecked to update both metadata and the toolbar; final browser error log was empty.
+
+## Preview
+
+`http://127.0.0.1:3106` is the user-facing local preview, with manager session already established. Local fixture credentials: `manager / 1234` (not a hotel credential). It forwards only UI/assets to the local Next dev process on port 3105; **all API routes are handled in memory**, including submit/return/guests/checkout/printing. Unknown APIs are not forwarded.
+
+Ignored gateway: `tmp/ux-preview.mjs`; restart with `node tmp/ux-preview.mjs`. UI server: `RDV_BUILD_DIR=.next-ux-preview npm run dev -- --hostname 127.0.0.1 --port 3105`. Both bind to loopback. Fixture state resets when gateway restarts. The preview includes 164 source-catalog dishes, illustrative codes/orders/printer state, not the live 182-entry registry or hotel transaction data. Normal browser language/drag/draft storage belongs only to this localhost origin.
+
+No actual business orders, returns, financial adjustments, printer jobs or production data changes were performed. Physical hotel hardware acceptance is not claimed. The additive APIs must be deployed with the future approved batch before publishing an APK that depends on them. Existing charge actions do not share the session lock; the checkout implementation rechecks and rolls back changed totals but does not claim serialization of all concurrent financial edits. This does not broaden the explicitly deferred A7 scope.
+
+Follow-up fast fix: removed the single-item More wrapper and placed all order actions in one wrapping group on both clients, with equal heights and natural widths. Web DOM verified all five visible action buttons at 48px. TypeScript check, Kotlin debug compilation and diff whitespace check passed; no test-suite rerun, package or release.

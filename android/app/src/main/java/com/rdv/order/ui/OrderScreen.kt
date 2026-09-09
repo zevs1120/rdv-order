@@ -1,6 +1,11 @@
 package com.rdv.order.ui
 
 import androidx.compose.foundation.*
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.tween
+import androidx.compose.ui.draw.scale
+import androidx.compose.ui.semantics.contentDescription
+import kotlinx.serialization.json.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -25,6 +30,8 @@ import androidx.compose.ui.unit.*
 import com.rdv.order.data.*
 import com.rdv.order.domain.*
 import java.time.LocalDate
+import java.time.Instant
+import java.time.format.DateTimeFormatter
 import java.time.ZoneId
 import kotlin.math.roundToLong
 
@@ -39,6 +46,9 @@ import kotlin.math.roundToLong
     val selected = selection.selected
     val visible = selection.items
     val quantities = remember(draft.lines) { draft.lines.groupBy { it.item.id }.mapValues { it.value.sumOf { line -> line.qty } } }
+    val draftCount = OrderRules.draftCount(draft.lines)
+    val badgeScale = remember { Animatable(1f) }
+    LaunchedEffect(draftCount) { if (draftCount > 0) { badgeScale.snapTo(1.18f); badgeScale.animateTo(1f, tween(180)) } }
     var confirm by rememberSaveable { mutableStateOf("") }
     LaunchedEffect(selected) { if (selected != draft.category && !state.busy) vm.category(selected) }
     BoxWithConstraints(Modifier.fillMaxSize()) {
@@ -47,9 +57,10 @@ import kotlin.math.roundToLong
         Column(Modifier.weight(1f).testTag("order-content-scroll").then(if (shortViewport) Modifier.verticalScroll(rememberScrollState()) else Modifier)) {
         Column(Modifier.fillMaxWidth().then(if (shortViewport) Modifier.height(440.dp) else Modifier.weight(1f)), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         RdvCard(Modifier.fillMaxWidth()) {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("${vm.either("桌号", "Table")} ${draft.tableNo}", fontWeight = FontWeight.Bold, fontSize = 17.sp)
-                Text("${draft.guests} ${vm.either("人", "Guests")}", color = RdvColors.Brand)
+            FlowRow(verticalArrangement = Arrangement.spacedBy(4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("${vm.either("桌号", "Table")} ${draft.tableNo}", Modifier.align(Alignment.CenterVertically), fontWeight = FontWeight.Bold, fontSize = 17.sp)
+                TextButton(onClick = { vm.sheet("guests") }, enabled = !state.busy) { Text("${draft.guests} ${vm.either("人 · 修改", "guests · Edit")}") }
+                TextButton(onClick = vm::showBill, enabled = !state.busy) { Text(vm.text("order.ordered")) }
             }
             RdvField(vm.either("输入菜名或编号", "Dish name or code"), draft.keyword, vm::keyword, Modifier.testTag("menu-search"), enabled = !state.busy,
                 trailingIcon = if (draft.keyword.isBlank()) null else {
@@ -123,7 +134,15 @@ import kotlin.math.roundToLong
         }
         }
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-            RdvButton("${vm.text("order.currentOrder")} · ${draft.lines.size} · ₱${OrderRules.total(draft.lines)}", { vm.sheet("cart") }, Modifier.weight(1f), secondary = true, enabled = !state.busy)
+            OutlinedButton(onClick = { vm.sheet("cart") }, modifier = Modifier.weight(1f).heightIn(min = 48.dp), enabled = !state.busy) {
+                Column(Modifier.weight(1f)) {
+                    Text(vm.text("order.currentOrder"), fontSize = 12.sp)
+                    Text("₱${OrderRules.total(draft.lines)}", fontWeight = FontWeight.Bold)
+                }
+                Surface(Modifier.scale(badgeScale.value).semantics { contentDescription = vm.either("待下单数量 $draftCount", "Draft count $draftCount") }, shape = CircleShape, color = RdvColors.Brand, contentColor = Color.White) {
+                    Box(Modifier.defaultMinSize(30.dp, 30.dp).padding(horizontal = 6.dp), contentAlignment = Alignment.Center) { Text(draftCount.toString(), fontWeight = FontWeight.Bold) }
+                }
+            }
             RdvButton(vm.text(if (state.busy) "order.submitting" else "order.submit"), vm::submit,
                 Modifier.widthIn(max = 140.dp).testTag("submit"), enabled = draft.lines.isNotEmpty(), loading = state.busy)
         }
@@ -131,16 +150,11 @@ import kotlin.math.roundToLong
     }
     when (state.sheet) {
         "actions" -> RdvSheet(vm.either("操作", "Actions"), { vm.sheet("") }, state.busy) {
-            RdvButton(vm.text("order.ordered"), vm::showBill, Modifier.fillMaxWidth(), secondary = true)
             RdvButton(vm.text("order.addDish"), { vm.sheet("custom") }, Modifier.fillMaxWidth(), secondary = true)
-            RdvButton(vm.text("orders.title"), {
-                vm.navigate(Screen.ORDERS)
-                val range = DateRules.preset("today", LocalDate.now(), ZoneId.systemDefault())
-                vm.filters(mapOf("tableNo" to draft.tableNo, "from" to range.from.toString(), "to" to range.to.toString()))
-            }, Modifier.fillMaxWidth(), secondary = true)
             if ('+' in draft.tableNo) RdvButton(vm.text("order.unmerge"), { confirm = "unmerge" }, Modifier.fillMaxWidth(), secondary = true)
-            RdvButton(vm.text("order.checkout"), { confirm = "checkout" }, Modifier.fillMaxWidth(), secondary = true)
-            RdvButton(vm.text("order.closeTable"), { confirm = "close" }, Modifier.fillMaxWidth(), secondary = true, danger = true)
+            RdvButton(vm.text("order.checkout"), vm::prepareCheckout, Modifier.fillMaxWidth(), secondary = true)
+            HorizontalDivider()
+            RdvButton(vm.text("order.closeTable"), { if (draft.lines.isNotEmpty()) vm.sheet("draft-protection") else confirm = "close" }, Modifier.fillMaxWidth(), secondary = true, danger = true)
         }
         "cart" -> RdvSheet(vm.text("order.currentOrder"), { vm.sheet("") }, state.busy, footer = {
             Text("${vm.text("order.total")}: ₱${OrderRules.total(draft.lines)}", Modifier.weight(1f), fontWeight = FontWeight.Bold)
@@ -155,6 +169,7 @@ import kotlin.math.roundToLong
                     if (!line.note.isNullOrBlank()) Text("${vm.text("order.noteLabel")}: ${line.note}", color = RdvColors.Secondary)
                     FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         Stepper(line.qty, { vm.quantityLine(line, it) }, label = Seafood.quantity(line.item.name, line.qty, state.lang), enabled = !state.busy, lang = state.lang)
+                        if (line.item.optionGroups.isNotEmpty()) RdvButton(vm.either("修改选项", "Edit options"), { vm.editChoices(line) }, secondary = true, enabled = !state.busy)
                         RdvButton(vm.text("order.noteAction"), { vm.note(line.item, line.choices) }, secondary = true, enabled = !state.busy)
                         RdvButton(vm.either("移除", "Remove"), { vm.quantityLine(line, 0) }, secondary = true, danger = true, enabled = !state.busy)
                     }
@@ -165,23 +180,49 @@ import kotlin.math.roundToLong
         "note" -> state.noteItem?.let { NoteSheet(vm, state, it) }
         "choices" -> state.noteItem?.let { ChoiceSheet(vm, state, it) }
         "custom" -> CustomDishSheet(vm, state)
-        "bill" -> BillSheet(vm, state) { confirm = "checkout" }
+        "guests" -> {
+            var guests by rememberSaveable { mutableIntStateOf(draft.guests.coerceIn(1, 20)) }
+            RdvSheet(vm.either("修改用餐人数", "Edit guest count"), { vm.sheet("") }, state.busy, footer = {
+                RdvButton(vm.text("common.save"), { vm.updateGuests(guests) }, loading = state.busy)
+            }) {
+                Stepper(guests, { guests = it }, min = 1, max = 20, enabled = !state.busy, lang = state.lang)
+                ErrorPanel(state.error, vm::dismissError, vm.text("common.close"))
+            }
+        }
+        "draft-protection" -> AlertDialog(onDismissRequest = { vm.sheet("") },
+            text = { Text(vm.either("还有未提交的菜品，尚未计入账单。请先下单或移除后再结账、关台。", "Draft items are not included in the bill. Submit or remove them before checking out or closing the table.")) },
+            confirmButton = { TextButton(onClick = { vm.sheet("cart") }) { Text(vm.either("处理待下单", "Review draft")) } },
+            dismissButton = { TextButton(onClick = { vm.sheet("") }) { Text(vm.text("common.cancel")) } })
+        "checkout" -> RdvSheet(vm.text("order.checkout"), { vm.sheet("") }, state.busy, footer = {
+            RdvButton(vm.either("确认已收款并结账", "Confirm payment received"), vm::checkout, enabled = state.checkoutQuote?.number("orderCount")?.let { it > 0 } == true && !state.loading, loading = state.busy)
+        }) {
+            Text("${vm.either("桌号", "Table")} ${draft.tableNo}", fontWeight = FontWeight.Bold)
+            if (state.loading) LinearProgressIndicator(Modifier.fillMaxWidth())
+            state.checkoutQuote?.let { quote ->
+                Text("${vm.either("本次用餐", "Current visit")}: ${runCatching { Instant.parse(quote.text("openedAt")).atZone(ZoneId.systemDefault()).format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")) }.getOrDefault(quote.text("openedAt"))}")
+                Text("${vm.either("订单数", "Orders")}: ${quote.number("orderCount").toInt()}")
+                Text("${vm.either("应收金额", "Amount due")}: ₱${quote.number("totalAmount").toLong()}", fontSize = 24.sp, fontWeight = FontWeight.Bold)
+            }
+            Text(vm.either("请确认已收到款项。结账后将记录收入并关台。", "Confirm that payment has been received. Checkout records revenue and closes the table."))
+            ErrorPanel(state.error, vm::dismissError, vm.text("common.close"))
+        }
+        "bill" -> BillSheet(vm, state, vm::prepareCheckout)
     }
     if (confirm.isNotEmpty()) AlertDialog(onDismissRequest = { if (!state.busy) confirm = "" },
         text = { Text(when (confirm) {
             "checkout" -> vm.either("确认结账并关台吗？", "Confirm checkout and close table?")
             "unmerge" -> vm.either("确认取消拼桌吗？", "Confirm unmerge table?")
-            else -> vm.either("确认关台吗？", "Confirm close table?")
+            else -> vm.either("仅关闭桌台，不记录收款。确认关台吗？", "Close this table without recording payment?")
         } + "\n${vm.either("桌号", "Table")}: ${draft.tableNo}") },
         confirmButton = { TextButton(onClick = { val operation = confirm; confirm = ""; when (operation) { "checkout" -> vm.checkout(); "unmerge" -> vm.unmerge(); else -> vm.closeTable() } }, enabled = !state.busy) { Text(vm.text("common.done")) } },
         dismissButton = { TextButton(onClick = { confirm = "" }, enabled = !state.busy) { Text(vm.text("common.cancel")) } })
 }
 
 @Composable private fun ChoiceSheet(vm: RdvViewModel, state: UiState, item: MenuItem) {
-    var picks by rememberSaveable(item.id) { mutableStateOf(mapOf<String, String>()) }
+    var picks by rememberSaveable(item.id) { mutableStateOf(if (state.editingChoices) state.noteChoices else emptyMap<String, String>()) }
     RdvSheet(vm.localized(item.name), { vm.sheet("") }, state.busy, footer = {
-        RdvButton(vm.either("加入订单", "Add to order") + (if (item.isComplimentary) "" else " · ₱${MenuOptions.price(item, picks)}"),
-            { vm.addConfigured(item, picks) }, enabled = !state.busy && MenuOptions.complete(item, picks))
+        RdvButton(if (state.editingChoices) vm.text("common.save") else vm.either("加入待下单", "Add to draft") + (if (item.isComplimentary) "" else " · ₱${MenuOptions.price(item, picks)}"),
+            { if (state.editingChoices) vm.saveChoices(item, picks) else vm.addConfigured(item, picks) }, enabled = !state.busy && MenuOptions.complete(item, picks))
     }) {
         item.optionGroups.forEach { group ->
             Text(if (state.lang == "zh") group.zh ?: group.en else group.en, fontWeight = FontWeight.Bold)
@@ -193,6 +234,7 @@ import kotlin.math.roundToLong
                         .semantics { selected = chosen }, secondary = !chosen, enabled = !state.busy)
             }
         }
+        ErrorPanel(state.error, vm::dismissError, vm.text("common.close"))
     }
 }
 
@@ -254,12 +296,13 @@ import kotlin.math.roundToLong
 }
 
 @Composable private fun BillSheet(vm: RdvViewModel, state: UiState, checkout: () -> Unit) {
+    var details by rememberSaveable { mutableStateOf(false) }
     var returning by remember { mutableStateOf<Pair<String, BillItem>?>(null) }
     var qty by rememberSaveable { mutableStateOf("1") }
     val bill = state.bill
     RdvSheet(vm.text("order.billTitle"), { vm.sheet("") }, state.busy, footer = {
         RdvButton(vm.text("order.printReceipt"), vm::printBill, Modifier.weight(1f), secondary = true, enabled = !state.loading && (bill?.items?.isNotEmpty() == true), loading = state.busy)
-        RdvButton("${vm.text("order.checkout")} + ${vm.text("order.closeTable")}", checkout, Modifier.weight(1f), enabled = !state.busy)
+        RdvButton(vm.text("order.checkout"), checkout, Modifier.weight(1f), enabled = !state.busy)
     }) {
         if (state.loading) CircularProgressIndicator(Modifier.size(24.dp))
         if (bill == null || bill.items.isEmpty()) Text(vm.text("order.billEmpty"))
@@ -274,10 +317,11 @@ import kotlin.math.roundToLong
         }
         Text("${vm.text("order.billQty")}: ${bill?.totalQty ?: 0}", fontWeight = FontWeight.Bold)
         Text("${vm.text("order.billAmount")}: ₱${bill?.totalAmount ?: 0}", fontWeight = FontWeight.Bold)
-        Text(vm.either("订单明细（退菜）", "Order Details (Return Dish)"), fontWeight = FontWeight.Bold)
-        bill?.orders?.forEach { order ->
+        RdvButton(vm.either("订单明细", "Order details") + if (details) " −" else " +", { details = !details }, secondary = true)
+        if (state.role == "manager" && bill?.sessionId != null) RdvButton(vm.either("管理本桌订单", "Manage this bill"), vm::showSessionOrders, secondary = true)
+        if (details) bill?.orders?.forEach { order ->
             RdvCard(Modifier.fillMaxWidth()) {
-                Text("#${order.id.take(8)} · ${order.status} · ₱${order.totalAmount}", fontWeight = FontWeight.Bold)
+                Text("#${order.id.take(8)} · ${vm.orderStatus(order.status, order.cancelledAt != null)} · ₱${order.totalAmount}", fontWeight = FontWeight.Bold)
                 order.items.forEach { item ->
                     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                         Column(Modifier.weight(1f)) {
@@ -289,7 +333,7 @@ import kotlin.math.roundToLong
                             RdvButton(vm.text("orders.returnDish"), { returning = order.id to item; qty = "1" }, secondary = true, enabled = !state.busy)
                     }
                 }
-                order.charges.forEach { Text("${it.type}: ₱${it.amount}") }
+                order.charges.forEach { Text("${vm.chargeLabel(it.type)}: ₱${it.amount}") }
             }
         }
         ErrorPanel(state.error, vm::dismissError, vm.text("common.close"))
@@ -297,7 +341,7 @@ import kotlin.math.roundToLong
     returning?.let { (order, item) ->
         AlertDialog(onDismissRequest = { returning = null }, title = { Text(vm.text("orders.returnDish")) },
             text = { RdvField(vm.either("${vm.localized(item.name)} 退菜数量（最多 ${item.qty}）", "Return qty for ${vm.localized(item.name)} (max ${item.qty})"), qty, { qty = it }, numeric = true) },
-            confirmButton = { TextButton(onClick = { val count = qty.toIntOrNull(); if (count != null && count in 1..item.qty) { vm.returnItem(order, item, count); returning = null } else vm.error(vm.either("退菜数量无效", "Invalid return quantity")) }) { Text(vm.text("common.done")) } },
+            confirmButton = { TextButton(enabled = !state.busy && qty.toIntOrNull()?.let { it in 1..item.qty } == true, onClick = { val count = qty.toIntOrNull(); if (count != null && count in 1..item.qty) { vm.returnItem(order, item, count); returning = null } }) { Text(vm.either("确认退菜", "Confirm return")) } },
             dismissButton = { TextButton(onClick = { returning = null }) { Text(vm.text("common.cancel")) } })
     }
 }

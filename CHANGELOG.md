@@ -6,6 +6,14 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [1.1.1] — 2026-09-09
+
+- Keep ordinary additions on the menu with a clear animated draft count; make the table bill visible and preserve table context when returning from order history.
+- Support editing guest count and draft dish choices; clarify payment confirmation with a fresh, checked quote and protect unsubmitted dishes before checkout or close.
+- Align return quantity confirmation, bilingual labels and equal-height order actions; put printer configuration in Advanced diagnostics.
+- Preserve existing reverse-checkout and default discount/service-fee behavior. Continue mandatory in-app delta updates with a full signed APK fallback; Android code 10, Android 8+.
+- Reuse completed Web/native tests; verify production builds, signature and release/delta metadata. See `docs/release-1.1.1.md`.
+
 ## [1.1.0] — 2026-09-08
 
 - Refresh the approved menu prices, immutable global dish codes and required meal/drink choices; preserve employee dishes and snapshot order prices through bills, returns, split/merge, reports and printing.

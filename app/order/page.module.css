@@ -10,12 +10,14 @@
 }
 
 .topFixed {
+  grid-template-columns: minmax(0, 1fr);
   min-width: 0;
   display: grid;
   gap: 10px;
 }
 
 .searchPanel {
+  min-width: 0;
   padding: 10px;
   border: 0;
   background: #fff;
@@ -79,6 +81,7 @@
 }
 
 .shiftPanel {
+  min-width: 0;
   padding: 10px;
   border: 0;
   background: var(--order-section);
@@ -349,6 +352,7 @@
   }
 
   .shiftPanel {
+  min-width: 0;
     padding: 6px;
   }
 
@@ -437,3 +441,18 @@
 .page .addBtn :global(.rdv-icon) { width: 24px; height: 24px; }
 .page .categoryBtn { box-shadow: none; min-height: 44px; }
 .page .categoryBtn:not(.categoryBtnActive):hover { background: var(--order-canvas); }
+
+/* Fast, local feedback: only the small badge animates, never the menu list. */
+.searchHeader { flex-wrap: wrap; }
+.guestButton { display: inline-flex; align-items: center; gap: 4px; min-height: 44px; padding: 4px 8px; color: var(--brand-600); background: var(--brand-50, #f8ecee); border: 0; border-radius: 0; white-space: nowrap; }
+.guestChevron { width: 12px; height: 12px; transform: rotate(-90deg); }
+.billButton { margin-left: auto; min-height: 44px; }
+.cartSummaryBtn { display: flex; flex-wrap: wrap; justify-content: flex-start; gap: 8px; padding: 8px 10px; min-height: 48px; }
+.cartCaption { font-weight: 650; }
+.cartCount { display: inline-grid; place-items: center; min-width: 30px; height: 30px; padding: 0 7px; border-radius: 15px; background: var(--brand-600); color: white; font-size: 17px; font-weight: 750; font-variant-numeric: tabular-nums; }
+.cartCountPulse { animation: cart-count-pop 180ms ease-out; }
+.cartAmount { margin-left: auto; font-variant-numeric: tabular-nums; }
+.detailsSummary { padding: 12px 0; min-height: 44px; cursor: pointer; font-weight: 650; }
+@keyframes cart-count-pop { 0% { transform: scale(.85); } 55% { transform: scale(1.16); } 100% { transform: scale(1); } }
+@media (prefers-reduced-motion: reduce) { .cartCountPulse { animation: none; } }
+.cartSummaryBtn > span { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; width: 100%; font-size: 15px; }

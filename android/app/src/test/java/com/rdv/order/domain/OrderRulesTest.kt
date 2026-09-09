@@ -15,6 +15,24 @@ class OrderRulesTest {
         assertEquals("3 pcs", Seafood.quantity("Tiger Prawn", 3, "en"))
         assertEquals("3只", Seafood.quantity("老虎虾", 3, "zh"))
     }
+    @Test fun `badge counts ordinary quantities and weighted dishes without treating grams as dishes`() {
+        assertEquals(6, OrderRules.draftCount(listOf(CartLine(fish, 8), CartLine(MenuItem("rice", "Rice", 80), 3), CartLine(MenuItem("prawn", "Tiger Prawn", 100), 2))))
+    }
+    @Test fun `editing options retains quantities and merges matching notes without changing other dishes`() {
+        val old = mapOf("meat" to "chicken")
+        val next = mapOf("meat" to "pork")
+        val source = CartLine(fish, 2, "no salt", old)
+        val target = CartLine(fish, 3, "no salt", next)
+        val rice = CartLine(MenuItem("rice", "Rice", 80), 1)
+        val changed = OrderRules.editChoices(listOf(source, target, rice), fish.id, old, next)
+        assertEquals(2, changed.size)
+        assertTrue(changed.contains(rice))
+        assertEquals(CartLine(fish, 5, "no salt", next), changed.last())
+        assertNotEquals(OrderRules.fingerprint(OrderRules.payload(Draft("01", lines = listOf(rice)))), OrderRules.fingerprint(OrderRules.payload(Draft("01", lines = listOf(rice.copy(qty = 2))))))
+    }
+    @Test(expected = IllegalArgumentException::class) fun `option collision cannot combine differing kitchen notes`() {
+        OrderRules.editChoices(listOf(CartLine(fish, 1, "a".repeat(100), mapOf("x" to "a")), CartLine(fish, 1, "b".repeat(100), mapOf("x" to "b"))), fish.id, mapOf("x" to "a"), mapOf("x" to "b"))
+    }
     @Test fun `all seafood cooking choices match the current ordering page`() {
         assertEquals(listOf("steamed", "braised", "pickled"), Seafood.config("石斑鱼")!!.methods.map { it.key })
         assertEquals(listOf("steamed", "braised", "seared"), Seafood.config("hairtail")!!.methods.map { it.key })

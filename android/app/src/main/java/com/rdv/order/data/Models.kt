@@ -100,5 +100,7 @@ val RdvJson = Json { ignoreUnknownKeys = true; encodeDefaults = true; explicitNu
     val orders: List<BillOrder>,
     val totalQty: Int,
     val totalAmount: Long,
+    val sessionId: String? = null,
+    val openedAt: String? = null,
 )
 @Serializable data class CachedMenu(val response: MenuResponse, val savedAt: Long)
