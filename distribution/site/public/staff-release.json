@@ -1,15 +1,15 @@
 {
   "name": "RDV Team",
   "status": "available",
-  "version": "1.2.2",
-  "versionCode": 5,
+  "version": "2.0.0",
+  "versionCode": 10,
   "minAndroid": "8.0",
   "packageName": "com.rdv.staff",
-  "file": "/releases/rdv-team-1.2.2.apk",
-  "bytes": 2573293,
-  "sha256": "72e6cb32ed96765130eed6c7a9f88198a38ddc1beea1b048cff90e2172d886b6",
+  "file": "/releases/rdv-team-2.0.0.apk",
+  "bytes": 2840419,
+  "sha256": "96641196fcca6d5ab0e877fe05f0a9e83dcd3059766c33fc184059db171e4efa",
   "notes": {
-    "zh": "修复中国网络下的连接问题；密码最低6位，纯数字可用；新增启动自动检查更新与登录前更新入口。",
-    "en": "Uses the Team domain for connectivity. Accepts passwords of 6 or more characters, including numbers only. Adds launch update checks and updates before login."
+    "zh": "新增员工聊天、英文翻译、任务与通知确认；新增拍照及围栏打卡、排班、审批和周结；新增 Owner 权限并统一手机界面。",
+    "en": "Adds team chat, English translation, tasks and notice acknowledgements; photo and geofence attendance, schedules, approvals and weekly records; Owner permissions and matching mobile screens."
   }
 }
