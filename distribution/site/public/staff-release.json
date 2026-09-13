@@ -1,15 +1,15 @@
 {
   "name": "RDV Team",
   "status": "available",
-  "version": "2.0.0",
-  "versionCode": 10,
+  "version": "2.1.0",
+  "versionCode": 13,
   "minAndroid": "8.0",
   "packageName": "com.rdv.staff",
-  "file": "/releases/rdv-team-2.0.0.apk",
-  "bytes": 2840419,
-  "sha256": "96641196fcca6d5ab0e877fe05f0a9e83dcd3059766c33fc184059db171e4efa",
+  "file": "/releases/rdv-team-2.1.0.apk",
+  "bytes": 2869237,
+  "sha256": "8c902815f33b1e132c2ce54a08cf7c57f6392e8e103fadbc3c2278ed05992bee",
   "notes": {
-    "zh": "新增员工聊天、英文翻译、任务与通知确认；新增拍照及围栏打卡、排班、审批和周结；新增 Owner 权限并统一手机界面。",
-    "en": "Adds team chat, English translation, tasks and notice acknowledgements; photo and geofence attendance, schedules, approvals and weekly records; Owner permissions and matching mobile screens."
+    "zh": "新增简体中文界面，工作消息仍只翻译成英文；考勤改为仅定位，完善工单、排班审批、账号恢复和通知，优化键盘及房态显示。",
+    "en": "Adds Simplified Chinese while message translation stays English. Location-only attendance, improved work orders, scheduling, approvals, account recovery and notifications; refined keyboard and room status display."
   }
 }
