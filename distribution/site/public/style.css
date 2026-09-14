@@ -29,9 +29,9 @@ button:focus-visible, a:focus-visible, [tabindex]:focus-visible { outline: 3px s
 #language:hover { background: var(--surface); }
 main { flex: 1; display: flex; flex-direction: column; }
 .app-selector { text-align: center; padding-top: 36px; }
-.app-tabs { position: relative; display: inline-flex; max-width: 100%; padding: 5px; border: 1px solid var(--line); border-radius: 100px; background: #e9e2d6; box-shadow: inset 0 2px 4px #241c1605; }
+.app-tabs { position: relative; display: inline-grid; grid-template-columns: repeat(2, 1fr); max-width: 100%; padding: 5px; border: 1px solid var(--line); border-radius: 100px; background: #e9e2d6; box-shadow: inset 0 2px 4px #241c1605; }
 .app-tabs::before { content: ""; position: absolute; inset: 5px auto 5px 5px; width: calc(50% - 5px); border-radius: 100px; background: var(--surface); box-shadow: 0 2px 7px #241c1612; transition: transform 260ms cubic-bezier(.2, .8, .2, 1); }
-.app-tabs:has(#tab-staff[aria-selected="true"])::before { transform: translateX(100%); }
+.app-tabs:has(> button:nth-child(2)[aria-selected="true"])::before { transform: translateX(100%); }
 .app-tabs button { position: relative; z-index: 1; border: none; min-height: 44px; min-width: 142px; padding: 11px 24px; color: var(--muted); font-size: 14px; border-radius: 100px; background: transparent; transition: color 180ms ease; }
 .app-tabs button[aria-selected="true"] { color: var(--accent-dark); }
 .app-tabs button:hover { color: var(--accent-dark); }
