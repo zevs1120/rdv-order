@@ -6,6 +6,13 @@ import { restoreApkDelta } from './apk-delta.mjs';
 const read = path => readFileSync(new URL(path, import.meta.url));
 const release = JSON.parse(read('./public/release.json'));
 const staffRelease = JSON.parse(read('./public/staff-release.json'));
+for (const item of [release, staffRelease]) {
+  if (item.status === 'unavailable') continue;
+  assert.match(item.releaseDate || '', /^\d{4}-\d{2}-\d{2}$/);
+  assert.equal(new Date(`${item.releaseDate}T00:00:00Z`).toISOString().slice(0, 10), item.releaseDate);
+  assert.equal(item.releaseDateSha256, item.sha256,
+    'New APK needs its release date: run node distribution/site/stamp-release-dates.mjs before committing');
+}
 assert.match(release.version, /^\d+\.\d+\.\d+$/);
 assert.ok(Number.isSafeInteger(release.versionCode) && release.versionCode > 0);
 assert.equal(release.file, `/releases/rdv-order-${release.version}.apk`);

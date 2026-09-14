@@ -11,5 +11,7 @@
   "notes": {
     "zh": "新增简体中文界面，工作消息仍只翻译成英文；考勤改为仅定位，完善工单、排班审批、账号恢复和通知，优化键盘及房态显示。",
     "en": "Adds Simplified Chinese while message translation stays English. Location-only attendance, improved work orders, scheduling, approvals, account recovery and notifications; refined keyboard and room status display."
-  }
+  },
+  "releaseDate": "2026-09-14",
+  "releaseDateSha256": "8c902815f33b1e132c2ce54a08cf7c57f6392e8e103fadbc3c2278ed05992bee"
 }

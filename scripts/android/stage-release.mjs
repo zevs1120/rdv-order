@@ -72,3 +72,5 @@ writeFileSync(path.join(site, 'public/release.json'), JSON.stringify(release, nu
 console.log(`Staged ${release.version} (${release.versionCode}), ${release.bytes} bytes, SHA-256 ${release.sha256}`);
 console.log(useDelta ? `Delta from code ${current.versionCode}: ${patch.length} bytes; full APK remains available.` : 'Delta savings below 10%; full APK selected.');
 console.log('Run node distribution/site/verify.mjs and commit APK + metadata together before deploying.');
+
+await import('../../distribution/site/stamp-release-dates.mjs');

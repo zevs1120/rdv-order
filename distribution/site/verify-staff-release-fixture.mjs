@@ -26,7 +26,7 @@ try {
   const file = `/releases/rdv-team-${output.versionName}.apk`;
   copyFileSync(candidate, join(fixture, 'public', file));
   writeFileSync(join(fixture, 'public', 'staff-release.json'), `${JSON.stringify({
-    name: 'RDV Team', status: 'available', version: output.versionName, versionCode: output.versionCode, minAndroid: '8.0', packageName: outputMetadata.applicationId, file, bytes, sha256,
+    name: 'RDV Team', status: 'available', version: output.versionName, versionCode: output.versionCode, minAndroid: '8.0', packageName: outputMetadata.applicationId, file, bytes, sha256, releaseDate: new Date().toISOString().slice(0, 10), releaseDateSha256: sha256,
     notes: { zh: '修复已知问题，优化使用体验。', en: 'Bug fixes and experience improvements.' }
   }, null, 2)}\n`);
   const configPath = join(fixture, 'vercel.json');

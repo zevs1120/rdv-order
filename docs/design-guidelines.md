@@ -138,3 +138,7 @@ The local development page at `http://127.0.0.1:3105/manage` was opened through 
 ### Historical report rendering (2026-09-09 maintenance)
 
 Android historical orders, revenue, hot items and summary use lazy report rows, preserving existing cards, totals and actions. Only visible/nearby rows are composed; scrolling still reaches every loaded row. Rapid report filter selections are coalesced and processed serially, and only the latest selection may publish data or errors. No completed financial response cache is introduced. See `history-report-reliability.md` for verification and unpublished delivery status.
+
+### Download release date (2026-09-14)
+
+Both app panels show a muted Release date / 发布日期 line immediately below version information. Dates come from release metadata in Asia/Manila; new APK staging stamps them with `distribution/site/stamp-release-dates.mjs`, while ordinary page changes retain them.

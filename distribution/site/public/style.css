@@ -71,3 +71,5 @@ footer { display: flex; justify-content: space-between; gap: 20px; border-top: 1
 @media (max-height: 660px) and (min-width: 641px) { .topbar { margin-top: 12px; min-height: 58px; padding-top: 6px; padding-bottom: 6px; } .app-selector { padding-top: 18px; } .app-panel { padding: 20px 0 24px; } .app-symbol { width: 64px; height: 64px; border-radius: 20px; margin-bottom: 12px; } .app-symbol img { width: 52px; height: 52px; border-radius: 14px; } h1 { font-size: 58px; margin-bottom: 20px; } }
 @media (prefers-reduced-motion: no-preference) { button, .download { transition: color 160ms ease, background-color 160ms ease, box-shadow 160ms ease; } }
 @media (scripting: none) { .app-tabs { display: none; } }
+
+.release-date { font-size: 11px; color: var(--muted); margin: 4px 0 0; line-height: 1.6; }

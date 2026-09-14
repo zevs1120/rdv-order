@@ -3,6 +3,16 @@ const tabs = [...document.querySelectorAll('[role="tab"]')];
 const tablist = document.querySelector('[role="tablist"]');
 const staffReleaseSlot = document.getElementById('staff-release-slot');
 let staffRelease = null;
+let orderRelease = null;
+
+function releaseDateText(release) {
+  if (!release || !/^\d{4}-\d{2}-\d{2}$/.test(release.releaseDate)) return '';
+  return `${document.documentElement.lang === 'zh-CN' ? '发布日期' : 'Release date'}: ${release.releaseDate}`;
+}
+
+function renderOrderReleaseDate() {
+  document.getElementById('order-release-date').textContent = releaseDateText(orderRelease);
+}
 
 function formatBytes(bytes) {
   return `${(bytes / 1024 / 1024).toFixed(2)} MB`;
@@ -30,7 +40,10 @@ function renderStaffRelease() {
   const details = document.createElement('p');
   details.className = 'release';
   details.textContent = `v${staffRelease.version} · ${formatBytes(staffRelease.bytes)} · Android ${staffRelease.minAndroid}+`;
-  staffReleaseSlot.replaceChildren(download, details);
+  const date = document.createElement('p');
+  date.className = 'release-date';
+  date.textContent = releaseDateText(staffRelease);
+  staffReleaseSlot.replaceChildren(download, details, date);
 }
 
 function setLanguage(lang) {
@@ -41,6 +54,7 @@ function setLanguage(lang) {
   toggle.textContent = lang === 'zh' ? 'EN' : '中';
   toggle.setAttribute('aria-label', lang === 'zh' ? 'Switch to English' : '切换到中文');
   renderStaffRelease();
+  renderOrderReleaseDate();
 }
 
 function selectApp(selected, moveFocus = false) {
@@ -73,4 +87,9 @@ tablist.addEventListener('keydown', event => {
 fetch('/staff-release.json', { cache: 'no-store' })
   .then(response => response.ok ? response.json() : null)
   .then(release => { if (isPublishedStaffRelease(release)) { staffRelease = release; renderStaffRelease(); } })
+  .catch(() => {});
+
+fetch('/release.json', { cache: 'no-store' })
+  .then(response => response.ok ? response.json() : null)
+  .then(release => { orderRelease = release; renderOrderReleaseDate(); })
   .catch(() => {});
