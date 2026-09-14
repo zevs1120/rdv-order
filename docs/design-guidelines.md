@@ -142,3 +142,5 @@ Android historical orders, revenue, hot items and summary use lazy report rows, 
 ### Download release date (2026-09-14)
 
 Both app panels show a muted Release date / 发布日期 line immediately below version information. Dates come from release metadata in Asia/Manila; new APK staging stamps them with `distribution/site/stamp-release-dates.mjs`, while ordinary page changes retain them.
+
+- Download landing default (2026-09-14): RDV Team is the first tab and initially visible panel. Ordering app is second and opens through the existing tab switch; keyboard focus and selection follow the same order.
