@@ -1,17 +1,17 @@
 {
   "name": "RDV Team",
   "status": "available",
-  "version": "2.1.0",
-  "versionCode": 13,
+  "version": "2.1.1",
+  "versionCode": 14,
   "minAndroid": "8.0",
   "packageName": "com.rdv.staff",
-  "file": "/releases/rdv-team-2.1.0.apk",
-  "bytes": 2869237,
-  "sha256": "8c902815f33b1e132c2ce54a08cf7c57f6392e8e103fadbc3c2278ed05992bee",
+  "file": "/releases/rdv-team-2.1.1.apk",
+  "bytes": 2869477,
+  "sha256": "26dd9c1c6ae5643fe96ffb365eaa6008a638a6dbea8422a88845e47168d0f55e",
   "notes": {
-    "zh": "新增简体中文界面，工作消息仍只翻译成英文；考勤改为仅定位，完善工单、排班审批、账号恢复和通知，优化键盘及房态显示。",
-    "en": "Adds Simplified Chinese while message translation stays English. Location-only attendance, improved work orders, scheduling, approvals, account recovery and notifications; refined keyboard and room status display."
+    "zh": "新增工程部；部门列表和中英文名称改为后台统一配置。Owner 可在员工资料中修改其他员工的常用名，并记录改名历史。",
+    "en": "Adds Engineering and centrally configured department lists and bilingual names. Owners can edit other employees’ display names, with an audit history."
   },
-  "releaseDate": "2026-09-14",
-  "releaseDateSha256": "8c902815f33b1e132c2ce54a08cf7c57f6392e8e103fadbc3c2278ed05992bee"
+  "releaseDate": "2026-09-15",
+  "releaseDateSha256": "26dd9c1c6ae5643fe96ffb365eaa6008a638a6dbea8422a88845e47168d0f55e"
 }

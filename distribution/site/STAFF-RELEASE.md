@@ -23,3 +23,13 @@ bindings, so a new package cannot silently retain an old release date.
 The page reads each app's metadata and displays Release date / 发布日期 below
 its version information. Initial dates follow the existing release records:
 Order 1.1.2 on 2026-09-09; Team 2.1.0 on 2026-09-14.
+
+
+## Team 2.1.1 (2026-09-15)
+
+Authorized Team publication: Engineering / 工程部 and server-managed bilingual department catalogs; Owner can edit another employee's display name with transaction audit. Complete APK, version 2.1.1/code14, Android 8.0+, package `com.rdv.staff`.
+
+- SHA-256 `26dd9c1c6ae5643fe96ffb365eaa6008a638a6dbea8422a88845e47168d0f55e`; 2,869,477 bytes.
+- Original signer `c65c6c501c5ca826a438d132557ef78d4e1f101d32500b2b18fa3ba288969830` verified by Team release preparation.
+- Immutable `/releases/rdv-team-2.1.1.apk`; stable `/rdv-team.apk` points to it. Same APK as the Team in-app update channel; this is a complete update, not a delta patch.
+- `stamp-release-dates.mjs` set Team's new-hash release date to 2026-09-15. Order package and metadata are unchanged.
