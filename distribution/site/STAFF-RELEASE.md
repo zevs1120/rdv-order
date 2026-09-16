@@ -33,3 +33,13 @@ Authorized Team publication: Engineering / 工程部 and server-managed bilingua
 - Original signer `c65c6c501c5ca826a438d132557ef78d4e1f101d32500b2b18fa3ba288969830` verified by Team release preparation.
 - Immutable `/releases/rdv-team-2.1.1.apk`; stable `/rdv-team.apk` points to it. Same APK as the Team in-app update channel; this is a complete update, not a delta patch.
 - `stamp-release-dates.mjs` set Team's new-hash release date to 2026-09-15. Order package and metadata are unchanged.
+
+
+## Team 2.1.2 (2026-09-16)
+
+Follow-up to Team 2.1.1: fixes schedule saving and allows active Concierge Staff to check guests in, with the registration QR returned only for that check-in. Other management actions retain their existing permissions.
+
+- Complete APK 2.1.2/code15, com.rdv.staff, Android 8.0+.
+- SHA-256 `77cb1e4dee247986be39b86c342b911b330aa3a377e71bd54a6185929f17a96a`; 2,869,489 bytes; original signer verified by Team release preparation.
+- Immutable `/releases/rdv-team-2.1.2.apk`; stable `/rdv-team.apk` updated. Same full APK as Team in-app update; no delta protocol change.
+- Team release date stamped 2026-09-16; Order package and metadata unchanged.
