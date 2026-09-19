@@ -156,7 +156,7 @@ class RdvRepository(val api: Transport, private val store: KeyValueStore, privat
         return result
     }
     suspend fun bill(table: String): Bill = decodeResponse<Bill>(api.request("/api/tables/bill", query = mapOf("tableNo" to table), timeoutMs = 6_000).text)
-    suspend fun printBill(table: String) { api.request("/api/tables/print-bill", "POST", jsonBody("tableNo" to table), timeoutMs = 1_800) }
+    suspend fun printBill(table: String) { api.request("/api/tables/print-bill", "POST", jsonBody("tableNo" to table, "waitForResult" to true), timeoutMs = 45_000, retries = 0) }
     suspend fun checkout(table: String, expectedSessionId: String? = null, expectedTotalAmount: Long? = null): CheckoutResult = RdvJson.decodeFromString<CheckoutResult>(api.request("/api/tables/checkout", "POST", jsonBody("tableNo" to table, "expectedSessionId" to expectedSessionId, "expectedTotalAmount" to expectedTotalAmount), timeoutMs = 8_000, retries = 1).text)
     suspend fun close(table: String) { api.request("/api/tables/close", "POST", jsonBody("tableNo" to table), timeoutMs = 7_000, retries = 1) }
     suspend fun unmerge(table: String): JsonObject = requestObject("/api/tables/unmerge", "POST", jsonBody("tableNo" to table), timeoutMs = 7_000, retries = 1)
@@ -176,7 +176,8 @@ class RdvRepository(val api: Transport, private val store: KeyValueStore, privat
         val report = path in setOf("/api/manage/orders", "/api/manage/income", "/api/manage/hot-items", "/api/summary")
         val primary = async { requestObject(path, query = query,
             timeoutMs = if (report) 20_000 else 6_000, retries = if (report) 0 else 1) }
-        val extras = related.mapValues { (_, endpoint) -> async { requestObject(endpoint) } }
+        val extras = related.mapValues { (_, endpoint) -> async { requestObject(endpoint,
+            timeoutMs = if (endpoint == "/api/print/health") 12_000 else 6_000, retries = if (endpoint == "/api/print/health") 0 else 1) } }
         val result = primary.await()
         JsonObject(result + extras.mapValues { (_, pending) -> pending.await() })
     }

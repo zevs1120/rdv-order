@@ -35,6 +35,7 @@ type Payload = {
 };
 
 type PrintHealth = {
+  livePrinter?: { status: "online" | "offline" | "degraded" | "unknown"; checkedAt: string; latencyMs: number };
   provider: {
     primary: "cloud" | "agent" | "xpyun";
     fallback: "cloud" | "agent" | "xpyun" | null;
@@ -82,7 +83,7 @@ export default function ManageDevicesPage() {
       }
       const [body, healthBody] = await Promise.all([
         apiFetchJson<Payload>("/api/devices", { timeoutMs: 6000, retries: 1 }),
-        apiFetchJson<PrintHealth>("/api/print/health", { timeoutMs: 6000, retries: 1 })
+        apiFetchJson<PrintHealth>("/api/print/health", { timeoutMs: 12000, retries: 0 })
       ]);
       setData(body);
       setHealth(healthBody);
@@ -113,7 +114,7 @@ export default function ManageDevicesPage() {
         timeoutMs: 6000,
         retries: 0
       });
-      const healthBody = await apiFetchJson<PrintHealth>("/api/print/health", { timeoutMs: 6000, retries: 1 });
+      const healthBody = await apiFetchJson<PrintHealth>("/api/print/health", { timeoutMs: 12000, retries: 0 });
       setHealth(healthBody);
     } catch (err: any) {
       setError(err.message || "状态更新失败");
@@ -130,8 +131,9 @@ export default function ManageDevicesPage() {
     try {
       await apiFetchJson("/api/print/dispatch", {
         method: "POST",
-        body: { limit: 10 },
-        timeoutMs: 8000,
+        body: { limit: 1 },
+        timeoutMs: 45000,
+        adaptiveTimeout: false,
         retries: 0
       });
       await loadData();
@@ -149,7 +151,8 @@ export default function ManageDevicesPage() {
       await apiFetchJson("/api/print/self-test", {
         method: "POST",
         body: { target },
-        timeoutMs: 8000,
+        timeoutMs: 45000,
+        adaptiveTimeout: false,
         retries: 0
       });
       await loadData();
@@ -262,6 +265,10 @@ export default function ManageDevicesPage() {
                       : t("devices.offline", "离线")}
                 </span>
               </div>
+              {device.device_code === "printer-primary" && health?.livePrinter && <div>
+                {lang === "en" ? "Live cloud status: " : "云端实时状态："}
+                {health.livePrinter.status === "online" ? (lang === "en" ? "Online" : "在线") : health.livePrinter.status === "offline" ? (lang === "en" ? "Offline — check printer network" : "离线，请检查打印机网络") : health.livePrinter.status === "degraded" ? (lang === "en" ? "Printer error — check paper and cover" : "打印机异常，请检查纸张和上盖") : (lang === "en" ? "Query unavailable" : "暂时无法查询")}
+              </div>}
               <div className="muted">{lang === "en" ? "Recorded status · Last seen" : "记录状态 · 最近联系"}：{device.last_seen_at ? new Date(device.last_seen_at).toLocaleString() : (lang === "en" ? "Unknown" : "未知")}</div>
 
             </div>

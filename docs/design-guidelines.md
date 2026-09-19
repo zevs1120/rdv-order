@@ -146,3 +146,7 @@ Both app panels show a muted Release date / 发布日期 line immediately below 
 - Download landing default (2026-09-14): RDV Team is the first tab and initially visible panel. Ordering app is second and opens through the existing tab switch; keyboard focus and selection follow the same order.
 
 - Capsule selection follows the selected button’s position: first tab highlights left, second highlights right, independent of app identity. Both columns have equal width in Chinese and English.
+
+### 1.1.3 print connection feedback
+
+Native/web devices show read-only live cloud status separately from historical request state. Provider-query failure means unknown, not offline. Native last-contact copy identifies the last successful request. Receipt success copy says cloud accepted/check printout; it does not promise physical printing. The existing page layout is retained.

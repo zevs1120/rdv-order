@@ -2,6 +2,9 @@ import { NextResponse } from "next/server";
 import { runPrintWorker } from "../../../../lib/print-worker";
 import { requirePermission } from "../../../../lib/permissions";
 
+export const runtime = "nodejs";
+export const maxDuration = 120;
+
 function isWorkerAuthorized(req: Request) {
   const expected = process.env.PRINT_WORKER_KEY;
   if (!expected) return false;

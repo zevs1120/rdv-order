@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
-import { dispatchPrintSelfTest } from "../../../../lib/print";
+import { dispatchPrintSelfTest, PrintDispatchError } from "../../../../lib/print";
 import { requirePermission } from "../../../../lib/permissions";
+
+export const runtime = "nodejs";
+export const maxDuration = 60;
 
 type SelfTestTarget = "kitchen" | "bar" | "both";
 
@@ -20,6 +23,7 @@ export async function POST(req: Request) {
   } catch (err: any) {
     if (err.message === "UNAUTHORIZED") return NextResponse.json({ error: "未登录" }, { status: 401 });
     if (err.message === "FORBIDDEN") return NextResponse.json({ error: "无权限" }, { status: 403 });
+    if (err instanceof PrintDispatchError) return NextResponse.json({ error: err.message }, { status: 503 });
     return NextResponse.json({ error: "打印自检失败" }, { status: 500 });
   }
 }

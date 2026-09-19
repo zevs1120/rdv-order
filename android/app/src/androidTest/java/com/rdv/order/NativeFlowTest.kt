@@ -50,6 +50,31 @@ class NativeFlowTest {
         add.performScrollTo().assertIsDisplayed()
         compose.onNodeWithTag("submit").assertIsDisplayed()
     }
+    @Test fun printConnectionFailuresRemainVisibleAndWritesAreNotReplayed() {
+        login(); openTable()
+        transport.printDelayMs = 2200
+        transport.printFailure = true
+        compose.runOnIdle { vm.printBill() }
+        compose.waitUntil(5_000) { transport.calls.any { it.path == "/api/tables/print-bill" } }
+        assertTrue(vm.state.value.busy)
+        compose.waitUntil(10_000) { !vm.state.value.busy }
+        assertTrue(vm.state.value.error.contains("Print service timed out"))
+        assertEquals(1, transport.calls.count { it.path == "/api/tables/print-bill" })
+        transport.printFailure = false
+        compose.runOnIdle { vm.printBill() }
+        compose.waitUntil(10_000) { !vm.state.value.busy }
+        assertEquals("", vm.state.value.error)
+        assertEquals(2, transport.calls.count { it.path == "/api/tables/print-bill" })
+    }
+    @Test fun devicePageDisplaysActualCloudOfflineState() {
+        transport.livePrinterStatus = "offline"
+        login("manager")
+        compose.runOnIdle { vm.navigate(Screen.DEVICES) }
+        compose.waitUntil(10_000) { !vm.state.value.loading }
+        compose.onNodeWithText("Live cloud status: Offline — check printer network").performScrollTo().assertIsDisplayed()
+        assertFalse(transport.calls.any { it.method == "POST" && it.path.startsWith("/api/print/") })
+    }
+
     @Test fun largeReportsStayLazyAndRapidSelectionsPublishOnlyLatest() {
         transport.reportOrderCount = 2_000
         login("manager")

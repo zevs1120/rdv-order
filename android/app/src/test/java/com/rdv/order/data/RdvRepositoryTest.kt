@@ -14,12 +14,12 @@ private class MemoryStore : KeyValueStore {
     override fun put(key: String, value: String) { if (failWrites) throw IOException("storage full"); values[key] = value }
     override fun remove(key: String) { values.remove(key) }
 }
-private data class Recorded(val path: String, val method: String, val body: JsonElement?, val key: String?, val query: Map<String, String>)
+private data class Recorded(val path: String, val method: String, val body: JsonElement?, val key: String?, val query: Map<String, String>, val timeoutMs: Long, val retries: Int)
 private class RecordingTransport : Transport {
     val calls = mutableListOf<Recorded>()
     var handler: (Recorded) -> String = { "{}" }
     override suspend fun request(path: String, method: String, body: JsonElement?, query: Map<String, String>, idempotencyKey: String?, timeoutMs: Long, retries: Int, authenticated: Boolean): ApiResponse {
-        val call = Recorded(path, method, body, idempotencyKey, query); calls.add(call)
+        val call = Recorded(path, method, body, idempotencyKey, query, timeoutMs, retries); calls.add(call)
         val text = if (path == "/api/login") {
             val user = body!!.jsonObject.text("username")
             val claims = Base64.getUrlEncoder().withoutPadding().encodeToString("{\"userId\":\"$user\"}".toByteArray())
@@ -30,6 +30,21 @@ private class RecordingTransport : Transport {
 }
 
 class RdvRepositoryTest {
+    @Test fun `bill printing waits for backend acceptance and never replays the write`() = runBlocking {
+        val api = RecordingTransport()
+        val repository = RdvRepository(api, MemoryStore(), { "https://fixture.invalid" })
+        api.handler = { "{\"accepted\":true}" }
+        repository.printBill("06")
+        val request = api.calls.single()
+        assertEquals("/api/tables/print-bill", request.path)
+        assertTrue(request.body!!.jsonObject.flag("waitForResult"))
+        assertEquals(45_000L, request.timeoutMs)
+        assertEquals(0, request.retries)
+        api.handler = { throw ApiException(504, "print result unknown") }
+        assertTrue(runCatching { repository.printBill("06") }.exceptionOrNull() is ApiException)
+        assertEquals(2, api.calls.size)
+    }
+
     private val dish = MenuItem("dish-uuid", "Rice", 80)
     private val draft = Draft("01", "2026-09-07T00:00:00Z", lines = listOf(CartLine(dish, 2, "no onion")))
     @Test fun `hotel custom domain upgrade preserves session drafts and menu cache`() = runBlocking {

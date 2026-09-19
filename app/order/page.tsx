@@ -1228,8 +1228,8 @@ export default function OrderPage() {
     try {
       await apiFetchJson("/api/tables/print-bill", {
         method: "POST",
-        body: { tableNo },
-        timeoutMs: 1800,
+        body: { tableNo, waitForResult: true },
+        timeoutMs: 45000,
         retries: 0,
         adaptiveTimeout: false
       });

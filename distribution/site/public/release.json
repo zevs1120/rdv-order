@@ -1,26 +1,26 @@
 {
   "name": "RDV Order",
-  "version": "1.1.2",
-  "versionCode": 11,
+  "version": "1.1.3",
+  "versionCode": 12,
   "minAndroid": "8.0",
   "apiOrigin": "https://order.resortdejavu.cn",
-  "file": "/releases/rdv-order-1.1.2.apk",
-  "bytes": 1625081,
-  "sha256": "65950a4415a5306aa70d1a8857e06b5c7d3ef2288e60ab4fea9aec6d0fff6ddd",
+  "file": "/releases/rdv-order-1.1.3.apk",
+  "bytes": 1625329,
+  "sha256": "879a90325e1708a692bcd5e229259d75d5777679e55a23301206442ab6f88a9c",
   "notes": {
-    "zh": "修复历史订单和收入查询频繁切换时的卡顿，优化查询稳定性。",
-    "en": "Fixed slowdowns when switching history and revenue date ranges and improved query reliability."
+    "zh": "修复打印连接超时，增加安全重试和实时打印机状态，明确显示账单打印失败。",
+    "en": "Improved print connection reliability with safe retries, live printer status, and clear bill-print failure messages."
   },
   "deltas": [
     {
       "format": "rdv-copy-add-v1",
-      "baseVersionCode": 10,
-      "baseSha256": "0d395cb92cfd33efb53dded6785e56b341e29a150d52e6025a9e757677aff269",
-      "file": "/releases/rdv-order-1.1.2-from-10.rdvdelta",
-      "bytes": 1278175,
-      "sha256": "94e8c7462f92f1a139800e5ca4871e8091ac7ae7c472a7f02b2309b1a21fa149"
+      "baseVersionCode": 11,
+      "baseSha256": "65950a4415a5306aa70d1a8857e06b5c7d3ef2288e60ab4fea9aec6d0fff6ddd",
+      "file": "/releases/rdv-order-1.1.3-from-11.rdvdelta",
+      "bytes": 1290611,
+      "sha256": "49069e50a3de10263818d68317e4fb3e966df2e861197300924160beef23468e"
     }
   ],
-  "releaseDate": "2026-09-09",
-  "releaseDateSha256": "65950a4415a5306aa70d1a8857e06b5c7d3ef2288e60ab4fea9aec6d0fff6ddd"
+  "releaseDate": "2026-09-19",
+  "releaseDateSha256": "879a90325e1708a692bcd5e229259d75d5777679e55a23301206442ab6f88a9c"
 }

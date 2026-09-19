@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { queryPrimaryPrinterStatus } from "../../../../lib/print";
 import { pool } from "../../../../lib/db";
 import { requirePermission } from "../../../../lib/permissions";
 
@@ -66,14 +67,15 @@ export async function GET(req: Request) {
     if (!workerKeySet) warnings.push("PRINT_WORKER_KEY not set");
     if (!heartbeatKeySet) warnings.push("DEVICE_HEARTBEAT_KEY not set");
 
-    const queue = await pool.query<{ pending: number; failed: number }>(
+    const [livePrinter, queue] = await Promise.all([queryPrimaryPrinterStatus(), pool.query<{ pending: number; failed: number }>(
       `SELECT
          COUNT(*) FILTER (WHERE status IN ('pending', 'printing'))::int AS pending,
          COUNT(*) FILTER (WHERE status = 'failed')::int AS failed
        FROM print_jobs`
-    );
+    )]);
 
     return NextResponse.json({
+      livePrinter,
       provider: {
         primary,
         fallback: hasFallback ? fallback : null

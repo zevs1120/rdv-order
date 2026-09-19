@@ -105,3 +105,7 @@ Local verification: 9 dispatcher tests use isolated fetches and controlled timin
 # Android update distribution
 
 Native 0.1.3 adds cold-start application updates from the existing download site. This adds no printer environment variables, scheduler or server-side print changes. APK/metadata deployment and verification are described in [android-in-app-updates.md](android-in-app-updates.md).
+
+## 2026-09-19 connection incident repair
+
+See [print-connection-reliability.md](print-connection-reliability.md). XPYUN enforces a 10-second minimum attempt deadline (maximum 15 seconds), one provider-deduplicated recovery attempt, and no fallback or later queue replay for unresolved outcomes. New native/web print requests wait 45 seconds for cloud acceptance. Deploy backend before requiring the updated APK; legacy receipt requests remain compatible. No printer-node migration, offline buffering, external worker or live queue drain is part of this repair. Runtime `PRINT_TIMEOUT_MS` default is now 10000.

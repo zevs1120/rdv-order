@@ -68,3 +68,5 @@
 ## 4. Notes
 - If network is unstable/offline, app shows top status indication.
 - For complete outage, use handwritten fallback process and reconcile later.
+
+打印连接异常：新版打印账单会等待云端接收结果。提示结果未确认时，先检查是否已经出纸，不要连续重复点击。设备页“云端实时状态”反映查询时的设备连接；“记录状态”是历史请求结果。云端离线时检查打印机供电和联网；查询不可用不等于打印机离线。重试队列每次处理一笔；结果未知且已停止自动重试的任务需要人工核对，不能靠反复点击恢复。

@@ -1,9 +1,13 @@
 import { after, NextResponse } from "next/server";
-import { dispatchTableBillPrint } from "../../../../lib/print";
+import { dispatchTableBillPrint, PrintDispatchError } from "../../../../lib/print";
 import { requireOrderCreate } from "../../../../lib/permissions";
 import { writeAuditLogSafe } from "../../../../lib/audit";
 
+export const runtime = "nodejs";
+export const maxDuration = 60;
+
 type Body = {
+  waitForResult?: unknown;
   tableNo?: unknown;
 };
 
@@ -16,20 +20,30 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "缺少桌号" }, { status: 400 });
     }
 
-    after(async () => {
+    const print = async () => {
       try {
         const result = await dispatchTableBillPrint(tableNo);
         await writeAuditLogSafe({
-          actorUserId: auth.userId,
-          action: "table.print_receipt",
-          entityType: "table",
-          entityId: tableNo,
-          detail: { provider: result.provider, slot: result.slot, remoteJobId: result.remoteJobId || null },
-          req
+          actorUserId: auth.userId, action: "table.print_receipt", entityType: "table", entityId: tableNo,
+          detail: { provider: result.provider, slot: result.slot, remoteJobId: result.remoteJobId || null }, req
         });
+        return result;
       } catch (err) {
-        console.error("[print-bill] background print failed", err);
+        await writeAuditLogSafe({
+          actorUserId: auth.userId, action: "table.print_receipt_failed", entityType: "table", entityId: tableNo,
+          detail: { error: err instanceof PrintDispatchError ? err.message : "账单打印失败" }, req
+        });
+        throw err;
       }
+    };
+    // Updated clients wait for cloud acceptance; preserve short-request clients
+    // during the mandatory APK rollout instead of making them time out at 1.8s.
+    if (body?.waitForResult === true) {
+      const result = await print();
+      return NextResponse.json({ ok: true, accepted: true, remoteJobId: result.remoteJobId || null });
+    }
+    after(async () => {
+      try { await print(); } catch { console.error("[print-bill] failed; inspect receipt audit and device error"); }
     });
 
     return NextResponse.json({
@@ -39,6 +53,7 @@ export async function POST(req: Request) {
   } catch (err: any) {
     if (err.message === "UNAUTHORIZED") return NextResponse.json({ error: "未登录" }, { status: 401 });
     if (err.message === "FORBIDDEN") return NextResponse.json({ error: "无权限" }, { status: 403 });
+    if (err instanceof PrintDispatchError) return NextResponse.json({ error: err.message }, { status: err.outcome === "unknown" ? 504 : 503 });
     return NextResponse.json({ error: "账单打印失败" }, { status: 500 });
   }
 }

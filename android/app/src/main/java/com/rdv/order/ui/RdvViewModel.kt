@@ -434,7 +434,7 @@ class RdvViewModel(val repository: RdvRepository, val strings: Strings, private 
                 query = if (screen in setOf(Screen.ORDERS, Screen.INCOME, Screen.HOT, Screen.SUMMARY)) query else emptyMap(), related = related)
     }
     fun manageAction(path: String, method: String = "POST", body: JsonElement? = null) = action {
-        repository.requestObject(path, method, body, timeoutMs = 8_000)
+        repository.requestObject(path, method, body, timeoutMs = if (path.startsWith("/api/print/")) 45_000 else 8_000, retries = 0)
         loadManagement()
     }
 }

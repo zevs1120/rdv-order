@@ -78,3 +78,5 @@ RDV is a mobile-first ordering and table-service system for waiter/manager use.
 - Global AppShell (fixed top/bottom bars)
 - Safe-area aware mobile layout
 - Reusable UI kit components and design tokens
+
+Print connection recovery (1.1.3): bounded provider-deduplicated retry, synchronous receipt acceptance for updated clients, explicit receipt failures, and live cloud printer status. No physical printer connectivity guarantee is implied by cloud acceptance; see `print-connection-reliability.md`.

@@ -1,4 +1,4 @@
-import { createHash } from "crypto";
+import { createHash, randomUUID } from "crypto";
 import { pool } from "./db";
 import { localizeMenuText } from "./menu-text";
 import { formatItemQtyDisplay } from "./qty-display";
@@ -88,7 +88,7 @@ type PrintPayload = OrderPrintPayload | SelfTestPrintPayload | TableBillPrintPay
 export class PrintDispatchError extends Error {
   readonly retryable: boolean;
 
-  constructor(message: string, retryable: boolean) {
+  constructor(message: string, retryable: boolean, readonly outcome: "unknown" | "offline" | "rejected" = "rejected") {
     super(message);
     this.retryable = retryable;
   }
@@ -111,8 +111,8 @@ function getFallbackProvider(primary: PrintProvider): PrintProvider | null {
 }
 
 function getPrintTimeoutMs() {
-  const raw = Number(process.env.PRINT_TIMEOUT_MS || 3000);
-  if (!Number.isFinite(raw) || raw < 500) return 3000;
+  const raw = Number(process.env.PRINT_TIMEOUT_MS || 10000);
+  if (!Number.isFinite(raw) || raw < 500) return 10000;
   return Math.min(Math.round(raw), 15000);
 }
 
@@ -711,7 +711,27 @@ function resolveXpyunConfig(): XpyunConfig {
   return { url, user, userKey, sn, copies, voice, mode };
 }
 
-async function dispatchXpyunContent(config: XpyunConfig, content: string, copiesOverride?: number) {
+export async function queryPrimaryPrinterStatus(): Promise<{ status: "online" | "offline" | "degraded" | "unknown"; checkedAt: string; latencyMs: number }> {
+  const started = Date.now();
+  let status: "online" | "offline" | "degraded" | "unknown" = "unknown";
+  try {
+    if (getProvider() === "xpyun") {
+      const config = resolveXpyunConfig();
+      const url = new URL(config.url);
+      url.pathname = url.pathname.replace(/\/print$/, "/queryPrinterStatus");
+      if (!url.pathname.endsWith("/queryPrinterStatus")) throw new Error("Unsupported status URL");
+      const timestamp = String(Math.floor(Date.now() / 1000));
+      const sign = createHash("sha1").update(`${config.user}${config.userKey}${timestamp}`).digest("hex");
+      const result = await postJsonWithTimeout(url.toString(), { user: config.user, timestamp, sign, sn: config.sn }, {}, 4000);
+      if (result.ok && result.data?.code === 0) {
+        status = result.data.data === 1 ? "online" : result.data.data === 0 ? "offline" : result.data.data === 2 ? "degraded" : "unknown";
+      }
+    }
+  } catch { /* An unavailable cloud query is unknown, never proof of offline. */ }
+  return { status, checkedAt: new Date().toISOString(), latencyMs: Date.now() - started };
+}
+
+async function dispatchXpyunContent(config: XpyunConfig, content: string, copiesOverride?: number, requestKey: string = randomUUID()) {
   const timestamp = String(Math.floor(Date.now() / 1000));
   const sign = createHash("sha1").update(`${config.user}${config.userKey}${timestamp}`).digest("hex");
   const safeCopies = Number.isFinite(copiesOverride)
@@ -723,30 +743,48 @@ async function dispatchXpyunContent(config: XpyunConfig, content: string, copies
     sign,
     sn: config.sn,
     content,
-    copies: safeCopies
+    copies: safeCopies,
+    idempotent: requestKey
   };
   if (config.voice !== null) body.voice = config.voice;
   if (config.mode !== null) body.mode = config.mode;
 
-  const result = await postJsonWithTimeout(config.url, body, {}, getPrintTimeoutMs());
-  if (!result.ok) {
-    const retryable = result.status >= 500 || result.status === 429;
-    throw new PrintDispatchError(`芯烨云打印失败(${result.status})`, retryable);
+  // The provider deduplicates this key for five minutes. Only retry within this
+  // single bounded invocation; never generate a fresh key after a lost response.
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    try {
+      const result = await postJsonWithTimeout(config.url, body, {}, Math.max(10000, getPrintTimeoutMs()));
+      if (!result.ok) {
+        throw new PrintDispatchError(`芯烨云打印失败(${result.status})`, result.status >= 500 || result.status === 429, "unknown");
+      }
+      const code = Number(result.data?.code);
+      // A duplicate acknowledgement confirms cloud acceptance, not paper output.
+      if (code === 1013) return undefined;
+      if (!Number.isFinite(code)) throw new PrintDispatchError("打印结果未确认，请先核对是否出纸，勿重复打印", true, "unknown");
+      if (code !== 0) {
+        if (code === 1003) throw new PrintDispatchError("打印机未连接芯烨云，请检查打印机网络后重试", true, "offline");
+        const msg = typeof result.data?.msg === "string" ? result.data.msg : "xpyun provider error";
+        throw new PrintDispatchError(`芯烨云打印失败(${code}) ${msg}`, isRetryableXpyunError(code));
+      }
+      if (typeof result.data?.data !== "string" || !result.data.data) {
+        throw new PrintDispatchError("打印结果未确认，请先核对是否出纸，勿重复打印", true, "unknown");
+      }
+      return result.data.data;
+    } catch (err) {
+      if (attempt === 0 && err instanceof PrintDispatchError && err.retryable && err.outcome === "unknown") continue;
+      if (err instanceof PrintDispatchError && err.outcome === "unknown") {
+        throw new PrintDispatchError(err.message, false, "unknown");
+      }
+      throw err;
+    }
   }
-
-  const code = Number(result.data?.code);
-  const msg = typeof result.data?.msg === "string" ? result.data.msg : "xpyun provider error";
-  if (!Number.isFinite(code) || code !== 0) {
-    throw new PrintDispatchError(`芯烨云打印失败(${code}) ${msg}`, isRetryableXpyunError(code));
-  }
-
-  return typeof result.data?.data === "string" ? result.data.data : undefined;
+  throw new PrintDispatchError("打印结果未确认，请先核对是否出纸，勿重复打印", true, "unknown");
 }
 
-async function dispatchToXpyun(payload: PrintPayload): Promise<DispatchResult> {
+async function dispatchToXpyun(payload: PrintPayload, requestKey?: string): Promise<DispatchResult> {
   const config = resolveXpyunConfig();
   if (payload.type === "order") {
-    const kitchenJobId = await dispatchXpyunContent(config, toXpyunKitchenContent(payload));
+    const kitchenJobId = await dispatchXpyunContent(config, toXpyunKitchenContent(payload), undefined, requestKey);
     return {
       provider: "xpyun",
       slot: "primary",
@@ -755,7 +793,7 @@ async function dispatchToXpyun(payload: PrintPayload): Promise<DispatchResult> {
   }
 
   if (payload.type === "table_bill") {
-    const jobId = await dispatchXpyunContent(config, toXpyunTableBillContent(payload), 1);
+    const jobId = await dispatchXpyunContent(config, toXpyunTableBillContent(payload), 1, requestKey);
     return {
       provider: "xpyun",
       slot: "primary",
@@ -763,7 +801,7 @@ async function dispatchToXpyun(payload: PrintPayload): Promise<DispatchResult> {
     };
   }
 
-  const testJobId = await dispatchXpyunContent(config, toXpyunKitchenContent(payload));
+  const testJobId = await dispatchXpyunContent(config, toXpyunKitchenContent(payload), undefined, requestKey);
   return {
     provider: "xpyun",
     slot: "primary",
@@ -783,19 +821,19 @@ async function postJsonWithTimeout(
     const res = await fetch(url, {
       method: "POST",
       headers: {
-        "Content-Type": "application/json",
+        "Content-Type": "application/json;charset=UTF-8",
         ...headers
       },
       body: JSON.stringify(body),
       signal: controller.signal
     });
-    const data = await res.json().catch(() => ({}));
+    const data = await res.json();
     return { ok: res.ok, status: res.status, data };
   } catch (err: any) {
     if (err?.name === "AbortError") {
-      throw new PrintDispatchError(`打印请求超时（>${timeoutMs}ms）`, true);
+      throw new PrintDispatchError("打印服务响应超时，结果未确认，请先核对是否出纸", true, "unknown");
     }
-    throw new PrintDispatchError("打印请求网络异常", true);
+    throw new PrintDispatchError("打印服务连接中断，结果未确认，请先核对是否出纸", true, "unknown");
   } finally {
     clearTimeout(timer);
   }
@@ -876,19 +914,18 @@ async function markDeviceSuccess(slot: "primary" | "backup") {
   }
 }
 
-async function markDeviceFailure(slot: "primary" | "backup", message: string) {
+async function markDeviceFailure(slot: "primary" | "backup", message: string, offline: boolean) {
   const deviceCode = slot === "primary" ? "printer-primary" : "printer-backup";
   try {
     await pool.query(
       `INSERT INTO device_status (device_code, device_type, label, status, is_backup, fail_count, last_seen_at, updated_at, last_error)
-       VALUES ($1, 'printer', $2, 'degraded', $3, 1, now(), now(), $4)
+       VALUES ($1, 'printer', $2, $5, $3, 1, NULL, now(), $4)
        ON CONFLICT (device_code) DO UPDATE
        SET fail_count = device_status.fail_count + 1,
-           status = CASE WHEN device_status.fail_count + 1 >= 3 THEN 'offline' ELSE 'degraded' END,
-           last_seen_at = now(),
+           status = $5,
            updated_at = now(),
            last_error = $4`,
-      [deviceCode, slot === "primary" ? "Primary Printer" : "Backup Printer", slot === "backup", message.slice(0, 500)]
+      [deviceCode, slot === "primary" ? "Primary Printer" : "Backup Printer", slot === "backup", message.slice(0, 500), offline ? "offline" : "degraded"]
     );
   } catch {
     // Ignore device status write errors to keep print retries running.
@@ -898,40 +935,41 @@ async function markDeviceFailure(slot: "primary" | "backup", message: string) {
 async function dispatchWithTracking(
   provider: PrintProvider,
   payload: PrintPayload,
-  slot: "primary" | "backup"
+  slot: "primary" | "backup",
+  requestKey?: string
 ): Promise<DispatchResult> {
   try {
     const result = provider === "agent"
       ? await dispatchToAgent(payload)
       : provider === "xpyun"
-        ? await dispatchToXpyun(payload)
+        ? await dispatchToXpyun(payload, requestKey)
         : await dispatchToCloud(payload);
     await markDeviceSuccess(slot);
     return { ...result, slot };
   } catch (err: any) {
     const msg = err instanceof Error ? err.message : "打印失败";
-    await markDeviceFailure(slot, msg);
+    await markDeviceFailure(slot, msg, err instanceof PrintDispatchError && err.outcome === "offline");
     throw err;
   }
 }
 
-async function dispatchWithFallback(payload: PrintPayload) {
+async function dispatchWithFallback(payload: PrintPayload, requestKey?: string) {
   const primary = getProvider();
   const fallback = getFallbackProvider(primary);
 
   try {
-    return await dispatchWithTracking(primary, payload, "primary");
+    return await dispatchWithTracking(primary, payload, "primary", requestKey);
   } catch (err: any) {
-    if (!fallback) {
+    if (!fallback || (err instanceof PrintDispatchError && err.outcome === "unknown")) {
       throw err;
     }
-    return dispatchWithTracking(fallback, payload, "backup");
+    return dispatchWithTracking(fallback, payload, "backup", requestKey);
   }
 }
 
 export async function dispatchPrintJob(orderId: string): Promise<DispatchResult> {
   const payload = toKitchenOnlyOrderPayload(await buildOrderPayload(orderId));
-  return dispatchWithFallback(payload);
+  return dispatchWithFallback(payload, orderId);
 }
 
 export async function dispatchTableBillPrint(tableNo: string): Promise<DispatchResult> {

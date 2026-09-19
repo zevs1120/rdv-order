@@ -17,6 +17,9 @@ class TestStore : KeyValueStore {
 class FixtureTransport : Transport {
     data class Call(val path: String, val method: String, val body: JsonElement?, val key: String?)
     val calls = mutableListOf<Call>()
+    var printFailure = false
+    var printDelayMs = 0L
+    var livePrinterStatus = "online"
     var loseFirstSubmitResponse = false
     var sessionRejected = false
     var role = "waiter"
@@ -79,7 +82,11 @@ class FixtureTransport : Transport {
             }
             "/api/orders/request-status" -> savedOrders[query["key"]]?.let { RdvJson.encodeToString(SubmissionStatus(true, it.second)) } ?: "{\"found\":false}"
             "/api/tables/bill" -> RdvJson.encodeToString(bill(query["tableNo"] ?: "01"))
-            "/api/tables/print-bill" -> "{\"queued\":true}"
+            "/api/tables/print-bill" -> {
+                kotlinx.coroutines.delay(printDelayMs)
+                if (printFailure) throw ApiException(504, "打印服务响应超时，结果未确认，请先核对是否出纸")
+                "{\"accepted\":true}"
+            }
             "/api/tables/guests" -> { val table = request.text("tableNo"); opened[table] = request.number("guestCount").toInt(); request.toString() }
             "/api/tables/checkout" -> if (method == "GET") {
                 val table = query["tableNo"] ?: "01"; val current = bill(table)
@@ -99,8 +106,8 @@ class FixtureTransport : Transport {
             "/api/manage/income" -> "{\"orderCount\":2,\"totalAmount\":600,\"byDay\":[{\"day\":\"2026-09-07T00:00:00Z\",\"order_count\":2,\"amount\":600}]}"
             "/api/manage/hot-items" -> "{\"hotItems\":[{\"name\":\"Rice\",\"qty\":3}]}"
             "/api/pricing/rules" -> "{\"rules\":[{\"id\":\"fee-1\",\"name\":\"Service Fee\",\"charge_type\":\"service_fee\",\"mode\":\"percent\",\"value\":10,\"is_active\":true,\"sort_order\":10}]}"
-            "/api/devices" -> "{\"devices\":[{\"device_code\":\"test-printer\",\"label\":\"Kitchen\",\"status\":\"online\",\"device_type\":\"printer\",\"fail_count\":0}],\"printQueue\":{\"pending\":0,\"failed\":0},\"alerts\":[]}"
-            "/api/print/health" -> "{\"provider\":{\"primary\":\"cloud\"},\"ready\":true,\"warnings\":[]}"
+            "/api/devices" -> "{\"devices\":[{\"device_code\":\"printer-primary\",\"label\":\"Kitchen\",\"status\":\"online\",\"device_type\":\"printer\",\"fail_count\":0}],\"printQueue\":{\"pending\":0,\"failed\":0},\"alerts\":[]}"
+            "/api/print/health" -> "{\"livePrinter\":{\"status\":\"$livePrinterStatus\"},\"provider\":{\"primary\":\"cloud\"},\"ready\":true,\"warnings\":[]}"
             "/api/admin/permissions" -> "{\"rows\":[{\"role\":\"waiter\",\"permission\":\"order.create\",\"allowed\":true}]}"
             "/api/admin/menu-items" -> jsonBody("items" to RdvJson.encodeToJsonElement(listOf(rice, fish, tea))).toString()
             "/api/admin/menu-categories" -> jsonBody("majorCategories" to RdvJson.encodeToJsonElement(categories)).toString()

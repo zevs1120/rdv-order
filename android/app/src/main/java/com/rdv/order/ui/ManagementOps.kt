@@ -88,7 +88,7 @@ import kotlinx.serialization.json.*
                 listOf("kitchen" to "devices.testKitchen", "bar" to "devices.testBar", "both" to "devices.testBoth").forEach { (target, label) ->
                     RdvButton(vm.text(label), { vm.manageAction("/api/print/self-test", body = jsonBody("target" to target)) }, secondary = true, enabled = !state.busy)
                 }
-                RdvButton(vm.text("devices.retryPrint"), { vm.manageAction("/api/print/dispatch", body = jsonBody("limit" to 10)) }, secondary = true, enabled = !state.busy)
+                RdvButton(vm.text("devices.retryPrint"), { vm.manageAction("/api/print/dispatch", body = jsonBody("limit" to 1)) }, secondary = true, enabled = !state.busy)
             }
         }
         if (data.rows("alerts").isNotEmpty()) RdvCard(Modifier.fillMaxWidth()) {
@@ -98,10 +98,19 @@ import kotlinx.serialization.json.*
         }
         data.rows("devices").forEach { device -> RdvCard(Modifier.fillMaxWidth()) {
             Text(device.text("label"), fontWeight = FontWeight.Bold)
+            if (device.text("device_code") == "printer-primary") {
+                val live = health["livePrinter"] as? JsonObject
+                if (live != null) Text(vm.either("云端实时状态：", "Live cloud status: ") + when (live.text("status")) {
+                    "online" -> vm.either("在线", "Online")
+                    "offline" -> vm.either("离线，请检查打印机网络", "Offline — check printer network")
+                    "degraded" -> vm.either("打印机异常，请检查纸张和上盖", "Printer error — check paper and cover")
+                    else -> vm.either("暂时无法查询", "Query unavailable")
+                })
+            }
             Text(vm.either("记录状态：", "Recorded status: ") + when (device.text("status")) { "online" -> vm.text("network.online"); "offline" -> vm.text("network.offline"); "degraded" -> vm.either("异常", "Degraded"); else -> vm.either("未知", "Unknown") })
             if (advanced) Text("${device.text("device_code")} · ${device.text("device_type")}" + if (device.flag("is_backup")) vm.either(" · 备用", " · Backup") else "")
             Text("${vm.either("故障次数", "Failures")}: ${device.number("fail_count").toInt()}")
-            Text("${vm.either("上次在线", "Last seen")}: ${device.text("last_seen_at").ifBlank { "-" }}")
+            Text("${vm.either("最近成功请求", "Last successful request")}: ${device.text("last_seen_at").ifBlank { "-" }}")
             if (advanced && device.text("last_error").isNotBlank()) Text(device.text("last_error"), color = RdvColors.Danger)
             if (advanced) FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 listOf("online" to vm.text("network.online"), "offline" to vm.text("network.offline"), "degraded" to vm.either("异常", "Degraded")).forEach { (status, label) ->

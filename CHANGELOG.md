@@ -121,3 +121,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [2026-02-15]
 ### Added
 - Initial MVP baseline for login, tables, order, summary, serverless APIs.
+
+## 1.1.3 — 2026-09-19
+
+- Recover transient XPYUN connections with a longer deadline and one deduplicated retry.
+- Await bill cloud acceptance on Android/web; expose failures and real cloud printer status.
+- Preserve unknown-outcome safety, existing order idempotency and old-client rollout compatibility.

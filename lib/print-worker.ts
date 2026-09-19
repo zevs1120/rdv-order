@@ -1,3 +1,4 @@
+import { writeAuditLogSafe } from "./audit";
 import { pool } from "./db";
 import { PrintDispatchError, dispatchPrintJob } from "./print";
 
@@ -120,8 +121,10 @@ async function processJobs(limit: number, orderId?: string): Promise<PrintWorker
 
   for (const job of jobs) {
     try {
-      await dispatchPrintJob(job.order_id);
+      const result = await dispatchPrintJob(job.order_id);
       await markPrinted(job.id);
+      await writeAuditLogSafe({ action: "order.print_accepted", entityType: "order", entityId: job.order_id,
+        detail: { provider: result.provider, remoteJobId: result.remoteJobId || null } });
       printed += 1;
     } catch (err: any) {
       const retryable = err instanceof PrintDispatchError ? err.retryable : true;

@@ -38,7 +38,7 @@ function run() {
   const fallbackStatus = fallback && fallback !== primary ? checkProvider(fallback) : null;
   const workerKey = Boolean(process.env.PRINT_WORKER_KEY);
   const heartbeatKey = Boolean(process.env.DEVICE_HEARTBEAT_KEY);
-  const timeoutMs = Number(process.env.PRINT_TIMEOUT_MS || 3000);
+  const timeoutMs = Number(process.env.PRINT_TIMEOUT_MS || 10000);
   const retryDelaySeconds = Number(process.env.PRINT_RETRY_DELAY_SECONDS || 12);
   const maxRetry = Number(process.env.PRINT_MAX_RETRY || 8);
   const alertFailCount = Number(process.env.PRINT_ALERT_FAIL_COUNT || 3);
