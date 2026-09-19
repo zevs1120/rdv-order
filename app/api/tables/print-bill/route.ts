@@ -1,7 +1,7 @@
 import { after, NextResponse } from "next/server";
 import { dispatchTableBillPrint, PrintDispatchError } from "../../../../lib/print";
 import { requireOrderCreate } from "../../../../lib/permissions";
-import { writeAuditLogSafe } from "../../../../lib/audit";
+import { writePrintAuditLogSafe } from "../../../../lib/audit";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -23,13 +23,13 @@ export async function POST(req: Request) {
     const print = async () => {
       try {
         const result = await dispatchTableBillPrint(tableNo);
-        await writeAuditLogSafe({
+        await writePrintAuditLogSafe({
           actorUserId: auth.userId, action: "table.print_receipt", entityType: "table", entityId: tableNo,
           detail: { provider: result.provider, slot: result.slot, remoteJobId: result.remoteJobId || null }, req
         });
         return result;
       } catch (err) {
-        await writeAuditLogSafe({
+        await writePrintAuditLogSafe({
           actorUserId: auth.userId, action: "table.print_receipt_failed", entityType: "table", entityId: tableNo,
           detail: { error: err instanceof PrintDispatchError ? err.message : "账单打印失败" }, req
         });

@@ -33,159 +33,156 @@ export async function GET(req: Request) {
 
     const s = session.rows[0];
 
-    const items = await pool.query<{
-      menu_item_id: string;
-      name: string;
-      qty: number;
-      amount: number;
-      note: string | null;
-    }>(
-      `SELECT mi.id AS menu_item_id,
-              mi.name,
-              oi.note,
-              SUM(oi.qty)::int AS qty,
-              SUM(oi.qty * COALESCE(oi.unit_price, mi.price))::int AS amount
-       FROM orders o
-       JOIN order_items oi ON oi.order_id = o.id
-       JOIN menu_items mi ON mi.id = oi.menu_item_id
-       WHERE o.table_no = $1
-         AND o.created_at >= $2
-         AND o.status IN ('submitted', 'preparing', 'served', 'paid')
-         AND o.cancelled_at IS NULL
-         AND o.merged_into_order_id IS NULL
-       GROUP BY mi.id, mi.name, oi.note
-       ORDER BY mi.name ASC, oi.note ASC NULLS FIRST`,
-      [s.table_no, s.opened_at]
-    );
-
-    const orders = await pool.query<{
-      id: string;
-      status: string;
-      cancelled_at: string | null;
-      created_at: string;
-      item_amount: number;
-      charge_amount: number;
+    // Preserve each selection rule while scoping detail aggregation and sharing one database snapshot.
+    const result = await pool.query<{
+      items: unknown[];
+      orders: Array<Record<string, unknown> & { created_at: string; cancelled_at: string | null }>;
+      total_qty: number;
       total_amount: number;
-      items: Array<{ menu_item_id: string; name: string; qty: number; amount: number }>;
-      charges: Array<{ id: string; charge_type: string; amount: number; mode: string; value: number; note: string | null }>;
     }>(
-      `WITH order_base AS (
-         SELECT o.id,
-                o.status,
-                o.cancelled_at,
-                o.created_at,
-                COALESCE(SUM(oi.qty * COALESCE(oi.unit_price, mi.price)), 0)::int AS item_amount
-         FROM orders o
-         LEFT JOIN order_items oi ON oi.order_id = o.id
-         LEFT JOIN menu_items mi ON mi.id = oi.menu_item_id
-         WHERE o.table_no = $1
-           AND o.created_at >= $2
-         GROUP BY o.id, o.status, o.cancelled_at, o.created_at
-       ),
-       order_charge AS (
-         SELECT oc.order_id,
-                COALESCE(SUM(oc.amount), 0)::int AS charge_amount,
-                COALESCE(
-                  json_agg(
-                    json_build_object(
-                      'id', oc.id,
-                      'charge_type', oc.charge_type,
-                      'amount', oc.amount,
-                      'mode', oc.mode,
-                      'value', oc.value,
-                      'note', oc.note
-                    )
-                    ORDER BY oc.created_at ASC
-                  ),
-                  '[]'::json
-                ) AS charges
-         FROM order_charges oc
-         GROUP BY oc.order_id
-       ),
-       order_item_detail AS (
-         SELECT oi.order_id,
-                COALESCE(
-                  json_agg(
-                    json_build_object(
-                      'menu_item_id', mi.id,
-                      'order_item_id', oi.id,
-                      'name', mi.name,
-                      'qty', oi.qty,
-                      'amount', oi.qty * COALESCE(oi.unit_price, mi.price),
-                      'note', oi.note
-                    )
-                    ORDER BY mi.name ASC
-                  ),
-                  '[]'::json
-                ) AS items
-         FROM order_items oi
-         JOIN menu_items mi ON mi.id = oi.menu_item_id
-         GROUP BY oi.order_id
-       )
-       SELECT ob.id,
-              ob.status,
-              ob.cancelled_at,
-              ob.created_at,
-              CASE WHEN ob.cancelled_at IS NOT NULL THEN 0 ELSE ob.item_amount END::int AS item_amount,
-              CASE WHEN ob.cancelled_at IS NOT NULL THEN 0 ELSE COALESCE(oc.charge_amount, 0) END::int AS charge_amount,
-              CASE WHEN ob.cancelled_at IS NOT NULL THEN 0 ELSE (ob.item_amount + COALESCE(oc.charge_amount, 0)) END::int AS total_amount,
-              COALESCE(oid.items, '[]'::json) AS items,
-              COALESCE(oc.charges, '[]'::json) AS charges
-       FROM order_base ob
-       LEFT JOIN order_charge oc ON oc.order_id = ob.id
-       LEFT JOIN order_item_detail oid ON oid.order_id = ob.id
-       ORDER BY ob.created_at DESC`,
+      `SELECT
+         (SELECT COALESCE(json_agg(bill_items), '[]'::json) FROM (
+           SELECT mi.id AS menu_item_id,
+                  mi.name,
+                  oi.note,
+                  SUM(oi.qty)::int AS qty,
+                  SUM(oi.qty * COALESCE(oi.unit_price, mi.price))::int AS amount
+           FROM orders o
+           JOIN order_items oi ON oi.order_id = o.id
+           JOIN menu_items mi ON mi.id = oi.menu_item_id
+           WHERE o.table_no = $1
+             AND o.created_at >= $2
+             AND o.status IN ('submitted', 'preparing', 'served', 'paid')
+             AND o.cancelled_at IS NULL
+             AND o.merged_into_order_id IS NULL
+           GROUP BY mi.id, mi.name, oi.note
+           ORDER BY mi.name ASC, oi.note ASC NULLS FIRST
+         ) bill_items) AS items,
+         (SELECT COALESCE(json_agg(bill_orders), '[]'::json) FROM (
+           WITH order_base AS (
+             SELECT o.id,
+                    o.status,
+                    o.cancelled_at,
+                    o.created_at,
+                    COALESCE(SUM(oi.qty * COALESCE(oi.unit_price, mi.price)), 0)::int AS item_amount
+             FROM orders o
+             LEFT JOIN order_items oi ON oi.order_id = o.id
+             LEFT JOIN menu_items mi ON mi.id = oi.menu_item_id
+             WHERE o.table_no = $1
+               AND o.created_at >= $2
+             GROUP BY o.id, o.status, o.cancelled_at, o.created_at
+           ),
+           order_charge AS (
+             SELECT oc.order_id,
+                    COALESCE(SUM(oc.amount), 0)::int AS charge_amount,
+                    COALESCE(
+                      json_agg(
+                        json_build_object(
+                          'id', oc.id,
+                          'charge_type', oc.charge_type,
+                          'amount', oc.amount,
+                          'mode', oc.mode,
+                          'value', oc.value,
+                          'note', oc.note
+                        )
+                        ORDER BY oc.created_at ASC
+                      ),
+                      '[]'::json
+                    ) AS charges
+             FROM order_charges oc
+             JOIN order_base scoped_order ON scoped_order.id = oc.order_id
+             GROUP BY oc.order_id
+           ),
+           order_item_detail AS (
+             SELECT oi.order_id,
+                    COALESCE(
+                      json_agg(
+                        json_build_object(
+                          'menu_item_id', mi.id,
+                          'order_item_id', oi.id,
+                          'name', mi.name,
+                          'qty', oi.qty,
+                          'amount', oi.qty * COALESCE(oi.unit_price, mi.price),
+                          'note', oi.note
+                        )
+                        ORDER BY mi.name ASC
+                      ),
+                      '[]'::json
+                    ) AS items
+             FROM order_items oi
+             JOIN menu_items mi ON mi.id = oi.menu_item_id
+             JOIN order_base scoped_order ON scoped_order.id = oi.order_id
+             GROUP BY oi.order_id
+           )
+           SELECT ob.id,
+                  ob.status,
+                  ob.cancelled_at,
+                  ob.created_at,
+                  CASE WHEN ob.cancelled_at IS NOT NULL THEN 0 ELSE ob.item_amount END::int AS item_amount,
+                  CASE WHEN ob.cancelled_at IS NOT NULL THEN 0 ELSE COALESCE(oc.charge_amount, 0) END::int AS charge_amount,
+                  CASE WHEN ob.cancelled_at IS NOT NULL THEN 0 ELSE (ob.item_amount + COALESCE(oc.charge_amount, 0)) END::int AS total_amount,
+                  COALESCE(oid.items, '[]'::json) AS items,
+                  COALESCE(oc.charges, '[]'::json) AS charges
+           FROM order_base ob
+           LEFT JOIN order_charge oc ON oc.order_id = ob.id
+           LEFT JOIN order_item_detail oid ON oid.order_id = ob.id
+           ORDER BY ob.created_at DESC
+         ) bill_orders) AS orders,
+         bill_summary.total_qty, bill_summary.total_amount
+       FROM (
+           WITH filtered_orders AS (
+             SELECT o.id
+             FROM orders o
+             WHERE o.table_no = $1
+               AND o.created_at >= $2
+               AND o.status IN ('submitted', 'preparing', 'served', 'paid')
+               AND o.cancelled_at IS NULL
+           ),
+           item_total AS (
+             SELECT oi.order_id,
+                    COALESCE(SUM(oi.qty), 0)::int AS total_qty,
+                    COALESCE(SUM(oi.qty * COALESCE(oi.unit_price, mi.price)), 0)::int AS item_amount
+             FROM order_items oi
+             JOIN menu_items mi ON mi.id = oi.menu_item_id
+             JOIN filtered_orders fo ON fo.id = oi.order_id
+             GROUP BY oi.order_id
+           ),
+           charge_total AS (
+             SELECT oc.order_id,
+                    COALESCE(SUM(oc.amount), 0)::int AS charge_amount
+             FROM order_charges oc
+             JOIN filtered_orders fo ON fo.id = oc.order_id
+             GROUP BY oc.order_id
+           ),
+           order_total AS (
+             SELECT fo.id,
+                    COALESCE(it.total_qty, 0)::int AS total_qty,
+                    (COALESCE(it.item_amount, 0) + COALESCE(ct.charge_amount, 0))::int AS total_amount
+             FROM filtered_orders fo
+             LEFT JOIN item_total it ON it.order_id = fo.id
+             LEFT JOIN charge_total ct ON ct.order_id = fo.id
+           )
+           SELECT COALESCE(SUM(total_qty), 0)::int AS total_qty,
+                  COALESCE(SUM(total_amount), 0)::int AS total_amount
+           FROM order_total
+       ) bill_summary`,
       [s.table_no, s.opened_at]
     );
-
-    const summary = await pool.query<{ total_qty: number; total_amount: number }>(
-      `WITH filtered_orders AS (
-         SELECT o.id
-         FROM orders o
-         WHERE o.table_no = $1
-           AND o.created_at >= $2
-           AND o.status IN ('submitted', 'preparing', 'served', 'paid')
-           AND o.cancelled_at IS NULL
-       ),
-       item_total AS (
-         SELECT oi.order_id,
-                COALESCE(SUM(oi.qty), 0)::int AS total_qty,
-                COALESCE(SUM(oi.qty * COALESCE(oi.unit_price, mi.price)), 0)::int AS item_amount
-         FROM order_items oi
-         JOIN menu_items mi ON mi.id = oi.menu_item_id
-         JOIN filtered_orders fo ON fo.id = oi.order_id
-         GROUP BY oi.order_id
-       ),
-       charge_total AS (
-         SELECT oc.order_id,
-                COALESCE(SUM(oc.amount), 0)::int AS charge_amount
-         FROM order_charges oc
-         JOIN filtered_orders fo ON fo.id = oc.order_id
-         GROUP BY oc.order_id
-       ),
-       order_total AS (
-         SELECT fo.id,
-                COALESCE(it.total_qty, 0)::int AS total_qty,
-                (COALESCE(it.item_amount, 0) + COALESCE(ct.charge_amount, 0))::int AS total_amount
-         FROM filtered_orders fo
-         LEFT JOIN item_total it ON it.order_id = fo.id
-         LEFT JOIN charge_total ct ON ct.order_id = fo.id
-       )
-       SELECT COALESCE(SUM(total_qty), 0)::int AS total_qty,
-              COALESCE(SUM(total_amount), 0)::int AS total_amount
-       FROM order_total`,
-      [s.table_no, s.opened_at]
-    );
+    const bill = result.rows[0];
 
     return NextResponse.json({
       tableNo: s.table_no,
       sessionId: s.id,
       openedAt: s.opened_at,
       guestCount: s.guest_count,
-      items: items.rows,
-      orders: orders.rows,
-      totalQty: summary.rows[0]?.total_qty || 0,
-      totalAmount: summary.rows[0]?.total_amount || 0
+      items: bill?.items || [],
+      orders: (bill?.orders || []).map(order => ({
+        ...order,
+        created_at: new Date(order.created_at).toISOString(),
+        cancelled_at: order.cancelled_at === null ? null : new Date(order.cancelled_at).toISOString()
+      })),
+      totalQty: bill?.total_qty || 0,
+      totalAmount: bill?.total_amount || 0
     });
   } catch (err: any) {
     if (err.message === "UNAUTHORIZED") return NextResponse.json({ error: "未登录" }, { status: 401 });

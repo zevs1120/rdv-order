@@ -1,4 +1,4 @@
-import { writeAuditLogSafe } from "./audit";
+import { writePrintAuditLogSafe } from "./audit";
 import { pool } from "./db";
 import { PrintDispatchError, dispatchPrintJob } from "./print";
 
@@ -6,6 +6,7 @@ type PrintJobRow = {
   id: string;
   order_id: string;
   retry_count: number;
+  status: "printing" | "failed";
 };
 
 export type PrintWorkerResult = {
@@ -19,7 +20,8 @@ function getMaxRetry() {
 }
 
 function getStalePrintingSeconds() {
-  return Math.max(15, Number(process.env.PRINT_STALE_PRINTING_SECONDS || 45) || 45);
+  // A worker may live for 120 seconds. Never reclaim it while it can still send.
+  return Math.max(120, Number(process.env.PRINT_STALE_PRINTING_SECONDS || 120) || 120);
 }
 
 function getRetryDelaySeconds() {
@@ -31,44 +33,42 @@ async function pickJobs(
   maxRetry: number,
   staleSeconds: number,
   retryDelaySeconds: number,
+  visitedIds: string[],
   orderId?: string
 ): Promise<PrintJobRow[]> {
-  const client = await pool.connect();
-  try {
-    await client.query("BEGIN");
-    const { rows } = await client.query<PrintJobRow>(
-      `WITH picked AS (
-         SELECT id
-         FROM print_jobs
-         WHERE (
-           status = 'pending'
-           OR (status = 'failed' AND updated_at < (now() - ($4::int * INTERVAL '1 second')))
-           OR (status = 'printing' AND updated_at < (now() - ($3::int * INTERVAL '1 second')))
-         )
-           AND retry_count < $2
-           ${orderId === undefined ? "" : "AND order_id = $5::uuid"}
-         ORDER BY created_at ASC
-         LIMIT $1
-         FOR UPDATE SKIP LOCKED
+  // Claim one task atomically. Do not lease a batch while its earlier tasks are printing.
+  // An abandoned "printing" task may already have reached the cloud: expose the
+  // existing unknown-result failure, never resend it outside cloud deduplication.
+  const { rows } = await pool.query<PrintJobRow>(
+    `WITH picked AS (
+       SELECT id, status
+       FROM print_jobs
+       WHERE (
+         status = 'pending'
+         OR (status = 'failed' AND updated_at < (now() - ($4::int * INTERVAL '1 second')))
+         OR (status = 'printing' AND updated_at < (now() - ($3::int * INTERVAL '1 second')))
        )
-       UPDATE print_jobs pj
-       SET status = 'printing',
-           updated_at = now()
-       FROM picked
-       WHERE pj.id = picked.id
-       RETURNING pj.id, pj.order_id, pj.retry_count`,
-      orderId === undefined
-        ? [limit, maxRetry, staleSeconds, retryDelaySeconds]
-        : [limit, maxRetry, staleSeconds, retryDelaySeconds, orderId]
-    );
-    await client.query("COMMIT");
-    return rows;
-  } catch (err) {
-    await client.query("ROLLBACK");
-    throw err;
-  } finally {
-    client.release();
-  }
+         AND retry_count < $2
+         AND NOT (id = ANY($5::uuid[]))
+         ${orderId === undefined ? "" : "AND order_id = $6::uuid"}
+       ORDER BY created_at ASC
+       LIMIT $1
+       FOR UPDATE SKIP LOCKED
+     )
+     UPDATE print_jobs pj
+     SET status = CASE WHEN picked.status = 'printing' THEN 'failed' ELSE 'printing' END,
+         retry_count = CASE WHEN picked.status = 'printing' THEN $2 ELSE pj.retry_count END,
+         last_error = CASE WHEN picked.status = 'printing'
+           THEN '打印结果未确认，请先核对是否出纸，勿重复打印' ELSE pj.last_error END,
+         updated_at = now()
+     FROM picked
+     WHERE pj.id = picked.id
+     RETURNING pj.id, pj.order_id, pj.retry_count, pj.status`,
+    orderId === undefined
+      ? [limit, maxRetry, staleSeconds, retryDelaySeconds, visitedIds]
+      : [limit, maxRetry, staleSeconds, retryDelaySeconds, visitedIds, orderId]
+  );
+  return rows;
 }
 
 async function markPrinted(id: string) {
@@ -111,28 +111,46 @@ async function processJobs(limit: number, orderId?: string): Promise<PrintWorker
   const maxRetry = getMaxRetry();
   const staleSeconds = getStalePrintingSeconds();
   const retryDelaySeconds = getRetryDelaySeconds();
-  const jobs = await pickJobs(limit, maxRetry, staleSeconds, retryDelaySeconds, orderId);
-  if (jobs.length === 0) {
-    return { picked: 0, printed: 0, failed: 0 };
-  }
-
+  const startedAt = Date.now();
+  let picked = 0;
   let printed = 0;
   let failed = 0;
+  const visitedIds: string[] = [];
 
-  for (const job of jobs) {
+  // Leave time for the last task and its state write inside the route's 120s lifetime.
+  while (picked < limit && (picked === 0 || Date.now() - startedAt < 60_000)) {
+    const [job] = await pickJobs(1, maxRetry, staleSeconds, retryDelaySeconds, visitedIds, orderId);
+    if (!job) break;
+    picked += 1;
+    visitedIds.push(job.id);
+    if (job.status === "failed") {
+      failed += 1;
+      continue;
+    }
+
+    let result: Awaited<ReturnType<typeof dispatchPrintJob>>;
     try {
-      const result = await dispatchPrintJob(job.order_id);
-      await markPrinted(job.id);
-      await writeAuditLogSafe({ action: "order.print_accepted", entityType: "order", entityId: job.order_id,
-        detail: { provider: result.provider, remoteJobId: result.remoteJobId || null } });
-      printed += 1;
-    } catch (err: any) {
-      const retryable = err instanceof PrintDispatchError ? err.retryable : true;
+      result = await dispatchPrintJob(job.order_id);
+    } catch (err: unknown) {
+      const retryable = err instanceof PrintDispatchError ? err.retryable && err.outcome !== "unknown" : true;
       const message = err instanceof Error ? err.message : "打印失败";
       await markFailed(job.id, message, retryable, maxRetry);
       failed += 1;
+      continue;
     }
+
+    // Cloud acceptance is irreversible. Retry only its idempotent database write;
+    // a database failure must never turn this into another provider submission.
+    try {
+      await markPrinted(job.id);
+    } catch {
+      try { await markPrinted(job.id); }
+      catch { console.error("[order-print] cloud accepted; state save failed; do not resend"); }
+    }
+    await writePrintAuditLogSafe({ action: "order.print_accepted", entityType: "order", entityId: job.order_id,
+      detail: { provider: result.provider, remoteJobId: result.remoteJobId || null } });
+    printed += 1;
   }
 
-  return { picked: jobs.length, printed, failed };
+  return { picked, printed, failed };
 }

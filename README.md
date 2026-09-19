@@ -103,3 +103,5 @@ Employees can use [download.resortdejavu.cn](https://download.resortdejavu.cn) t
 Android 0.1.2 switches the embedded API origin to the verified custom domain `order.resortdejavu.cn`. Users on 0.1.1 must download the newer APK and install over the existing app; binding a domain cannot update an already installed APK. See [custom-domain fix](docs/android-custom-domain-fix.md).
 
 Print connection repair (1.1.3): XPYUN uses a minimum 10-second request deadline and one deduplicated recovery attempt; updated clients await cloud acceptance with a 45-second deadline. See [incident and verification](docs/print-connection-reliability.md). Unknown outcomes require checking actual paper before reprinting.
+
+Backend maintenance (2026-09-19): query/print-state optimizations require no APK or schema migration. Default database idle reuse is 30 seconds (`DB_IDLE_TIMEOUT_MS` overrides it); print metadata uses one additional bounded connection per warm process. See [scope and verification](docs/backend-maintenance-2026-09-19.md).

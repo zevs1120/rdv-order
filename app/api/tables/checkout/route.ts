@@ -119,21 +119,22 @@ export async function POST(req: Request) {
          ORDER BY sort_order ASC, created_at ASC`
       );
 
-      for (const order of openOrders.rows) {
-        const finance = await client.query<{ item_amount: number; charge_amount: number }>(
-          `SELECT
-             COALESCE(SUM(oi.qty * COALESCE(oi.unit_price, mi.price)), 0)::int AS item_amount,
-             COALESCE((
-               SELECT SUM(amount)::int
-               FROM order_charges oc
-               WHERE oc.order_id = $1
-             ), 0)::int AS charge_amount
-           FROM order_items oi
-           JOIN menu_items mi ON mi.id = oi.menu_item_id
-           WHERE oi.order_id = $1`,
-          [order.id]
-        );
-        const baseAmount = (finance.rows[0]?.item_amount || 0) + (finance.rows[0]?.charge_amount || 0);
+      // Keep the existing rounding, rule order and inserts; batch only the finance reads.
+      const finances = taxRules.rows.length === 0 ? [] : (await client.query<{
+        id: string; item_amount: number; charge_amount: number;
+      }>(
+        `SELECT o.id,
+           COALESCE((SELECT SUM(oi.qty * COALESCE(oi.unit_price, mi.price))
+             FROM order_items oi JOIN menu_items mi ON mi.id = oi.menu_item_id
+             WHERE oi.order_id = o.id), 0)::int AS item_amount,
+           COALESCE((SELECT SUM(oc.amount) FROM order_charges oc WHERE oc.order_id = o.id), 0)::int AS charge_amount
+         FROM orders o WHERE o.id = ANY($1)`,
+        [openOrders.rows.map(order => order.id)]
+      )).rows;
+      const financeByOrder = new Map(finances.map(finance => [finance.id, finance]));
+      for (const order of taxRules.rows.length === 0 ? [] : openOrders.rows) {
+        const finance = financeByOrder.get(order.id);
+        const baseAmount = (finance?.item_amount || 0) + (finance?.charge_amount || 0);
         if (baseAmount <= 0) continue;
 
         for (const rule of taxRules.rows) {

@@ -1,4 +1,4 @@
-import { pool } from "./db";
+import { pool, printMetadataPool } from "./db";
 
 type AuditInput = {
   actorUserId?: string | null;
@@ -9,14 +9,14 @@ type AuditInput = {
   req?: Request;
 };
 
-export async function writeAuditLog(input: AuditInput) {
+export async function writeAuditLog(input: AuditInput, query = pool.query) {
   const ip =
     input.req?.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
     input.req?.headers.get("x-real-ip") ||
     null;
   const userAgent = input.req?.headers.get("user-agent") || null;
 
-  await pool.query(
+  await query(
     `INSERT INTO audit_logs (actor_user_id, action, entity_type, entity_id, detail, ip, user_agent)
      VALUES ($1, $2, $3, $4, $5, $6, $7)`,
     [
@@ -29,6 +29,14 @@ export async function writeAuditLog(input: AuditInput) {
       userAgent
     ]
   );
+}
+
+export async function writePrintAuditLogSafe(input: AuditInput) {
+  try {
+    await writeAuditLog(input, printMetadataPool.query);
+  } catch {
+    console.error("[print-audit] metadata write failed");
+  }
 }
 
 export async function writeAuditLogSafe(input: AuditInput) {

@@ -11,31 +11,23 @@ export async function GET(req: Request) {
   const mapped = majorCategory?.menu_group || "lunch_dinner";
   const includeEmptyShiftItems = Boolean(majorCategory?.include_empty_shift_items);
   const effectiveShift = majorCategory?.key || shift;
-  const baseSql = `
-    SELECT id, name, price, category, description, menu_group, item_type, allergens, code, option_groups, is_complimentary
-    FROM menu_items
-    WHERE is_active = true
-      AND is_temporary = false
-      AND COALESCE(category, '') NOT IN ('热菜', '主食', '饮品', 'Hot Dish', 'Staple', 'Drink', 'Drinks')
-      AND (menu_group = $1 OR ($2 = 'breakfast' AND $2 = ANY(available_shifts)))
-  `;
-
-  const menuRequest = includeEmptyShiftItems
-    ? pool.query(
-      `${baseSql}
-       AND (
-         COALESCE(array_length(available_shifts, 1), 0) = 0
-         OR $2 = ANY(available_shifts)
-       )
-       ORDER BY sort_order ASC, name ASC`,
-      [mapped, effectiveShift]
-    )
-    : pool.query(
-      `${baseSql}
-       AND $2 = ANY(available_shifts)
-       ORDER BY sort_order ASC, name ASC`,
-      [mapped, effectiveShift]
-    );
+  // Read active dishes once; keep the two existing filter/order rules and response fields.
+  const menuRequest = pool.query<{ items: Array<Record<string, any>>; search_items: Array<Record<string, any>> }>(
+    `WITH active_items AS MATERIALIZED (
+       SELECT id, name, price, category, description, menu_group, item_type, allergens,
+              code, option_groups, is_complimentary, sort_order, available_shifts
+       FROM menu_items WHERE is_active = true AND is_temporary = false
+     )
+     SELECT
+       (SELECT COALESCE(json_agg(to_jsonb(mi) - 'sort_order' - 'available_shifts' ORDER BY sort_order ASC, name ASC), '[]'::json)
+        FROM active_items mi
+        WHERE COALESCE(category, '') NOT IN ('热菜', '主食', '饮品', 'Hot Dish', 'Staple', 'Drink', 'Drinks')
+          AND (menu_group = $1 OR ($2 = 'breakfast' AND $2 = ANY(available_shifts)))
+          AND (($3::boolean AND COALESCE(array_length(available_shifts, 1), 0) = 0) OR $2 = ANY(available_shifts))) AS items,
+       (SELECT COALESCE(json_agg(to_jsonb(mi) - 'sort_order' - 'available_shifts' ORDER BY code NULLS LAST, sort_order, name), '[]'::json)
+        FROM active_items mi) AS search_items`,
+    [mapped, effectiveShift, includeEmptyShiftItems]
+  );
   // Both reads depend on the selected major category, not on one another.
   // Keep dish-first category ordering and the pre-019 compatibility fallback.
   const subcategoryRequest = pool.query<{ name: string }>(
@@ -49,10 +41,9 @@ export async function GET(req: Request) {
     if (err?.code !== "42P01") throw err;
     return { rows: [] };
   });
-  const allMenuRequest = pool.query(`SELECT id, name, price, category, description, menu_group, item_type, allergens, code, option_groups, is_complimentary
-    FROM menu_items WHERE is_active AND NOT is_temporary ORDER BY code NULLS LAST, sort_order, name`);
-  const [menuResult, subRows, allMenu] = await Promise.all([menuRequest, subcategoryRequest, allMenuRequest]);
-  const { rows } = menuResult;
+  const [menuResult, subRows] = await Promise.all([menuRequest, subcategoryRequest]);
+  const rows = menuResult.rows[0]?.items || [];
+  const searchItems = menuResult.rows[0]?.search_items || [];
 
   const categories: string[] = [];
   const seen = new Set<string>();
@@ -75,7 +66,7 @@ export async function GET(req: Request) {
   }
 
   return NextResponse.json(
-    { items: rows, searchItems: allMenu.rows, subcategories: categories, shift: effectiveShift, menuGroup: mapped, majorCategories },
+    { items: rows, searchItems, subcategories: categories, shift: effectiveShift, menuGroup: mapped, majorCategories },
     {
       headers: {
         "Cache-Control": "public, max-age=60, stale-while-revalidate=240"

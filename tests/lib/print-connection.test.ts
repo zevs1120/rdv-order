@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({ query: vi.fn() }));
-vi.mock("../../lib/db", () => ({ pool: { query: mocks.query } }));
+vi.mock("../../lib/db", () => ({ printMetadataPool: { query: mocks.query }, pool: { query: mocks.query } }));
 import { dispatchPrintSelfTest, queryPrimaryPrinterStatus } from "../../lib/print";
 const fetchMock = vi.fn();
 const response = (data: unknown) => new Response(JSON.stringify(data), { status: 200 });

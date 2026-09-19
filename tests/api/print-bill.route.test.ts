@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({ dispatch: vi.fn(), auth: vi.fn(), audit: vi.fn(), after: vi.fn() }));
 vi.mock("../../lib/permissions", () => ({ requireOrderCreate: mocks.auth }));
-vi.mock("../../lib/audit", () => ({ writeAuditLogSafe: mocks.audit }));
+vi.mock("../../lib/audit", () => ({ writePrintAuditLogSafe: mocks.audit }));
 vi.mock("../../lib/print", async original => ({ ...await original<typeof import("../../lib/print")>(), dispatchTableBillPrint: mocks.dispatch }));
 vi.mock("next/server", async original => ({ ...await original<typeof import("next/server")>(), after: mocks.after }));
 import { POST } from "../../app/api/tables/print-bill/route";

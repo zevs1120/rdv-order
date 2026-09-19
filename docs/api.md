@@ -1,5 +1,9 @@
 # API Reference
 
+## Backend maintenance (2026-09-19)
+
+Existing request/response fields, permissions and client workflows remain unchanged. Bill reads are combined and scoped to relevant orders; menu/current search share a scan; checkout batches finance reads without changing amounts or locking. Receipt preparation retains byte-identical content. Print recovery never resends abandoned unknown outcomes or cloud-accepted jobs just because a database save failed. See [implementation and verification](backend-maintenance-2026-09-19.md).
+
 ## Configurable menu and internal codes (2026-09-08, pending rollout)
 
 Requires migration 024. `GET /api/menu` adds `code`, `option_groups`, `is_complimentary` per item and `searchItems` for global exact numeric search. Shared beverages may belong to breakfast via `available_shifts` without duplicate IDs. `POST /api/orders` items accept `choices: { [groupId]: optionId }`; the server requires exactly one valid selection per group, derives/saves prices and printable labels, and returns 400 for invalid choices. Choices participate in deduplication; no client price is accepted. Bill/order-detail items include `order_item_id`. Return-item accepts `orderItemId` to target one variant; ambiguous legacy returns return 409. Split/merge copy price/choice snapshots. See `menu-september-2026.md` for coordinated rollout and evidence.

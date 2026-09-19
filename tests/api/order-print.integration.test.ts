@@ -5,7 +5,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vites
 const mocks = vi.hoisted(() => ({
   query: vi.fn(), connect: vi.fn(), after: vi.fn(), dispatch: vi.fn(), permission: vi.fn()
 }));
-vi.mock("../../lib/db", () => ({ pool: { query: mocks.query, connect: mocks.connect } }));
+vi.mock("../../lib/db", () => ({ printMetadataPool: { query: mocks.query }, pool: { query: mocks.query, connect: mocks.connect } }));
 vi.mock("../../lib/permissions", () => ({ requireOrderCreate: mocks.permission, requirePermission: mocks.permission }));
 vi.mock("next/server", async importOriginal => ({
   ...await importOriginal<typeof import("next/server")>(), after: mocks.after
@@ -111,15 +111,76 @@ describe("order -> committed queue -> print worker (isolated PostgreSQL WASM)", 
     expect((await runPrintWorker(10)).picked).toBe(0);
   });
 
-  it("respects active printing leases, recovers stale ones and never picks printed jobs", async () => {
+  it("respects live workers and freezes abandoned unknown outcomes without resending", async () => {
     const active = await oldJob("printing", 0, 0);
-    const stale = await oldJob("printing");
+    const stale = await oldJob("printing", 0, 600);
     const printed = await oldJob("printed");
     expect((await runOrderPrintWorker(active)).picked).toBe(0);
-    expect((await runOrderPrintWorker(stale)).printed).toBe(1);
+    expect(await runOrderPrintWorker(stale)).toEqual({ picked: 1, printed: 0, failed: 1 });
+    expect(await job(stale)).toMatchObject({ status: "failed", retry_count: 8 });
     expect((await runOrderPrintWorker(printed)).picked).toBe(0);
+    expect(mocks.dispatch).not.toHaveBeenCalled();
+  });
+
+  it("never reclaims a 50-second worker even with the old 45-second setting", async () => {
+    const id = await oldJob("printing", 0, 50);
+    expect((await runOrderPrintWorker(id)).picked).toBe(0);
+    expect((await job(id)).status).toBe("printing");
+    expect(mocks.dispatch).not.toHaveBeenCalled();
+  });
+
+  it("retries only the database save after cloud acceptance, including a lost commit response", async () => {
+    const id = await oldJob("pending");
+    let saves = 0;
+    mocks.query.mockImplementation(async (sql: string, params?: unknown[]) => {
+      const result = await db.query(sql, params);
+      if (sql.includes("SET status = 'printed'") && ++saves === 1) throw new Error("lost DB response");
+      return result;
+    });
+    expect(await runOrderPrintWorker(id)).toEqual({ picked: 1, printed: 1, failed: 0 });
+    expect(saves).toBe(2);
+    expect((await job(id)).status).toBe("printed");
     expect(mocks.dispatch).toHaveBeenCalledTimes(1);
-    expect(mocks.dispatch).toHaveBeenCalledWith(stale);
+  });
+
+  it("keeps accepted jobs out of resend recovery when both state saves fail", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const id = await oldJob("pending");
+    mocks.dispatch.mockResolvedValue({ provider: "xpyun", remoteJobId: "accepted-cloud-id" });
+    mocks.query.mockImplementation((sql: string, params?: unknown[]) => sql.includes("SET status = 'printed'")
+      ? Promise.reject(new Error("DB unavailable")) : db.query(sql, params));
+    expect((await runOrderPrintWorker(id)).printed).toBe(1);
+    expect((await job(id)).status).toBe("printing");
+    expect((await db.query<any>("SELECT detail FROM audit_logs WHERE action='order.print_accepted'")).rows[0].detail.remoteJobId).toBe("accepted-cloud-id");
+    await db.exec("UPDATE print_jobs SET updated_at=now()-interval '10 minutes'");
+    expect((await runOrderPrintWorker(id)).failed).toBe(1);
+    expect((await job(id)).retry_count).toBe(8);
+    expect(mocks.dispatch).toHaveBeenCalledTimes(1);
+  });
+
+  it("claims only the current task and leaves later tasks pending when the batch budget runs out", async () => {
+    const first = await oldJob("pending");
+    const second = await oldJob("pending");
+    let now = 0;
+    vi.spyOn(Date, "now").mockImplementation(() => now);
+    mocks.dispatch.mockImplementationOnce(async (id: string) => {
+      expect(id).toBe(first);
+      expect((await job(second)).status).toBe("pending");
+      now = 61_000;
+      return { provider: "fixture" };
+    });
+    expect(await runPrintWorker(6)).toEqual({ picked: 1, printed: 1, failed: 0 });
+    expect((await job(second)).status).toBe("pending");
+  });
+
+  it("does not let an audit failure change cloud acceptance or requeue the job", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const id = await oldJob("pending");
+    mocks.query.mockImplementation((sql: string, params?: unknown[]) => sql.includes("INSERT INTO audit_logs")
+      ? Promise.reject(new Error("audit unavailable")) : db.query(sql, params));
+    expect((await runOrderPrintWorker(id)).printed).toBe(1);
+    expect((await job(id)).status).toBe("printed");
+    expect(mocks.dispatch).toHaveBeenCalledTimes(1);
   });
 
   it("queue clear removes active/failed jobs, preserves printed records and does not requeue on replay", async () => {

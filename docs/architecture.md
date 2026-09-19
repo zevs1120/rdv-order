@@ -49,7 +49,7 @@ Compatibility note:
 ## Reliability Design
 - Idempotency key support: `X-Idempotency-Key`.
 - Duplicate submit detection window (`ORDER_DEDUPE_WINDOW_SECONDS`).
-- Print retries and stale-printing recovery.
+- Confirmed print failures retain bounded retries. Atomic single-task claims do not resend abandoned unknown outcomes or replay cloud acceptance after a database save failure; see `backend-maintenance-2026-09-19.md`.
 - API client timeout + retries.
 - Audit logs for sensitive actions.
 

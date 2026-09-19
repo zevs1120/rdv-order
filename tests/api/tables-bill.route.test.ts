@@ -28,16 +28,8 @@ describe("tables bill api", () => {
           rows: [{ id: "session-1", table_no: "05", guest_count: 2, opened_at: "2026-03-31T10:00:00.000Z" }]
         };
       }
-      if (sql.includes("SUM(oi.qty)::int AS qty") && sql.includes("FROM orders o")) {
-        return {
-          rows: [{ menu_item_id: "dish-1", name: "Chicken Curry", qty: 2, amount: 900, note: null }]
-        };
-      }
-      if (sql.includes("WITH order_base AS")) {
-        return { rows: [] };
-      }
-      if (sql.includes("WITH filtered_orders AS")) {
-        return { rows: [{ total_qty: 2, total_amount: 900 }] };
+      if (sql.includes("AS items") && sql.includes("AS orders")) {
+        return { rows: [{ items: [{ menu_item_id: "dish-1", name: "Chicken Curry", qty: 2, amount: 900, note: null }], orders: [], total_qty: 2, total_amount: 900 }] };
       }
       throw new Error(`Unhandled SQL in tables bill test: ${sql.slice(0, 120)}`);
     });

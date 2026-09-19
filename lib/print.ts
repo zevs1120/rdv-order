@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from "crypto";
-import { pool } from "./db";
+import { pool, printMetadataPool } from "./db";
 import { localizeMenuText } from "./menu-text";
 import { formatItemQtyDisplay } from "./qty-display";
 
@@ -264,49 +264,47 @@ async function buildTableBillPayload(tableNoRaw: string): Promise<TableBillPrint
   }
   const openedAt = session.rows[0].opened_at;
 
-  const itemsRes = await pool.query<{
-    name: string;
-    note: string | null;
-    qty: number;
-    unit_price: number;
-    amount: number;
+  const { rows: [bill] } = await pool.query<{
+    items: Array<{ name: string; note: string | null; qty: number; unit_price: number; amount: number }>;
+    charges: Array<{ charge_type: string; amount: number }>;
   }>(
-    `SELECT mi.name,
-            oi.note,
-            SUM(oi.qty)::int AS qty,
-            COALESCE(oi.unit_price, mi.price)::int AS unit_price,
-            SUM(oi.qty * COALESCE(oi.unit_price, mi.price))::int AS amount
-     FROM orders o
-     JOIN order_items oi ON oi.order_id = o.id
-     JOIN menu_items mi ON mi.id = oi.menu_item_id
-     WHERE o.table_no = $1
-       AND o.created_at >= $2
-       AND o.status IN ('submitted', 'paid')
-       AND o.cancelled_at IS NULL
-       AND o.merged_into_order_id IS NULL
-     GROUP BY mi.name, oi.note, COALESCE(oi.unit_price, mi.price)
-     ORDER BY mi.name ASC, oi.note ASC NULLS FIRST`,
+    `SELECT
+       (SELECT COALESCE(json_agg(bill_items), '[]'::json) FROM (
+         SELECT mi.name,
+                oi.note,
+                SUM(oi.qty)::int AS qty,
+                COALESCE(oi.unit_price, mi.price)::int AS unit_price,
+                SUM(oi.qty * COALESCE(oi.unit_price, mi.price))::int AS amount
+         FROM orders o
+         JOIN order_items oi ON oi.order_id = o.id
+         JOIN menu_items mi ON mi.id = oi.menu_item_id
+         WHERE o.table_no = $1
+           AND o.created_at >= $2
+           AND o.status IN ('submitted', 'paid')
+           AND o.cancelled_at IS NULL
+           AND o.merged_into_order_id IS NULL
+         GROUP BY mi.name, oi.note, COALESCE(oi.unit_price, mi.price)
+         ORDER BY mi.name ASC, oi.note ASC NULLS FIRST
+       ) bill_items) AS items,
+       (SELECT COALESCE(json_agg(bill_charges), '[]'::json) FROM (
+         SELECT oc.charge_type, COALESCE(SUM(oc.amount), 0)::int AS amount
+         FROM order_charges oc
+         JOIN orders o ON o.id = oc.order_id
+         WHERE o.table_no = $1
+           AND o.created_at >= $2
+           AND o.status IN ('submitted', 'paid')
+           AND o.cancelled_at IS NULL
+           AND o.merged_into_order_id IS NULL
+         GROUP BY oc.charge_type
+         ORDER BY oc.charge_type ASC
+       ) bill_charges) AS charges`,
     [tableNo, openedAt]
   );
-  if (itemsRes.rows.length === 0) {
+  if (!bill || bill.items.length === 0) {
     throw new PrintDispatchError("暂无可打印账单", false);
   }
 
-  const chargesRes = await pool.query<{ charge_type: string; amount: number }>(
-    `SELECT oc.charge_type, COALESCE(SUM(oc.amount), 0)::int AS amount
-     FROM order_charges oc
-     JOIN orders o ON o.id = oc.order_id
-     WHERE o.table_no = $1
-       AND o.created_at >= $2
-       AND o.status IN ('submitted', 'paid')
-       AND o.cancelled_at IS NULL
-       AND o.merged_into_order_id IS NULL
-     GROUP BY oc.charge_type
-     ORDER BY oc.charge_type ASC`,
-    [tableNo, openedAt]
-  );
-
-  const items = itemsRes.rows.map((row) => ({
+  const items = bill.items.map((row) => ({
     name: row.name,
     qty: Number(row.qty) || 0,
     unitPrice: Number(row.unit_price) || 0,
@@ -316,7 +314,7 @@ async function buildTableBillPayload(tableNoRaw: string): Promise<TableBillPrint
   const totalQty = items.reduce((sum, item) => sum + Math.max(0, item.qty), 0);
   const itemAmount = items.reduce((sum, item) => sum + Math.max(0, item.amount), 0);
 
-  const charges = chargesRes.rows.map((row) => ({
+  const charges = bill.charges.map((row) => ({
     label: chargeTypeLabel(row.charge_type),
     amount: Number(row.amount) || 0
   }));
@@ -898,7 +896,7 @@ async function dispatchToAgent(payload: Record<string, unknown>): Promise<Dispat
 async function markDeviceSuccess(slot: "primary" | "backup") {
   const deviceCode = slot === "primary" ? "printer-primary" : "printer-backup";
   try {
-    await pool.query(
+    await printMetadataPool.query(
       `INSERT INTO device_status (device_code, device_type, label, status, is_backup, fail_count, last_seen_at, updated_at, last_error)
        VALUES ($1, 'printer', $2, 'online', $3, 0, now(), now(), NULL)
        ON CONFLICT (device_code) DO UPDATE
@@ -917,7 +915,7 @@ async function markDeviceSuccess(slot: "primary" | "backup") {
 async function markDeviceFailure(slot: "primary" | "backup", message: string, offline: boolean) {
   const deviceCode = slot === "primary" ? "printer-primary" : "printer-backup";
   try {
-    await pool.query(
+    await printMetadataPool.query(
       `INSERT INTO device_status (device_code, device_type, label, status, is_backup, fail_count, last_seen_at, updated_at, last_error)
        VALUES ($1, 'printer', $2, $5, $3, 1, NULL, now(), $4)
        ON CONFLICT (device_code) DO UPDATE

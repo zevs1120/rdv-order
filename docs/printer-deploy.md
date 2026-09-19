@@ -109,3 +109,9 @@ Native 0.1.3 adds cold-start application updates from the existing download site
 ## 2026-09-19 connection incident repair
 
 See [print-connection-reliability.md](print-connection-reliability.md). XPYUN enforces a 10-second minimum attempt deadline (maximum 15 seconds), one provider-deduplicated recovery attempt, and no fallback or later queue replay for unresolved outcomes. New native/web print requests wait 45 seconds for cloud acceptance. Deploy backend before requiring the updated APK; legacy receipt requests remain compatible. No printer-node migration, offline buffering, external worker or live queue drain is part of this repair. Runtime `PRINT_TIMEOUT_MS` default is now 10000.
+
+## Backend-only maintenance (2026-09-19)
+
+Print claims are atomic and one at a time. A cloud-accepted task only retries its database state save once; it never resends due to a save/audit failure. `PRINT_STALE_PRINTING_SECONDS` now has a 120-second minimum/default. Abandoned `printing` tasks retain the existing unknown-result error and stop retries; known retryable provider rejections still use the existing queue controls. No migration, automatic historical queue drain or new scheduler is introduced.
+
+Best-effort device status and print audit use a separate lazy max-1 pool: connection wait <=1s, server statement <=1.5s, client query <=2s. Business/delivery state remains on the normal max-6 pool. Idle reuse defaults to 30s, with existing explicit `DB_IDLE_TIMEOUT_MS` honored. No additional secret is needed. Keep the current 1.1.3 APK and update metadata. Evidence: [backend maintenance](backend-maintenance-2026-09-19.md).

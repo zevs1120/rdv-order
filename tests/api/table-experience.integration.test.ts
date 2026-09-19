@@ -102,6 +102,31 @@ describe("current table experience", () => {
     expect((await result.json()).totalAmount).toBe(225);
   });
 
+  it("batches finance reads for many orders while retaining per-order tax rounding", async () => {
+    await db.exec(`
+      INSERT INTO orders(id,table_no,status,created_at)
+        SELECT 'extra-' || n,'05','submitted','2026-09-07T12:00Z' FROM generate_series(1,20) n;
+      INSERT INTO order_items(id,order_id,menu_item_id,qty,unit_price)
+        SELECT 'extra-item-' || n,'extra-' || n,'dish',1,105 FROM generate_series(1,20) n;
+    `);
+    const result = await checkout(request("tables/checkout", { tableNo: "05", expectedSessionId: sessionId, expectedTotalAmount: 2645 }));
+    expect(result.status).toBe(200);
+    expect(await result.json()).toMatchObject({ orderCount: 21, totalAmount: 2645, closed: true });
+    const financeReads = mocks.query.mock.calls.filter(([sql]) => sql.includes("FROM orders o WHERE o.id = ANY($1)"));
+    expect(financeReads).toHaveLength(1);
+    expect((await db.query<any>("SELECT amount FROM order_charges WHERE rule_id='tax' AND order_id LIKE 'extra-%'")).rows.map(row => row.amount)).toEqual(Array(20).fill(11));
+  });
+
+  it("skips finance reads when no tax rules are active and retains transaction rollback on failure", async () => {
+    await db.exec("UPDATE pricing_rules SET is_active=false");
+    mocks.query.mockImplementation((sql, params) => sql.includes("INSERT INTO order_events")
+      ? Promise.reject(new Error("fixture transaction failure")) : db.query(sql, params));
+    expect((await checkout(request("tables/checkout", { tableNo: "05" }))).status).toBe(500);
+    expect(mocks.query.mock.calls.some(([sql]) => sql.includes("FROM orders o WHERE o.id = ANY($1)"))).toBe(false);
+    expect((await db.query<any>("SELECT status FROM orders WHERE id='live'")).rows[0].status).toBe("submitted");
+    expect((await db.query<any>("SELECT closed_at FROM table_sessions WHERE id=$1", [sessionId])).rows[0].closed_at).toBeNull();
+  });
+
   it("changes current guest count and audit without rewriting historical order snapshots", async () => {
     const result = await guests(request("tables/guests", { tableNo: "05", guestCount: 4, expectedSessionId: sessionId }, "PATCH"));
     expect(result.status).toBe(200);
