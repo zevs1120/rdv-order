@@ -84,7 +84,7 @@ it("sends byte-identical receipt content using two reads, with no real printer c
   vi.setSystemTime(new Date("2026-09-19T12:00:00Z"));
   mocks.metadata.mockResolvedValue({ rows: [] });
   for (const [key, value] of Object.entries({ PRINT_PROVIDER: "xpyun", PRINT_FALLBACK_PROVIDER: "",
-    XPYUN_USER: "fixture", XPYUN_USER_KEY: "fixture", XPYUN_SN: "fixture", XPYUN_API_URL: "https://fixture.invalid/print" })) vi.stubEnv(key, value);
+    XPYUN_USER: "fixture", XPYUN_USER_KEY: "fixture", XPYUN_SN: "fixture", XPYUN_API_URL: "https://fixture.invalid/api/openapi/xprinter/print" })) vi.stubEnv(key, value);
   const fetch = vi.fn().mockResolvedValue(new Response(JSON.stringify({ code: 0, data: "fixture-job" })));
   vi.stubGlobal("fetch", fetch);
   const session = (await db.query<any>(receiptBaseline[0], ["05"])).rows[0];

@@ -115,3 +115,10 @@ See [print-connection-reliability.md](print-connection-reliability.md). XPYUN en
 Print claims are atomic and one at a time. A cloud-accepted task only retries its database state save once; it never resends due to a save/audit failure. `PRINT_STALE_PRINTING_SECONDS` now has a 120-second minimum/default. Abandoned `printing` tasks retain the existing unknown-result error and stop retries; known retryable provider rejections still use the existing queue controls. No migration, automatic historical queue drain or new scheduler is introduced.
 
 Best-effort device status and print audit use a separate lazy max-1 pool: connection wait <=1s, server statement <=1.5s, client query <=2s. Business/delivery state remains on the normal max-6 pool. Idle reuse defaults to 30s, with existing explicit `DB_IDLE_TIMEOUT_MS` honored. No additional secret is needed. Keep the current 1.1.3 APK and update metadata. Evidence: [backend maintenance](backend-maintenance-2026-09-19.md).
+
+
+## 2026-09-20 芯烨云接入约束
+
+统一适配器与验证说明见 [芯烨云接入重整](xpyun-integration-2026-09-20.md)。`XPYUN_API_URL` 必须为 HTTPS 的 `/api/openapi/xprinter/print` 地址，不能含查询串、片段或 URL 凭据；不自动改节点或重新绑定设备。`XPYUN_MODE` 可选 0/1，`XPYUN_VOICE` 可选 0–3（这是 print 的 voice，不是 setVoiceType 的 voiceType）；不指定时沿用官方默认值。显式无效配置在发送前失败。默认单份保护保留。
+
+1013 只表示去重；缺少云订单号时不当作完成。1004 最多同键重试一次；未知结果停止后续重发。超长内容不再删菜品/金额来缩短，厂家1007作为失败处理，不自动拆单或重放。现场报告无纸时不能凭在线或云查询true宣称恢复。

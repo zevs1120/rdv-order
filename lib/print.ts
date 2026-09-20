@@ -1,4 +1,6 @@
-import { createHash, randomUUID } from "crypto";
+import { PrintDispatchError } from "./print-error";
+export { PrintDispatchError } from "./print-error";
+import { XpyunClient } from "./xpyun-client";
 import { pool, printMetadataPool } from "./db";
 import { localizeMenuText } from "./menu-text";
 import { formatItemQtyDisplay } from "./qty-display";
@@ -85,15 +87,6 @@ type TableBillPrintPayload = {
 
 type PrintPayload = OrderPrintPayload | SelfTestPrintPayload | TableBillPrintPayload;
 
-export class PrintDispatchError extends Error {
-  readonly retryable: boolean;
-
-  constructor(message: string, retryable: boolean, readonly outcome: "unknown" | "offline" | "rejected" = "rejected") {
-    super(message);
-    this.retryable = retryable;
-  }
-}
-
 function getProvider(): PrintProvider {
   const raw = (process.env.PRINT_PROVIDER || "cloud").toLowerCase();
   if (raw === "agent") return "agent";
@@ -114,11 +107,6 @@ function getPrintTimeoutMs() {
   const raw = Number(process.env.PRINT_TIMEOUT_MS || 10000);
   if (!Number.isFinite(raw) || raw < 500) return 10000;
   return Math.min(Math.round(raw), 15000);
-}
-
-function forceSingleXpyunCopy() {
-  const raw = String(process.env.PRINT_FORCE_SINGLE_COPY || "true").trim().toLowerCase();
-  return raw !== "false";
 }
 
 function toLowerSet(csv: string | undefined) {
@@ -405,9 +393,10 @@ function getXpyunFontTag() {
 
 function xpyunLine(text = "", opts?: { center?: boolean; forceTag?: string }) {
   const safe = sanitizeXpyunLine(text);
+  if (!safe) return "<BR>";
   const tag = opts?.forceTag ?? getXpyunFontTag();
   const content = tag ? `<${tag}>${safe}</${tag}>` : safe;
-  if (opts?.center) return `<C>${content}</C><BR>`;
+  if (opts?.center) return `<C>${content}<BR></C>`;
   return `${content}<BR>`;
 }
 
@@ -521,13 +510,9 @@ function formatAmountRow(qty: number | string, unitPrice: number, amount: number
 }
 
 function finalizeXpyunContent(lines: string[]) {
-  let content = lines.join("");
-  const maxBytes = 11_500;
-  while (Buffer.byteLength(content, "utf8") > maxBytes && lines.length > 8) {
-    lines.splice(Math.max(8, lines.length - 4), 2);
-    content = lines.join("");
-  }
-  return content;
+  // Never remove dishes or totals to fit the provider limit. The provider reports
+  // 1007 for content exceeding its GBK limit; that is a failure, not a partial bill.
+  return lines.join("");
 }
 
 function toXpyunKitchenContent(payload: OrderPrintPayload | SelfTestPrintPayload) {
@@ -538,7 +523,7 @@ function toXpyunKitchenContent(payload: OrderPrintPayload | SelfTestPrintPayload
   const majorSeparator = dividerLine("=");
 
   const lines: string[] = [
-    "<CB><B>RDV KITCHEN COPY</B></CB><BR>",
+    "<CB>RDV KITCHEN COPY<BR></CB>",
     xpyunLine(`TABLE ${payload.tableNo}`, { center: true, forceTag: "B" }),
     xpyunLine(`Time: ${formatPrintDateTime(headerDate)}`)
   ];
@@ -585,7 +570,7 @@ function toXpyunCustomerContent(payload: OrderPrintPayload) {
   const majorSeparator = dividerLine("=");
 
   const lines: string[] = [
-    "<CB><B>RDV GUEST COPY</B></CB><BR>",
+    "<CB>RDV GUEST COPY<BR></CB>",
     xpyunLine(`TABLE ${payload.tableNo}`, { center: true, forceTag: "B" }),
     xpyunLine(`Time: ${formatPrintDateTime(payload.createdAt)}`, { forceTag: "N" })
   ];
@@ -618,7 +603,7 @@ function toXpyunCustomerContent(payload: OrderPrintPayload) {
   lines.push(xpyunLine(`TOTAL QTY : ${totalQty}`, { forceTag: "N" }));
   lines.push(xpyunLine(`TOTAL     : ${formatPhp(totalAmount)}`, { forceTag: "N" }));
   lines.push(xpyunLine(majorSeparator, { forceTag: "" }));
-  lines.push("<C><N>THANK YOU</N></C><BR>");
+  lines.push("<C><N>THANK YOU</N><BR></C>");
   lines.push("<BR>");
   lines.push("<BR>");
   lines.push("<BR>");
@@ -631,7 +616,7 @@ function toXpyunTableBillContent(payload: TableBillPrintPayload) {
   const majorSeparator = dividerLine("=");
 
   const lines: string[] = [
-    "<CB><B>RDV GUEST COPY</B></CB><BR>",
+    "<CB>RDV GUEST COPY<BR></CB>",
     xpyunLine(`TABLE ${payload.tableNo}`, { center: true, forceTag: "B" }),
     xpyunLine(`Opened: ${formatPrintDateTime(payload.openedAt)}`, { forceTag: "N" }),
     xpyunLine(`Printed: ${formatPrintDateTime(payload.printedAt)}`, { forceTag: "N" })
@@ -664,7 +649,7 @@ function toXpyunTableBillContent(payload: TableBillPrintPayload) {
   }
   lines.push(xpyunLine(`TOTAL     : ${formatPhp(payload.totalAmount)}`, { forceTag: "N" }));
   lines.push(xpyunLine(majorSeparator, { forceTag: "" }));
-  lines.push("<C><N>THANK YOU</N></C><BR>");
+  lines.push("<C><N>THANK YOU</N><BR></C>");
   lines.push("<BR>");
   lines.push("<BR>");
   lines.push("<BR>");
@@ -672,117 +657,19 @@ function toXpyunTableBillContent(payload: TableBillPrintPayload) {
   return finalizeXpyunContent(lines);
 }
 
-function isRetryableXpyunError(code: number) {
-  return code === 1003 || code === 1006 || code === 2001 || code === 5000;
-}
-
-type XpyunConfig = {
-  url: string;
-  user: string;
-  userKey: string;
-  sn: string;
-  copies: number;
-  voice: number | null;
-  mode: number | null;
-};
-
-function resolveXpyunConfig(): XpyunConfig {
-  const url = process.env.XPYUN_API_URL || "https://open.xpyun.net/api/openapi/xprinter/print";
-  const aliasUser = process.env.USERKEY || process.env.XPYUN_USERKEY || process.env.SN ? process.env.USER : "";
-  const user = (process.env.XPYUN_USER || aliasUser || "").trim();
-  const userKey = (process.env.XPYUN_USER_KEY || process.env.XPYUN_USERKEY || process.env.USERKEY || "").trim();
-  const sn = (process.env.XPYUN_SN || process.env.SN || "").trim();
-  if (!url || !user || !userKey || !sn) {
-    throw new PrintDispatchError("芯烨云打印配置缺失", false);
-  }
-
-  const copiesRaw = Number(process.env.XPYUN_COPIES || 1);
-  const parsedCopies = Number.isFinite(copiesRaw) ? Math.min(65535, Math.max(1, Math.round(copiesRaw))) : 1;
-  const copies = forceSingleXpyunCopy() ? 1 : parsedCopies;
-  const voiceRaw = process.env.XPYUN_VOICE;
-  const voiceNum = voiceRaw === undefined || voiceRaw === "" ? null : Number(voiceRaw);
-  const voice = Number.isFinite(voiceNum) ? Math.min(4, Math.max(0, Math.round(voiceNum as number))) : null;
-  const modeRaw = process.env.XPYUN_MODE;
-  const modeNum = modeRaw === undefined || modeRaw === "" ? null : Number(modeRaw);
-  const mode = Number.isFinite(modeNum) ? Math.max(0, Math.round(modeNum as number)) : null;
-
-  return { url, user, userKey, sn, copies, voice, mode };
-}
-
 export async function queryPrimaryPrinterStatus(): Promise<{ status: "online" | "offline" | "degraded" | "unknown"; checkedAt: string; latencyMs: number }> {
   const started = Date.now();
   let status: "online" | "offline" | "degraded" | "unknown" = "unknown";
   try {
-    if (getProvider() === "xpyun") {
-      const config = resolveXpyunConfig();
-      const url = new URL(config.url);
-      url.pathname = url.pathname.replace(/\/print$/, "/queryPrinterStatus");
-      if (!url.pathname.endsWith("/queryPrinterStatus")) throw new Error("Unsupported status URL");
-      const timestamp = String(Math.floor(Date.now() / 1000));
-      const sign = createHash("sha1").update(`${config.user}${config.userKey}${timestamp}`).digest("hex");
-      const result = await postJsonWithTimeout(url.toString(), { user: config.user, timestamp, sign, sn: config.sn }, {}, 4000);
-      if (result.ok && result.data?.code === 0) {
-        status = result.data.data === 1 ? "online" : result.data.data === 0 ? "offline" : result.data.data === 2 ? "degraded" : "unknown";
-      }
-    }
-  } catch { /* An unavailable cloud query is unknown, never proof of offline. */ }
+    if (getProvider() === "xpyun") status = await XpyunClient.fromEnvironment().printerStatus();
+  } catch { /* Unavailable cloud status is never proof of physical offline. */ }
   return { status, checkedAt: new Date().toISOString(), latencyMs: Date.now() - started };
 }
 
-async function dispatchXpyunContent(config: XpyunConfig, content: string, copiesOverride?: number, requestKey: string = randomUUID()) {
-  const timestamp = String(Math.floor(Date.now() / 1000));
-  const sign = createHash("sha1").update(`${config.user}${config.userKey}${timestamp}`).digest("hex");
-  const safeCopies = Number.isFinite(copiesOverride)
-    ? Math.min(65535, Math.max(1, Math.round(copiesOverride as number)))
-    : config.copies;
-  const body: Record<string, unknown> = {
-    user: config.user,
-    timestamp,
-    sign,
-    sn: config.sn,
-    content,
-    copies: safeCopies,
-    idempotent: requestKey
-  };
-  if (config.voice !== null) body.voice = config.voice;
-  if (config.mode !== null) body.mode = config.mode;
-
-  // The provider deduplicates this key for five minutes. Only retry within this
-  // single bounded invocation; never generate a fresh key after a lost response.
-  for (let attempt = 0; attempt < 2; attempt += 1) {
-    try {
-      const result = await postJsonWithTimeout(config.url, body, {}, Math.max(10000, getPrintTimeoutMs()));
-      if (!result.ok) {
-        throw new PrintDispatchError(`芯烨云打印失败(${result.status})`, result.status >= 500 || result.status === 429, "unknown");
-      }
-      const code = Number(result.data?.code);
-      // A duplicate acknowledgement confirms cloud acceptance, not paper output.
-      if (code === 1013) return undefined;
-      if (!Number.isFinite(code)) throw new PrintDispatchError("打印结果未确认，请先核对是否出纸，勿重复打印", true, "unknown");
-      if (code !== 0) {
-        if (code === 1003) throw new PrintDispatchError("打印机未连接芯烨云，请检查打印机网络后重试", true, "offline");
-        const msg = typeof result.data?.msg === "string" ? result.data.msg : "xpyun provider error";
-        throw new PrintDispatchError(`芯烨云打印失败(${code}) ${msg}`, isRetryableXpyunError(code));
-      }
-      if (typeof result.data?.data !== "string" || !result.data.data) {
-        throw new PrintDispatchError("打印结果未确认，请先核对是否出纸，勿重复打印", true, "unknown");
-      }
-      return result.data.data;
-    } catch (err) {
-      if (attempt === 0 && err instanceof PrintDispatchError && err.retryable && err.outcome === "unknown") continue;
-      if (err instanceof PrintDispatchError && err.outcome === "unknown") {
-        throw new PrintDispatchError(err.message, false, "unknown");
-      }
-      throw err;
-    }
-  }
-  throw new PrintDispatchError("打印结果未确认，请先核对是否出纸，勿重复打印", true, "unknown");
-}
-
 async function dispatchToXpyun(payload: PrintPayload, requestKey?: string): Promise<DispatchResult> {
-  const config = resolveXpyunConfig();
+  const client = XpyunClient.fromEnvironment();
   if (payload.type === "order") {
-    const kitchenJobId = await dispatchXpyunContent(config, toXpyunKitchenContent(payload), undefined, requestKey);
+    const kitchenJobId = await client.print(toXpyunKitchenContent(payload), requestKey);
     return {
       provider: "xpyun",
       slot: "primary",
@@ -791,7 +678,7 @@ async function dispatchToXpyun(payload: PrintPayload, requestKey?: string): Prom
   }
 
   if (payload.type === "table_bill") {
-    const jobId = await dispatchXpyunContent(config, toXpyunTableBillContent(payload), 1, requestKey);
+    const jobId = await client.print(toXpyunTableBillContent(payload), requestKey, 1);
     return {
       provider: "xpyun",
       slot: "primary",
@@ -799,7 +686,7 @@ async function dispatchToXpyun(payload: PrintPayload, requestKey?: string): Prom
     };
   }
 
-  const testJobId = await dispatchXpyunContent(config, toXpyunKitchenContent(payload), undefined, requestKey);
+  const testJobId = await client.print(toXpyunKitchenContent(payload), requestKey);
   return {
     provider: "xpyun",
     slot: "primary",

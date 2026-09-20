@@ -22,7 +22,7 @@ describe("print content formatting", () => {
     }
   });
 
-  it("kitchen print header should use smaller title tag after resize", () => {
+  it("kitchen title uses the official centered double-size tag and internal line break", () => {
     process.env.XPYUN_FONT_TAG = "N";
 
     const payload = {
@@ -59,7 +59,9 @@ describe("print content formatting", () => {
     } as const;
 
     const content = __printTestUtils.toXpyunKitchenContent(payload as any);
-    expect(content).toContain("<CB><B>RDV KITCHEN COPY</B></CB>");
+    expect(content).toContain("<CB>RDV KITCHEN COPY<BR></CB>");
+    expect(content).not.toMatch(/<([A-Z0-9]+)><\/\1>/);
+    expect(content).not.toMatch(/<\/(C|CB|R)><BR>/);
     expect(content).not.toContain("<CB><B2>RDV KITCHEN COPY</B2></CB>");
     expect(content).toContain("<B>CHICKEN CURRY</B>");
   });
@@ -214,4 +216,20 @@ describe("print content formatting", () => {
     expect(kitchenContent).toContain("QTY: 400g");
     expect(guestContent).toContain("400g x 120");
   });
+  it("never drops items or totals from a large bill to fit the provider limit", () => {
+    const content = __printTestUtils.toXpyunTableBillContent({
+      type: "table_bill", printVersion: 2, tableNo: "06",
+      openedAt: "2026-09-20T06:00:00Z", printedAt: "2026-09-20T06:10:00Z",
+      items: Array.from({ length: 150 }, (_, i) => ({ name: `Dish ${i} with detailed preparation`, qty: 1, unitPrice: 25, amount: 25, note: "Keep every dish" })),
+      totalQty: 150, itemAmount: 3750, chargeAmount: 0, totalAmount: 3750, charges: []
+    });
+    expect(Buffer.byteLength(content)).toBeGreaterThan(12000);
+    for (let i = 0; i < 150; i++) expect(content).toContain(`DISH ${i} WITH`);
+    expect(content).toContain("TOTAL QTY : 150");
+    expect(content).toContain("TOTAL     : PHP 3,750");
+    expect(content).toContain("ROOM NO:");
+    expect(content).toContain("PRINT FULL NAME:");
+    expect(content).toContain("PAYMENT METHOD:");
+  });
+
 });

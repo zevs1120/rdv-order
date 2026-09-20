@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({ query: vi.fn() }));
 vi.mock("../../lib/db", () => ({ printMetadataPool: { query: mocks.query }, pool: { query: mocks.query } }));
@@ -25,9 +26,9 @@ describe("cloud print connection recovery", () => {
     const bodies = fetchMock.mock.calls.map(call => JSON.parse(call[1].body));
     expect(bodies[0].idempotent).toBeTruthy(); expect(bodies[1]).toEqual(bodies[0]);
   });
-  it("accepts a deduplicated cloud acknowledgement without sending a third copy", async () => {
+  it("keeps deduplication without an order ID unknown, without fallback or a third copy", async () => {
     fetchMock.mockRejectedValueOnce(new TypeError("lost response")).mockResolvedValueOnce(response({ code: 1013, msg: "ORDER_IDEMPOTENT" }));
-    expect(await dispatchPrintSelfTest()).toMatchObject({ provider: "xpyun" }); expect(fetchMock).toHaveBeenCalledTimes(2);
+    await expect(dispatchPrintSelfTest()).rejects.toMatchObject({ retryable: false, outcome: "unknown" }); expect(fetchMock).toHaveBeenCalledTimes(2);
   });
   it("stops after two unknown outcomes, disallows later blind retries and does not use fallback", async () => {
     vi.stubEnv("PRINT_FALLBACK_PROVIDER", "cloud"); fetchMock.mockRejectedValue(new TypeError("socket closed"));
@@ -43,6 +44,76 @@ describe("cloud print connection recovery", () => {
   it("does not retry invalid credentials", async () => {
     fetchMock.mockResolvedValue(response({ code: -3, msg: "REQUEST_SIGN_FAILED" }));
     await expect(dispatchPrintSelfTest()).rejects.toMatchObject({ retryable: false }); expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+  it("retries official ADD_ORDER_FAILED once with the same content and key", async () => {
+    fetchMock.mockResolvedValueOnce(response({ code: 1004, msg: "ADD_ORDER_FAILED" }))
+      .mockResolvedValueOnce(response({ code: 0, data: "recovered-order" }));
+    expect(await dispatchPrintSelfTest()).toMatchObject({ remoteJobId: "recovered-order" });
+    const bodies = fetchMock.mock.calls.map(call => JSON.parse(call[1].body));
+    expect(bodies[1]).toEqual(bodies[0]);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+  it("bounds ADD_ORDER_FAILED retries and never schedules repeated invalid tickets", async () => {
+    fetchMock.mockImplementation(() => Promise.resolve(response({ code: 1004 })));
+    await expect(dispatchPrintSelfTest()).rejects.toMatchObject({ retryable: false, outcome: "rejected" });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+  it.each([1001, 1002, 1006, 1007, 1014, 1022])("does not retry official permanent error %i", async code => {
+    fetchMock.mockResolvedValue(response({ code }));
+    await expect(dispatchPrintSelfTest()).rejects.toMatchObject({ retryable: false, outcome: "rejected" });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+  it.each([null, "0", undefined])("does not coerce malformed success code %s", async code => {
+    fetchMock.mockResolvedValue(response({ code, data: "not-a-confirmed-order" }));
+    await expect(dispatchPrintSelfTest()).rejects.toMatchObject({ retryable: false, outcome: "unknown" });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+  it.each([null, true, "", 123])("requires a nonempty cloud order ID instead of %s", async data => {
+    fetchMock.mockResolvedValue(response({ code: 0, data }));
+    await expect(dispatchPrintSelfTest()).rejects.toMatchObject({ outcome: "unknown" });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+  it.each([["XPYUN_MODE", "2"], ["XPYUN_VOICE", "4"], ["XPYUN_API_URL", "https://fixture.invalid/not-print"]])("validates %s before sending", async (key, value) => {
+    vi.stubEnv(key, value);
+    await expect(dispatchPrintSelfTest()).rejects.toMatchObject({ retryable: false, outcome: "rejected" });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+  it("uses official UTF-8 JSON, seconds timestamp and SHA1 signature without sending the secret", async () => {
+    vi.setSystemTime(new Date("2026-09-20T06:00:00Z"));
+    fetchMock.mockResolvedValue(response({ code: 0, data: "signed-order" }));
+    await dispatchPrintSelfTest();
+    const [url, options] = fetchMock.mock.calls[0];
+    const body = JSON.parse(options.body);
+    expect(url).toBe("https://fixture.invalid/api/openapi/xprinter/print");
+    expect(options.headers["Content-Type"]).toBe("application/json;charset=UTF-8");
+    expect(options.redirect).toBe("error");
+    expect(body.timestamp).toBe("1789884000");
+    expect(body.sign).toBe(createHash("sha1").update("fixturefixture-key1789884000").digest("hex"));
+    expect(body.sn).toBe("fixture-sn");
+    expect(body.copies).toBe(1);
+    expect(body).not.toHaveProperty("mode");
+    expect(body).not.toHaveProperty("userKey");
+    expect(body).not.toHaveProperty("debug");
+    expect(options.body).not.toContain("fixture-key");
+  });
+  it("does not turn an earlier unknown submission into a safely retryable offline error", async () => {
+    fetchMock.mockRejectedValueOnce(new TypeError("lost acknowledgement"))
+      .mockResolvedValueOnce(response({ code: 1003 }));
+    await expect(dispatchPrintSelfTest()).rejects.toMatchObject({ retryable: false, outcome: "unknown" });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+  it("refreshes authentication on retry while preserving content and deduplication", async () => {
+    vi.setSystemTime(new Date("2026-09-20T06:00:00Z"));
+    fetchMock.mockImplementationOnce(() => {
+      vi.setSystemTime(new Date("2026-09-20T06:00:10Z"));
+      throw new TypeError("connection reset");
+    }).mockResolvedValueOnce(response({ code: 0, data: "retried-order" }));
+    await dispatchPrintSelfTest();
+    const [first, second] = fetchMock.mock.calls.map(call => JSON.parse(call[1].body));
+    expect(second.content).toBe(first.content);
+    expect(second.idempotent).toBe(first.idempotent);
+    expect(second.timestamp).toBe("1789884010");
+    expect(second.sign).toBe(createHash("sha1").update("fixturefixture-key1789884010").digest("hex"));
   });
   it("reads live status without sending content or changing database status", async () => {
     fetchMock.mockResolvedValue(response({ code: 0, data: 0 }));
