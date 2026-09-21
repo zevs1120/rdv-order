@@ -1,17 +1,17 @@
 {
   "name": "RDV Team",
   "status": "available",
-  "version": "2.1.2",
-  "versionCode": 15,
+  "version": "2.1.5",
+  "versionCode": 18,
   "minAndroid": "8.0",
   "packageName": "com.rdv.staff",
-  "file": "/releases/rdv-team-2.1.2.apk",
-  "bytes": 2869489,
-  "sha256": "77cb1e4dee247986be39b86c342b911b330aa3a377e71bd54a6185929f17a96a",
+  "file": "/releases/rdv-team-2.1.5.apk",
+  "bytes": 3087120,
+  "sha256": "26d1eb35d3cc72e9f32837d39d82b5f48c2479e210eefa1c78630bf2ad4cfba7",
   "notes": {
-    "zh": "修复排班保存失败；礼宾部员工可办理入住，并查看本次入住的登记二维码。",
-    "en": "Fixes schedule saving. Concierge staff can check guests in and view the registration QR code for that check-in."
+    "zh": "考勤修正：旧班次在排班下班时间两小时后自动记为缺下班卡，新一天可正常开始；打卡前先确认班次状态，避免定位重试与下班提示冲突。包含排班当天发布与聊天分享、@提醒与聊天刷新、任务发布及服务恢复优化。",
+    "en": "Attendance fix: unfinished shifts become missing clock-out two hours after scheduled end, and clock-in checks the current shift before requesting location. Also includes schedule sharing, mention/chat refresh, task publishing and service recovery improvements."
   },
-  "releaseDate": "2026-09-16",
-  "releaseDateSha256": "77cb1e4dee247986be39b86c342b911b330aa3a377e71bd54a6185929f17a96a"
+  "releaseDate": "2026-09-20",
+  "releaseDateSha256": "26d1eb35d3cc72e9f32837d39d82b5f48c2479e210eefa1c78630bf2ad4cfba7"
 }
