@@ -3,9 +3,9 @@
 ## Print Behavior (Current)
 - User-confirmed acceptance baseline: the previous Vercel deployment automatically printed after submission, with the existing queue-clear button for operator recovery. Do not infer that Vercel needs a separate scheduler just from the current local route.
 - Git history: `d89d3ec` awaited the worker after order commit; `0b704d8` changed that to background wake; `ee66a93` removed the call. The user confirms there is no current deployment. This change restores the missing trigger before creating the new Vercel project.
-- Order submit prints **kitchen copy only** (single printer target by default).
+- XPYUN order submit prints **one kitchen copy followed by one guest/front-desk copy**, in a single cloud job (2026-09-21 user requirement).
 - Current `app/api/orders/route.ts` atomically stores orders/items/print jobs and schedules `runOrderPrintWorker(orderId)` through Next.js `after()` only for a newly inserted order. The automatic claim targets that order, so older failed/pending jobs do not consume its attempt. Same-key replay does not print again. The route uses Node.js and `maxDuration=120`; no separate scheduler is required.
-- Guest copy is printed only when staff explicitly triggers `Print Receipt` in order bill panel.
+- `Print Receipt` remains available to print the current whole-table bill; it is separate from the per-order guest copy.
 - Default is single copy (`PRINT_FORCE_SINGLE_COPY=true`) to reduce duplicate print risk.
 
 ## Native Android client
@@ -62,7 +62,7 @@ npm run check:print-env
 Run this command with the intended environment injected; the script does not load `.env.local` itself. It checks configuration presence, not printer connectivity. Automatic order printing does not require the worker-key header; that key belongs to external dispatch. Local fixture checks are not proof of valid hotel credentials.
 
 ## 4) Production Verification
-1. Submit one test order (should print kitchen copy).
+1. Submit one test order (should print kitchen and guest copies, with correct guest prices).
 2. In order bill panel, tap `Print Receipt` (should print guest copy).
 3. Check `/api/print/health` with manager account.
 4. Optional retry trigger: `POST /api/print/dispatch`.
@@ -122,3 +122,8 @@ Best-effort device status and print audit use a separate lazy max-1 pool: connec
 统一适配器与验证说明见 [芯烨云接入重整](xpyun-integration-2026-09-20.md)。`XPYUN_API_URL` 必须为 HTTPS 的 `/api/openapi/xprinter/print` 地址，不能含查询串、片段或 URL 凭据；不自动改节点或重新绑定设备。`XPYUN_MODE` 可选 0/1，`XPYUN_VOICE` 可选 0–3（这是 print 的 voice，不是 setVoiceType 的 voiceType）；不指定时沿用官方默认值。显式无效配置在发送前失败。默认单份保护保留。
 
 1013 只表示去重；缺少云订单号时不当作完成。1004 最多同键重试一次；未知结果停止后续重发。超长内容不再删菜品/金额来缩短，厂家1007作为失败处理，不自动拆单或重放。现场报告无纸时不能凭在线或云查询true宣称恢复。
+
+
+## 2026-09-21 两联与回执修正
+
+当天下单要求取代历史厨房单单联策略。详情见 [两联恢复](print-two-copies-2026-09-21.md)。同一云任务包含两种内容，`copies=1`，不是厨房单重复两份。去重1013只确认已识别同一请求，不计设备失败、不重发；没有云订单号时仍不宣称出纸。取得云订单号后，后台通过官方 queryOrderState 最多三次确认并记录 `print.delivery`，不阻塞手机响应、不重放任务。该记录是厂家报告，不能覆盖现场无纸事实。

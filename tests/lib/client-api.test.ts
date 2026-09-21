@@ -72,3 +72,30 @@ describe("shared request performance and safety", () => {
     expect(fetchMock).toHaveBeenCalledTimes(3);
   });
 });
+
+
+describe("order response recovery", () => {
+  it("resolves a lost order response by reading its key, without another POST", async () => {
+    fetchMock.mockRejectedValueOnce(new TypeError("response lost"))
+      .mockResolvedValueOnce(json({ found: true, orderId: "saved-order" }));
+    const { submitOrderRecovering } = await import("../../lib/client-api");
+    expect(await submitOrderRecovering({ tableNo: "06" }, "original-key")).toEqual({ orderId: "saved-order", deduped: true });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(fetchMock.mock.calls[0][1].method).toBe("POST");
+    expect(fetchMock.mock.calls[1][0]).toContain("/api/orders/request-status?key=original-key");
+    expect(fetchMock.mock.calls[1][1].method || "GET").toBe("GET");
+  });
+  it("keeps the original error when status has not confirmed the order", async () => {
+    fetchMock.mockRejectedValueOnce(new TypeError("response lost"))
+      .mockResolvedValueOnce(json({ found: false }));
+    const { submitOrderRecovering } = await import("../../lib/client-api");
+    await expect(submitOrderRecovering({}, "original-key")).rejects.toThrow("response lost");
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+  it("does not query or resubmit a rejected order", async () => {
+    fetchMock.mockResolvedValueOnce(json({ error: "invalid dish" }, 400));
+    const { submitOrderRecovering } = await import("../../lib/client-api");
+    await expect(submitOrderRecovering({}, "original-key")).rejects.toThrow("invalid dish");
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+});

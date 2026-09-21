@@ -669,7 +669,10 @@ export async function queryPrimaryPrinterStatus(): Promise<{ status: "online" | 
 async function dispatchToXpyun(payload: PrintPayload, requestKey?: string): Promise<DispatchResult> {
   const client = XpyunClient.fromEnvironment();
   if (payload.type === "order") {
-    const kitchenJobId = await client.print(toXpyunKitchenContent(payload), requestKey);
+    // One cloud order contains both distinct copies. Retrying a partially
+    // acknowledged pair must not resubmit only the kitchen or omit the guest.
+    const content = toXpyunKitchenContent(payload) + toXpyunCustomerContent(payload);
+    const kitchenJobId = await client.print(content, requestKey, 1);
     return {
       provider: "xpyun",
       slot: "primary",
@@ -853,7 +856,8 @@ async function dispatchWithFallback(payload: PrintPayload, requestKey?: string) 
 }
 
 export async function dispatchPrintJob(orderId: string): Promise<DispatchResult> {
-  const payload = toKitchenOnlyOrderPayload(await buildOrderPayload(orderId));
+  const original = await buildOrderPayload(orderId);
+  const payload = getProvider() === "xpyun" ? original : toKitchenOnlyOrderPayload(original);
   return dispatchWithFallback(payload, orderId);
 }
 

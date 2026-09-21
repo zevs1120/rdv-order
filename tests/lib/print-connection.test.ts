@@ -26,9 +26,11 @@ describe("cloud print connection recovery", () => {
     const bodies = fetchMock.mock.calls.map(call => JSON.parse(call[1].body));
     expect(bodies[0].idempotent).toBeTruthy(); expect(bodies[1]).toEqual(bodies[0]);
   });
-  it("keeps deduplication without an order ID unknown, without fallback or a third copy", async () => {
+  it("does not report provider deduplication as device failure or send a third copy", async () => {
     fetchMock.mockRejectedValueOnce(new TypeError("lost response")).mockResolvedValueOnce(response({ code: 1013, msg: "ORDER_IDEMPOTENT" }));
-    await expect(dispatchPrintSelfTest()).rejects.toMatchObject({ retryable: false, outcome: "unknown" }); expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(await dispatchPrintSelfTest()).toMatchObject({ provider: "xpyun", remoteJobId: undefined });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(mocks.query.mock.calls[mocks.query.mock.calls.length - 1]?.[0]).not.toContain("fail_count = device_status.fail_count + 1");
   });
   it("stops after two unknown outcomes, disallows later blind retries and does not use fallback", async () => {
     vi.stubEnv("PRINT_FALLBACK_PROVIDER", "cloud"); fetchMock.mockRejectedValue(new TypeError("socket closed"));

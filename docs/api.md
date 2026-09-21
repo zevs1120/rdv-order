@@ -193,3 +193,8 @@ No database migration or existing endpoint behavior change is required.
 ### 芯烨云回执兼容说明（2026-09-20）
 
 打印接口 URL、请求体及 APP 调用方式不变。`waitForResult=true` 的成功仍表示获得云端接受及订单号，不保证实体出纸。芯烨云1013去重回执若没有原云订单号，按既有未知结果错误路径返回（账单504），不再返回成功。官方1004最多同键重试一次；其它参数/鉴权错误不自动重复提交。详见 [接入重整](xpyun-integration-2026-09-20.md)。
+
+
+### 两联与完成查询（2026-09-21，取代上节1013处理）
+
+XPYUN自动下单恢复厨房联及前台联；同一云订单一次提交两联内容。API请求格式不变。1013去重回执按请求已识别返回接受，不再误报设备失败，`remoteJobId` 可能为null，不能用它证明已打印。厨房worker及账单/自检的after阶段对有ID的云订单查询完成状态，写入 `print.delivery` 审计（completed/pending/unknown）；false或查询失败不会触发重发或增加打印失败次数。手机响应不等待这些查询。无ID时记录unknown，不查询虚构ID。

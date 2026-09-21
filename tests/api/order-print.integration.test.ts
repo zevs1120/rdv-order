@@ -1,3 +1,4 @@
+vi.mock("../../lib/print-confirmation", () => ({ recordPrintConfirmation: vi.fn() }));
 import { readFileSync } from "node:fs";
 import { PGlite } from "@electric-sql/pglite";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";

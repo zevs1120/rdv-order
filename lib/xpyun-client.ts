@@ -48,7 +48,7 @@ export class XpyunClient {
       timeoutMs: Number.isFinite(timeout) ? Math.min(15000, Math.max(10000, timeout)) : 10000 });
   }
 
-  private async request(method: "print" | "queryPrinterStatus", params: Record<string, unknown>, timeoutMs: number): Promise<Reply> {
+  private async request(method: "print" | "queryPrinterStatus" | "queryOrderState", params: Record<string, unknown>, timeoutMs: number): Promise<Reply> {
     const { user, key, url } = this.config;
     const endpoint = new URL(method, url);
     const timestamp = String(Math.floor(Date.now() / 1000));
@@ -80,7 +80,7 @@ export class XpyunClient {
     } finally { clearTimeout(timer); }
   }
 
-  async print(content: string, requestKey: string = randomUUID(), copies = this.config.copies): Promise<string> {
+  async print(content: string, requestKey: string = randomUUID(), copies = this.config.copies): Promise<string | undefined> {
     if (!content.trim() || !requestKey || requestKey.length > 50 || !Number.isInteger(copies) || copies < 1 || copies > 65535) {
       throw new PrintDispatchError("芯烨云打印参数错误", false);
     }
@@ -97,9 +97,10 @@ export class XpyunClient {
           throw new XpyunFailure("打印结果未确认，请先核对是否出纸，勿重复打印", true, "unknown");
         }
         if (reply.code === 1013) {
-          // The documented meaning is deduplication, not successful delivery.
-          // There is no documented lookup by idempotent key. Never forge success.
-          throw new XpyunFailure("打印结果未确认，请先核对是否出纸，勿重复打印", false, "unknown", 1013);
+          // XPYUN has recognized this key. Do not turn a suppressed duplicate
+          // into a device failure or submit another copy. No order ID means
+          // delivery remains unconfirmed; it is not a physical-print receipt.
+          return undefined;
         }
         if (reply.code === 1003) throw new XpyunFailure("打印机未连接芯烨云，请检查打印机网络后重试", true, "offline", 1003);
         // Official 1004 guidance: retry the API once. Other parameter/auth errors
@@ -122,6 +123,13 @@ export class XpyunClient {
       }
     }
     throw new PrintDispatchError("打印结果未确认，请先核对是否出纸，勿重复打印", false, "unknown");
+  }
+
+  async orderState(orderId: string): Promise<"completed" | "pending" | "unknown"> {
+    if (!orderId.trim()) return "unknown";
+    const reply = await this.request("queryOrderState", { orderId }, 4000);
+    if (reply.code !== 0) return "unknown";
+    return reply.data === true ? "completed" : reply.data === false ? "pending" : "unknown";
   }
 
   async printerStatus(): Promise<"online" | "offline" | "degraded" | "unknown"> {

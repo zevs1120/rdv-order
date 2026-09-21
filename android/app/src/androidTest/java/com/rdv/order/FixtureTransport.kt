@@ -17,6 +17,7 @@ class TestStore : KeyValueStore {
 class FixtureTransport : Transport {
     data class Call(val path: String, val method: String, val body: JsonElement?, val key: String?)
     val calls = mutableListOf<Call>()
+    var billReadFailure = false
     var printFailure = false
     var printDelayMs = 0L
     var livePrinterStatus = "online"
@@ -81,7 +82,10 @@ class FixtureTransport : Transport {
                 RdvJson.encodeToString(SubmissionResult(id, existing != null))
             }
             "/api/orders/request-status" -> savedOrders[query["key"]]?.let { RdvJson.encodeToString(SubmissionStatus(true, it.second)) } ?: "{\"found\":false}"
-            "/api/tables/bill" -> RdvJson.encodeToString(bill(query["tableNo"] ?: "01"))
+            "/api/tables/bill" -> {
+                if (billReadFailure) throw java.io.InterruptedIOException("bill timeout")
+                RdvJson.encodeToString(bill(query["tableNo"] ?: "01"))
+            }
             "/api/tables/print-bill" -> {
                 kotlinx.coroutines.delay(printDelayMs)
                 if (printFailure) throw ApiException(504, "打印服务响应超时，结果未确认，请先核对是否出纸")

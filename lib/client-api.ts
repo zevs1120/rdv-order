@@ -405,3 +405,24 @@ export async function apiFetchJson<T>(url: string, options: ApiFetchOptions = {}
   inflightGet.set(dedupeKey, pending);
   return pending;
 }
+
+
+// A write timeout is not evidence that the order was rejected. Only read the
+// original idempotency key; never create another order as automatic recovery.
+export async function submitOrderRecovering(body: unknown, key: string): Promise<{ orderId: string; deduped?: boolean }> {
+  try {
+    const result = await apiFetchJson<{ orderId: string; deduped?: boolean }>("/api/orders", {
+      method: "POST", headers: { "X-Idempotency-Key": key }, body, timeoutMs: 12000, retries: 0
+    });
+    if (!result.orderId?.trim()) throw new Error("Invalid order response");
+    return result;
+  } catch (error) {
+    if (error instanceof HttpResponseError && error.status < 500 && error.status !== 408) throw error;
+    try {
+      const saved = await apiFetchJson<{ found: boolean; orderId?: string }>(`/api/orders/request-status?key=${encodeURIComponent(key)}`,
+        { timeoutMs: 4500, retries: 0, cacheTtlMs: 0, dedupeGet: false });
+      if (saved.found && saved.orderId?.trim()) return { orderId: saved.orderId, deduped: true };
+    } catch { /* Preserve the original error and pending key when lookup is unavailable. */ }
+    throw error;
+  }
+}

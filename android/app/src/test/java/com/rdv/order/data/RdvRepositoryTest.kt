@@ -45,6 +45,36 @@ class RdvRepositoryTest {
         assertEquals(2, api.calls.size)
     }
 
+    @Test fun `first submission timeout resolves saved order by read without replay`() = runBlocking {
+        val api = RecordingTransport(); val store = MemoryStore()
+        val repo = RdvRepository(api, store, { "https://fixture.invalid" }, newKey = { "original-key" })
+        repo.login("staff", "test")
+        api.handler = {
+            if (it.path == "/api/orders") throw java.io.InterruptedIOException("timeout after commit")
+            assertEquals("/api/orders/request-status", it.path)
+            assertEquals("original-key", it.query["key"])
+            "{\"found\":true,\"orderId\":\"saved\"}"
+        }
+        assertEquals("saved", repo.submit(draft).orderId)
+        assertEquals(1, api.calls.count { it.path == "/api/orders" })
+        assertTrue(repo.loadDraft(TableInfo("01", guestCount = 2, openedAt = draft.openedAt)).lines.isEmpty())
+    }
+    @Test fun `unconfirmed timeout keeps basket and key and never automatically resubmits`() = runBlocking {
+        val api = RecordingTransport(); val store = MemoryStore()
+        val repo = RdvRepository(api, store, { "https://fixture.invalid" }, newKey = { "original-key" })
+        repo.login("staff", "test")
+        api.handler = { if (it.path == "/api/orders") throw java.io.InterruptedIOException("timeout") else "{\"found\":false}" }
+        assertTrue(runCatching { repo.submit(draft) }.exceptionOrNull() is java.io.InterruptedIOException)
+        assertEquals(1, api.calls.count { it.path == "/api/orders" })
+        assertEquals(draft.lines, repo.loadDraft(TableInfo("01", guestCount = 2, openedAt = draft.openedAt)).lines)
+    }
+    @Test fun `rejected order does not perform timeout recovery`() = runBlocking {
+        val api = RecordingTransport(); val repo = RdvRepository(api, MemoryStore(), { "https://fixture.invalid" })
+        repo.login("staff", "test"); api.handler = { throw ApiException(400, "invalid dish") }
+        assertTrue(runCatching { repo.submit(draft) }.exceptionOrNull() is ApiException)
+        assertFalse(api.calls.any { it.path.endsWith("request-status") })
+    }
+
     private val dish = MenuItem("dish-uuid", "Rice", 80)
     private val draft = Draft("01", "2026-09-07T00:00:00Z", lines = listOf(CartLine(dish, 2, "no onion")))
     @Test fun `hotel custom domain upgrade preserves session drafts and menu cache`() = runBlocking {
@@ -64,7 +94,7 @@ class RdvRepositoryTest {
         val old = RdvRepository(oldApi, store, { "https://rdv-order-renfei-zhaos-projects.vercel.app" }, newKey = { "persisted-before-upgrade" })
         old.login("staff-a", "test"); oldApi.handler = { throw IOException("lost response") }
         assertTrue(runCatching { old.submit(draft) }.isFailure)
-        val original = oldApi.calls.last()
+        val original = oldApi.calls.last { it.path == "/api/orders" }
         val upgraded = RdvRepository(newApi, store, { "https://order.resortdejavu.cn" }, newKey = { error("must retain key") })
         upgraded.restoreSession()
         newApi.handler = { if (it.path.endsWith("request-status")) "{\"found\":false}" else "{\"orderId\":\"saved\",\"deduped\":true}" }
@@ -91,7 +121,7 @@ class RdvRepositoryTest {
         first.login("staff-a", "test")
         transport.handler = { throw IOException("response lost after save") }
         assertTrue(runCatching { first.submit(draft) }.isFailure)
-        val original = transport.calls.last()
+        val original = transport.calls.last { it.path == "/api/orders" }
         assertEquals(1, created)
         val second = RdvRepository(transport, store, { "https://test.invalid" }, newKey = { "unexpected-key" })
         second.restoreSession()
@@ -113,7 +143,7 @@ class RdvRepositoryTest {
     @Test fun `missing recovery endpoint falls back to existing idempotent submission`() = runBlocking {
         val store = MemoryStore(); val transport = RecordingTransport(); val repo = RdvRepository(transport, store, { "https://test.invalid" })
         repo.login("staff", "test"); transport.handler = { throw IOException("lost") }
-        runCatching { repo.submit(draft) }; val key = transport.calls.last().key
+        runCatching { repo.submit(draft) }; val key = transport.calls.last { it.path == "/api/orders" }.key
         transport.handler = { if (it.path.endsWith("request-status")) throw ApiException(404, "not deployed") else "{\"orderId\":\"saved\"}" }
         repo.submit(draft)
         assertEquals(key, transport.calls.last().key)

@@ -185,13 +185,28 @@ class NativeFlowTest {
         transport.loseFirstSubmitResponse = true
         compose.onNodeWithTag("add-${transport.rice.id}").performClick()
         compose.onAllNodesWithText("Submit Order").onLast().performClick()
-        compose.waitUntil { !vm.state.value.busy && vm.state.value.error.isNotEmpty() }
-        assertEquals(1, vm.state.value.draft!!.lines.size)
-        compose.onAllNodesWithText("Submit Order").onLast().performClick()
         compose.waitUntil(10_000) { !vm.state.value.busy && vm.state.value.bill != null }
+        assertEquals("", vm.state.value.error)
+        assertTrue(vm.state.value.draft!!.lines.isEmpty())
         assertEquals(1, transport.calls.count { it.path == "/api/orders" })
         assertTrue(transport.calls.any { it.path == "/api/orders/request-status" })
         assertEquals(80L, vm.state.value.bill!!.totalAmount)
+    }
+    @Test fun savedOrderBillTimeoutDoesNotInviteAnotherSubmission() {
+        login(); openTable()
+        transport.billReadFailure = true
+        compose.onNodeWithTag("add-${transport.rice.id}").performClick()
+        compose.onAllNodesWithText("Submit Order").onLast().performClick()
+        compose.waitUntil(10_000) { !vm.state.value.busy && vm.state.value.error.isNotEmpty() }
+        assertTrue(vm.state.value.error.startsWith("Order placed."))
+        assertFalse(vm.state.value.error.contains("Request timed out"))
+        assertTrue(vm.state.value.draft!!.lines.isEmpty())
+        assertEquals(1, transport.calls.count { it.path == "/api/orders" })
+        transport.billReadFailure = false
+        compose.runOnIdle { vm.dismissError(); vm.showBill() }
+        compose.waitUntil(10_000) { vm.state.value.bill != null && !vm.state.value.loading }
+        assertEquals(80L, vm.state.value.bill!!.totalAmount)
+        assertEquals(1, transport.calls.count { it.path == "/api/orders" })
     }
     @Test fun seafoodMethodQuantityAndLanguageRemainConsistent() {
         login(); openTable()

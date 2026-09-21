@@ -348,7 +348,11 @@ class RdvViewModel(val repository: RdvRepository, val strings: Strings, private 
         lastSubmitted = signature; lastSubmittedAt = System.currentTimeMillis()
         mutable.update { it.copy(draft = draft.copy(lines = emptyList()), bill = null, sheet = "bill") }
         // A bill-read failure must never resurrect a successfully submitted basket.
-        try { val bill = repository.bill(draft.tableNo); mutable.update { it.copy(bill = bill) } } catch (e: Exception) { fail(e) }
+        try { val bill = repository.bill(draft.tableNo); mutable.update { it.copy(bill = bill) } }
+        catch (e: Exception) {
+            if (e is CancellationException || (e is ApiException && e.status == 401)) fail(e)
+            else error(text("order.savedBillRefreshFailed"))
+        }
     }
     fun checkout() = action {
         val draft = state.value.draft ?: return@action

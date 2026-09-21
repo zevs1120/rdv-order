@@ -1,3 +1,4 @@
+import { recordPrintConfirmation } from "../../../../lib/print-confirmation";
 import { after, NextResponse } from "next/server";
 import { dispatchTableBillPrint, PrintDispatchError } from "../../../../lib/print";
 import { requireOrderCreate } from "../../../../lib/permissions";
@@ -40,10 +41,11 @@ export async function POST(req: Request) {
     // during the mandatory APK rollout instead of making them time out at 1.8s.
     if (body?.waitForResult === true) {
       const result = await print();
+      after(() => recordPrintConfirmation(result, "table", tableNo));
       return NextResponse.json({ ok: true, accepted: true, remoteJobId: result.remoteJobId || null });
     }
     after(async () => {
-      try { await print(); } catch { console.error("[print-bill] failed; inspect receipt audit and device error"); }
+      try { const result = await print(); await recordPrintConfirmation(result, "table", tableNo); } catch { console.error("[print-bill] failed; inspect receipt audit and device error"); }
     });
 
     return NextResponse.json({

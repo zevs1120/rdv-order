@@ -1,5 +1,7 @@
 "use client";
 
+import { submitOrderRecovering } from "../../lib/client-api";
+
 import { useConnectionRefresh } from "../../lib/use-connection-refresh";
 import { SvgIcon } from "../../components/ui/svg-icon";
 
@@ -1173,7 +1175,7 @@ export default function OrderPage() {
     setActionMenuOpen(false);
   }, []);
 
-  async function loadBill() {
+  async function loadBill(afterSubmission = false) {
     if (!tableNo) return;
     const cached = billCacheRef.current;
     if (
@@ -1214,7 +1216,7 @@ export default function OrderPage() {
         totalQty: nextTotalQty
       };
     } catch (err: any) {
-      setError(err.message || t("order.billLoadFailed", "Failed to load bill"));
+      setError(afterSubmission ? t("order.savedBillRefreshFailed") : (err.message || t("order.billLoadFailed", "Failed to load bill")));
     } finally {
       setBillLoading(false);
     }
@@ -1413,13 +1415,7 @@ export default function OrderPage() {
         items: cart.map((c) => ({ menuItemId: c.id, qty: c.qty, note: c.note || null, choices: c.choices || {} }))
       };
 
-      const body = await apiFetchJson<{ orderId: string; deduped?: boolean; dedupeReason?: string }>("/api/orders", {
-        method: "POST",
-        headers: { "X-Idempotency-Key": requestId },
-        body: payload,
-        timeoutMs: 12000,
-        retries: 0
-      });
+      await submitOrderRecovering(payload, requestId);
 
       setCartSelections({});
       cartSelectionsRef.current = {};
@@ -1429,7 +1425,7 @@ export default function OrderPage() {
       billCacheRef.current = null;
       lastSubmittedSignatureRef.current = cartSignature;
       lastSubmittedAtRef.current = Date.now();
-      await loadBill();
+      await loadBill(true);
       setShowBill(true);
       setSubmitState("success");
       setSubmitNotice("");

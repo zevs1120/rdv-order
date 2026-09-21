@@ -1,3 +1,4 @@
+vi.mock("../../lib/print-confirmation", () => ({ recordPrintConfirmation: vi.fn() }));
 import { beforeEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({ dispatch: vi.fn(), auth: vi.fn(), audit: vi.fn(), after: vi.fn() }));
 vi.mock("../../lib/permissions", () => ({ requireOrderCreate: mocks.auth }));
@@ -15,7 +16,7 @@ describe("bill delivery response", () => {
     let completed = false; const pending = POST(req()).then(r => { completed = true; return r; });
     await vi.waitFor(() => expect(mocks.dispatch).toHaveBeenCalled()); expect(completed).toBe(false);
     resolve({ provider: "xpyun", slot: "primary", remoteJobId: "cloud-1" });
-    expect(await (await pending).json()).toMatchObject({ accepted: true, remoteJobId: "cloud-1" }); expect(mocks.after).not.toHaveBeenCalled();
+    expect(await (await pending).json()).toMatchObject({ accepted: true, remoteJobId: "cloud-1" }); expect(mocks.after).toHaveBeenCalledTimes(1);
   });
   it("returns unknown result to the app and records the failure", async () => {
     mocks.dispatch.mockRejectedValue(new PrintDispatchError("timeout", false, "unknown"));

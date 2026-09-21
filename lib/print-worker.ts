@@ -1,3 +1,4 @@
+import { recordPrintConfirmation } from "./print-confirmation";
 import { writePrintAuditLogSafe } from "./audit";
 import { pool } from "./db";
 import { PrintDispatchError, dispatchPrintJob } from "./print";
@@ -149,6 +150,7 @@ async function processJobs(limit: number, orderId?: string): Promise<PrintWorker
     }
     await writePrintAuditLogSafe({ action: "order.print_accepted", entityType: "order", entityId: job.order_id,
       detail: { provider: result.provider, remoteJobId: result.remoteJobId || null } });
+    await recordPrintConfirmation(result, "order", job.order_id);
     printed += 1;
   }
 

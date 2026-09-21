@@ -1,6 +1,9 @@
 package com.rdv.order.data
 
 import com.rdv.order.domain.OrderRules
+import java.io.IOException
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import java.security.MessageDigest
 import java.util.Base64
 import java.util.UUID
@@ -144,8 +147,23 @@ class RdvRepository(val api: Transport, private val store: KeyValueStore, privat
                 null
             }
         } else null
-        val result = known ?: RdvJson.decodeFromString<SubmissionResult>(api.request("/api/orders", "POST",
-            RdvJson.encodeToJsonElement(pending.payload), idempotencyKey = pending.key, timeoutMs = 12_000, retries = 0).text)
+        val result = known ?: try {
+            RdvJson.decodeFromString<SubmissionResult>(api.request("/api/orders", "POST",
+                RdvJson.encodeToJsonElement(pending.payload), idempotencyKey = pending.key, timeoutMs = 12_000, retries = 0).text)
+        } catch (error: IOException) {
+            currentCoroutineContext().ensureActive()
+            if (error is ApiException && error.status < 500 && error.status != 408) throw error
+            // Resolve the original saved request; never replay POST after a lost acknowledgement.
+            val recovered = try {
+                val status = RdvJson.decodeFromString<SubmissionStatus>(api.request("/api/orders/request-status",
+                    query = mapOf("key" to pending.key), timeoutMs = 4_500, retries = 0).text)
+                status.orderId?.takeIf { status.found && it.isNotBlank() }?.let { SubmissionResult(it, true) }
+            } catch (recoveryError: Exception) {
+                currentCoroutineContext().ensureActive()
+                null
+            }
+            recovered ?: throw error
+        }
         require(result.orderId.isNotBlank()) { "提交响应无效" }
         withContext(Dispatchers.IO) { workspaceMutex.withLock {
             val current = readWorkspace(draft)

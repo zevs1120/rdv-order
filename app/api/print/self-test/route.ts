@@ -1,4 +1,5 @@
-import { NextResponse } from "next/server";
+import { recordPrintConfirmation } from "../../../../lib/print-confirmation";
+import { after, NextResponse } from "next/server";
 import { dispatchPrintSelfTest, PrintDispatchError } from "../../../../lib/print";
 import { requirePermission } from "../../../../lib/permissions";
 
@@ -19,6 +20,7 @@ export async function POST(req: Request) {
     const body = await req.json().catch(() => null) as { target?: unknown } | null;
     const target = parseTarget(body?.target);
     const result = await dispatchPrintSelfTest(target);
+    after(() => recordPrintConfirmation(result, "printer", target));
     return NextResponse.json({ ok: true, target, ...result });
   } catch (err: any) {
     if (err.message === "UNAUTHORIZED") return NextResponse.json({ error: "未登录" }, { status: 401 });

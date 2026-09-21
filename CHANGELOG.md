@@ -127,3 +127,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Recover transient XPYUN connections with a longer deadline and one deduplicated retry.
 - Await bill cloud acceptance on Android/web; expose failures and real cloud printer status.
 - Preserve unknown-outcome safety, existing order idempotency and old-client rollout compatibility.
+
+
+## 1.1.4 - 2026-09-21
+
+Restore kitchen and front-desk copies per order. Fix provider deduplication failure reports. Resolve ambiguous web/native submissions by reading their original key, and distinguish bill-refresh failure after a saved order. Layout unchanged.
