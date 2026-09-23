@@ -24,3 +24,12 @@
 ## 验证与上线
 
 TypeScript 检查、186 项隔离测试和生产构建通过；print-env 检查通过。初次检查发现 UUID 默认参数类型推断和测试夹具路径问题，已修正。全套中 185 项通过后，仅重跑受夹具路径影响的 11 项查询/账单测试（全通过），其余不重复。未运行 Android 构建或测试、未打包 APK。提交时线上部署尚待完成，以交付确认记录为准。隔离测试不连接生产打印机、不修改订单/队列。即使上线成功，本次实体出纸故障仍未验收解决；后台重整与设备恢复必须分别报告。
+
+
+## 部署确认
+
+- 后台提交 `7779d05b177de4b12ec68a9bc8b22f0b4e17b6f7` 已经 GitHub Desktop 推送 main。CLI 缺少推送凭据，未改凭据设置。
+- Vercel 初始检查短暂报告 blocked，随后同一提交进入构建并最终成功；未修改套餐/权限/项目设置。最终两个检查均 success。
+- 后台部署：https://vercel.com/renfei-zhaos-projects/rdv-order/ABi7CnW9YiqLWQvTsmFB36eXCThH 。下载站关联部署：https://vercel.com/renfei-zhaos-projects/rdv-downloads/9JGdnk9H6g3uKdRZ1uknbjqVNQYQ 。下载站无源代码或 APK 改动。
+- 发布后直连生产只读菜单、桌台、打印配置健康检查、APP 更新接口均 HTTP200；primary=xpyun、configured=true、versionCode=12。没有追加纸张测试或操作队列。
+- 实体出纸尚未恢复验收。最新现场事实仍是官方纯文字测试未出纸，不能用上述构建/HTTP成功覆盖该事实。

@@ -18,4 +18,15 @@ Reused implementation checks: 132 web tests, TypeScript/build; 61 JVM tests, deb
 
 ## Deployment
 
-Prepared for one main-branch push to both existing Git-linked Vercel projects. Final deployment states and public checksum evidence will be recorded after the push. No new runtime tests are required for that documentation-only evidence update.
+Commit `fbd7aef978593b92a414d11000b19d26cf8ecca6` was pushed to main through GitHub Desktop. Both production checks report success:
+
+- Backend: https://vercel.com/renfei-zhaos-projects/rdv-order/FCyQXrfDLcurjTpKd6yAKRXDUZi6
+- Downloads: https://vercel.com/renfei-zhaos-projects/rdv-downloads/FvyLcPip4uZsvNL1NaCzZMbj1qQd
+
+Direct, no-proxy IPv4 HTTPS validation passed for public release metadata, full APK SHA/size, stable APK link, page version/link, and backend `/api/app-release` version 1.1.2/code 11 with both update notes. Public delta SHA/size matches; applying that downloaded delta to immutable 1.1.1 reproduces the downloaded signed 1.1.2 byte for byte.
+
+The initial Node-fetch verification timed out; a bounded parallel curl download also timed out after receiving 1,002,192 of 1,278,175 delta bytes in 30 seconds. A subsequent direct delta download completed fully in 7.781 seconds and passed verification. This is recorded as variable local download performance, not evidence of hotel-network speed. The existing native APK/delta download uses a five-minute call budget, not the report-query deadline.
+
+Public download: https://download.resortdejavu.cn ; full installer: https://download.resortdejavu.cn/releases/rdv-order-1.1.2.apk . Existing 1.1.1 clients receive the code-10 differential update with full fallback. Published update remains mandatory under the existing policy.
+
+No release blocker remains from the performed checks. Real hotel-device/network acceptance remains unclaimed. Final local evidence is a documentation-only update and does not trigger another deployment.

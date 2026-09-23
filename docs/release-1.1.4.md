@@ -19,4 +19,8 @@ User explicitly authorized the APP update with unchanged layout. Order submissio
 
 ## Delivery boundary
 
-Deployment and public-download evidence will be appended locally after publication. Exclude unrelated pending Staff download changes. Hotel physical two-copy acceptance is still outstanding. Background queryOrderState reports are stored as manufacturer confirmation, never described as independent physical verification; missing remote IDs remain unconfirmed.
+LIVE through `8815f12af5606d325fb6915da86e7abfdbe85380`; GitHub Desktop push completed and origin/main matches. Both Vercel checks succeeded: backend deployment `8DNZbz37h6BNNmKPpZZ2EezLZ1Qd`, downloads deployment `5JrouWcdf4FntVSzvMrFVDnGcbZm`.
+
+Direct, no-proxy HTTPS reads verified public release.json and backend app-release return 1.1.4/code13 with bilingual notes. Public full APK and stable APK are byte-identical with the recorded SHA-256. Downloaded code12 delta checksum matches; reconstruction using the publicly downloaded 1.1.3 base is byte-exact against the public 1.1.4 APK. An initial Node fetch batch timed out; the successful verification used direct curl without disabling TLS. This does not establish hotel-network reliability.
+
+Unrelated pending Staff download changes were excluded. Hotel physical two-copy acceptance is still outstanding. Background queryOrderState reports are stored as manufacturer confirmation, never described as independent physical verification; missing remote IDs remain unconfirmed. The isolated emulator was stopped after verification. This post-publication evidence is recorded locally without another deployment.

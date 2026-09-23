@@ -28,4 +28,13 @@ User requested all backend-only improvements from the read-only review, with no 
 
 ## Delivery
 
-Local verification complete; production deployment will be recorded after pushing the reviewed backend-only commit. Existing public app remains 1.1.3/code 12 (Android 8+), with its full APK and delta untouched. Physical hotel paper acceptance remains an on-site boundary; fixture acceptance is not proof of a hardware/network repair.
+Commit `77ede665d00817253e8cd71f9dd3fc78d55338b4` pushed through GitHub Desktop. Both final Vercel GitHub checks succeeded, and the authenticated backend production overview independently shows this exact commit Ready. Existing public app remains 1.1.3/code 12 (Android 8+), with its full APK and delta untouched. Physical hotel paper acceptance remains an on-site boundary; fixture acceptance is not proof of a hardware/network repair.
+
+
+Production evidence (retained locally after the single delivery push):
+
+- Backend: https://vercel.com/renfei-zhaos-projects/rdv-order/24mmqfwmUfxwjQAvjFbjMv5CrruH
+- Downloads: https://vercel.com/renfei-zhaos-projects/rdv-downloads/EsHiazC1NAF1Mu8eG2XNYpgXLc7X (same existing artifacts/metadata).
+- Initial backend GitHub check reported blocked; final check and production dashboard are successful. No account, project, provider or production-secret configuration was changed.
+- Direct/no-proxy GET menu, tables, print health and app release all returned 200. Live menu/current search fields and ordering matched original SQL reads exactly. App release remains 1.1.3/code12. There was no open table, so no live bill/checkout was attempted.
+- Health response had `livePrinter.status=unknown`, queue pending=0/failed=1. One separate local direct read-only XPYUN status query returned HTTP200/code0/data1 (online), 366ms. This is a different network path and does not prove hotel paper output or that the earlier server-to-provider status request succeeded. No test print, queue recovery or queue clear was performed.

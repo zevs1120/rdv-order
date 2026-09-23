@@ -1,6 +1,6 @@
 # 打印链路重建（2026-09-23）
 
-当前状态：**新实现及签名 APK 已完成；迁移026已应用，代码尚待部署**。没有向酒店打印机发送新测试单，也没有验证实物出纸。此文记录代码边界；云端受理、云端完成和纸张实际打印是三个不同结果。
+当前状态：**1.2.0/code14 已上线；迁移026已应用，两项目部署成功**。没有向酒店打印机发送新测试单，也没有验证实物出纸。此文记录代码边界；云端受理、云端完成和纸张实际打印是三个不同结果。
 
 ## 新链路边界
 
@@ -12,8 +12,10 @@ XPYUN 请求固定 `mode=1`，`expiresIn` 取任务创建后 120 秒窗口的剩
 
 ## 本地证据与未完成项
 
-已执行 6 个隔离 PostgreSQL WASM 队列测试和一次 TypeScript 类型检查，均通过；覆盖快照不变、旧队列隔离、单打印机发送租约、同键重试、过期限制、云端受理后写库故障不重发。随后同步了 `db/schema.sql` 与本文档，未再运行测试。发布前仍需完成整体打印 API/Workflow 集成的相应基础检查、迁移部署和酒店实物出纸验收；在此之前不能称为打印故障已修复。
+已执行 6 个隔离 PostgreSQL WASM 队列测试和一次 TypeScript 类型检查，均通过；覆盖快照不变、旧队列隔离、单打印机发送租约、同键重试、过期限制、云端受理后写库故障不重发。随后同步了 `db/schema.sql` 与本文档，未再运行测试。整体订单/账单基础检查、迁移和部署随后已完成（见下节）；酒店实物出纸仍由用户现场试用确认。
 
 ## Delivery preparation
 
 Signed Android 1.2.0/code14 is staged with the original signer and Android8+ baseline. Full APK 1,625,433 bytes; code13 delta 1,282,709 bytes, byte-exact reconstruction checked by the staging tool. Targeted order/receipt integration (9), queue (6), transport (3), client API (14), repository JVM tests, TypeScript, Next production build and Android release build/lintVital were used; unrelated full suites/device scenarios were not rerun. Release record: `release-1.2.0.md`. No live print or historical queue mutation.
+
+Final direct reads: public metadata/update1.2.0/code14, full/delta hashes, new print status API passed. Printer cloud status online348ms; this read is not a physical paper test. Final deployment IDs/status are recorded in `release-1.2.0.md`.
