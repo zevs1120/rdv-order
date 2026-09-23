@@ -1,5 +1,10 @@
 # Printer Deploy Checklist
 
+## Current printing deployment — 2026-09-23
+
+The former dispatcher, cloud/agent fallback and direct-print modules have been removed. Only official XPYUN is used, with the existing account/SN/origin. Apply migration 026, deploy the Workflow-enabled Next build, then distribute Android 1.2.0/code14. No new hotel hardware, manual worker, cron, node switch, device rebinding or cloud queue reset is needed. The hosted Workflow uses the existing Vercel project; no printer credential is passed as a workflow argument. New jobs use mode=1 and a creation-based 120-second expiry. Legacy print_jobs never enter the new executor. See [rebuild](print-rebuild-2026-09-23.md) and [release](release-1.2.0.md). Earlier setup sections below are retained as historical context.
+
+
 ## Print Behavior (Current)
 - User-confirmed acceptance baseline: the previous Vercel deployment automatically printed after submission, with the existing queue-clear button for operator recovery. Do not infer that Vercel needs a separate scheduler just from the current local route.
 - Git history: `d89d3ec` awaited the worker after order commit; `0b704d8` changed that to background wake; `ee66a93` removed the call. The user confirms there is no current deployment. This change restores the missing trigger before creating the new Vercel project.

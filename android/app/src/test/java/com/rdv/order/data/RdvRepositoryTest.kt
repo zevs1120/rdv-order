@@ -30,19 +30,31 @@ private class RecordingTransport : Transport {
 }
 
 class RdvRepositoryTest {
-    @Test fun `bill printing waits for backend acceptance and never replays the write`() = runBlocking {
-        val api = RecordingTransport()
-        val repository = RdvRepository(api, MemoryStore(), { "https://fixture.invalid" })
-        api.handler = { "{\"accepted\":true}" }
-        repository.printBill("06")
-        val request = api.calls.single()
-        assertEquals("/api/tables/print-bill", request.path)
-        assertTrue(request.body!!.jsonObject.flag("waitForResult"))
-        assertEquals(45_000L, request.timeoutMs)
-        assertEquals(0, request.retries)
-        api.handler = { throw ApiException(504, "print result unknown") }
-        assertTrue(runCatching { repository.printBill("06") }.exceptionOrNull() is ApiException)
-        assertEquals(2, api.calls.size)
+    @Test fun `bill printing preserves one intent across lost response and process restart`() = runBlocking {
+        val api = RecordingTransport(); val store = MemoryStore()
+        var next = 0
+        val repository = RdvRepository(api, store, { "https://fixture.invalid" }, newKey = { "print-${++next}" })
+        repository.login("staff", "test")
+        api.handler = { call ->
+            if (call.path == "/api/tables/print-bill") throw IOException("response lost")
+            "{\"found\":false}"
+        }
+        assertEquals(BillPrintResult.PENDING, repository.printBill("06", "session-a"))
+        val restored = RdvRepository(api, store, { "https://fixture.invalid" }, newKey = { "print-${++next}" })
+        restored.restoreSession()
+        api.handler = { call ->
+            if (call.path == "/api/print/status") "{\"found\":false}"
+            else "{\"ok\":true,\"queued\":true,\"jobId\":\"job-1\"}"
+        }
+        assertEquals(BillPrintResult.QUEUED, restored.printBill("06", "session-a"))
+        val writes = api.calls.filter { it.path == "/api/tables/print-bill" }
+        assertEquals(2, writes.size)
+        assertEquals("print-1", writes[0].key)
+        assertEquals(writes[0].key, writes[1].key)
+        assertEquals(8_000L, writes[1].timeoutMs)
+        assertEquals(0, writes[1].retries)
+        assertEquals(BillPrintResult.QUEUED, restored.printBill("06", "session-a"))
+        assertEquals("print-2", api.calls.last { it.path == "/api/tables/print-bill" }.key)
     }
 
     @Test fun `first submission timeout resolves saved order by read without replay`() = runBlocking {

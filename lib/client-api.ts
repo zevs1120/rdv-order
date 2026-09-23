@@ -426,3 +426,54 @@ export async function submitOrderRecovering(body: unknown, key: string): Promise
     throw error;
   }
 }
+
+export type BillPrintResult = "queued" | "pending" | "failed";
+
+// A previous lost response is checked before resending the same intent. The
+// caller persists requestId before the first write and keeps it while pending.
+export async function submitBillPrintRecovering(tableNo: string, sessionId: string, requestId: string, existing: boolean): Promise<BillPrintResult> {
+  const status = async (): Promise<BillPrintResult | "missing"> => {
+    const result = await apiFetchJson<{ found: boolean; status?: string }>(
+      `/api/print/status?requestId=${encodeURIComponent(requestId)}`,
+      { timeoutMs: 4500, retries: 0, cacheTtlMs: 0, dedupeGet: false }
+    );
+    if (!result.found) return "missing";
+    if (result.status === "failed" || result.status === "expired" || result.status === "cancelled") return "failed";
+    if (result.status === "queued" || result.status === "sending" || result.status === "accepted" || result.status === "completed") return "queued";
+    return "pending";
+  };
+
+  if (existing) {
+    try {
+      const current = await status();
+      if (current !== "missing") return current;
+    } catch (error) {
+      if (error instanceof HttpResponseError && error.status === 401) throw error;
+      return "pending";
+    }
+  }
+  try {
+    const result = await apiFetchJson<{ ok: boolean; queued: boolean; status?: string }>("/api/tables/print-bill", {
+      method: "POST", headers: { "X-Idempotency-Key": requestId }, body: { tableNo, sessionId },
+      timeoutMs: 8000, retries: 0, adaptiveTimeout: false
+    });
+    if (result.ok && result.queued) {
+      if (result.status === "unknown") return "pending";
+      if (result.status === "failed" || result.status === "expired" || result.status === "cancelled") return "failed";
+      return "queued";
+    }
+  } catch (error) {
+    if (error instanceof HttpResponseError && error.status === 401) throw error;
+    try {
+      const current = await status();
+      if (current !== "missing") return current;
+    } catch { /* A lost response does not authorize a new print intent. */ }
+    if (error instanceof HttpResponseError && error.status < 500 && error.status !== 408 && error.status !== 409) return "failed";
+    return "pending";
+  }
+  try {
+    const current = await status();
+    if (current !== "missing") return current;
+  } catch { /* Preserve the same intent for the next explicit click. */ }
+  return "pending";
+}

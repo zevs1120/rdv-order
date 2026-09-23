@@ -1,114 +1,64 @@
 import { NextResponse } from "next/server";
-import { queryPrimaryPrinterStatus } from "../../../../lib/print";
+import { queryPrimaryPrinterStatus, printerConfigured } from "../../../../lib/printing/service";
 import { pool } from "../../../../lib/db";
 import { requirePermission } from "../../../../lib/permissions";
 
-type Provider = "cloud" | "agent" | "xpyun";
-
-function parseProvider(raw: string | undefined, fallback: Provider): Provider {
-  const value = String(raw || "").toLowerCase();
-  if (value === "agent") return "agent";
-  if (value === "xpyun") return "xpyun";
-  if (value === "cloud") return "cloud";
-  return fallback;
-}
-
-function configFor(provider: Provider) {
-  if (provider === "xpyun") {
-    const aliasUser = process.env.USERKEY || process.env.XPYUN_USERKEY || process.env.SN ? process.env.USER : "";
-    return {
-      url: process.env.XPYUN_API_URL || "https://open.xpyun.net/api/openapi/xprinter/print",
-      tokenSet: Boolean(
-        (process.env.XPYUN_USER || aliasUser)
-        && (process.env.XPYUN_USER_KEY || process.env.XPYUN_USERKEY || process.env.USERKEY)
-        && (process.env.XPYUN_SN || process.env.SN)
-      )
-    };
-  }
-  if (provider === "cloud") {
-    return {
-      url: process.env.PRINT_CLOUD_URL || "",
-      tokenSet: Boolean(process.env.PRINT_CLOUD_API_KEY)
-    };
-  }
+function xpyunConfig() {
+  const aliasUser = process.env.USERKEY || process.env.XPYUN_USERKEY || process.env.SN ? process.env.USER : "";
   return {
-    url: process.env.PRINT_AGENT_URL || "",
-    tokenSet: Boolean(process.env.PRINT_AGENT_TOKEN)
+    url: process.env.XPYUN_API_URL || "https://open.xpyun.net/api/openapi/xprinter/print",
+    tokenSet: Boolean(
+      (process.env.XPYUN_USER || aliasUser)
+      && (process.env.XPYUN_USER_KEY || process.env.XPYUN_USERKEY || process.env.USERKEY)
+      && (process.env.XPYUN_SN || process.env.SN)
+    )
   };
 }
 
 function parseList(csv: string | undefined) {
-  return String(csv || "")
-    .split(",")
-    .map((v) => v.trim())
-    .filter(Boolean);
+  return String(csv || "").split(",").map((value) => value.trim()).filter(Boolean);
 }
 
 export async function GET(req: Request) {
   try {
     await requirePermission(req, "device.view");
 
-    const primary = parseProvider(process.env.PRINT_PROVIDER, "cloud");
-    const fallback = parseProvider(process.env.PRINT_FALLBACK_PROVIDER, primary);
-    const hasFallback = fallback !== primary && Boolean(process.env.PRINT_FALLBACK_PROVIDER);
-
-    const primaryConfig = configFor(primary);
-    const fallbackConfig = hasFallback ? configFor(fallback) : null;
-    const primaryReady = Boolean(primaryConfig.url && primaryConfig.tokenSet);
-    const fallbackReady = fallbackConfig ? Boolean(fallbackConfig.url && fallbackConfig.tokenSet) : false;
+    const primaryConfig = xpyunConfig();
+    const primaryReady = printerConfigured();
     const workerKeySet = Boolean(process.env.PRINT_WORKER_KEY);
     const heartbeatKeySet = Boolean(process.env.DEVICE_HEARTBEAT_KEY);
     const routeBarCategories = parseList(process.env.PRINT_ROUTE_BAR_CATEGORIES);
     const routeBarKeywords = parseList(process.env.PRINT_ROUTE_BAR_KEYWORDS);
 
-    const warnings: string[] = [];
-    if (!primaryReady) warnings.push(`primary(${primary}) config incomplete`);
-    if (hasFallback && !fallbackReady) warnings.push(`fallback(${fallback}) config incomplete`);
-    if (!workerKeySet) warnings.push("PRINT_WORKER_KEY not set");
-    if (!heartbeatKeySet) warnings.push("DEVICE_HEARTBEAT_KEY not set");
+    const [livePrinter, queue] = await Promise.all([
+      queryPrimaryPrinterStatus(),
+      pool.query<{ pending: number; failed: number }>(
+        `SELECT
+           COUNT(*) FILTER (WHERE status IN ('queued', 'sending', 'accepted'))::int AS pending,
+           COUNT(*) FILTER (WHERE status IN ('failed', 'unknown', 'expired'))::int AS failed
+         FROM print_deliveries`
+      )
+    ]);
 
-    const [livePrinter, queue] = await Promise.all([queryPrimaryPrinterStatus(), pool.query<{ pending: number; failed: number }>(
-      `SELECT
-         COUNT(*) FILTER (WHERE status IN ('pending', 'printing'))::int AS pending,
-         COUNT(*) FILTER (WHERE status = 'failed')::int AS failed
-       FROM print_jobs`
-    )]);
+    const pending = Number(queue.rows[0]?.pending) || 0;
+    const failed = Number(queue.rows[0]?.failed) || 0;
+    const warnings: string[] = [];
+    if (!primaryReady) warnings.push("芯烨云打印配置未完成");
+    if (failed > 0) warnings.push(`有 ${failed} 条打印任务需要处理`);
 
     return NextResponse.json({
       livePrinter,
-      provider: {
-        primary,
-        fallback: hasFallback ? fallback : null
-      },
+      provider: { primary: "xpyun", fallback: null },
       config: {
-        primary: {
-          ...primaryConfig,
-          ready: primaryReady
-        },
-        fallback: fallbackConfig
-          ? {
-              ...fallbackConfig,
-              ready: fallbackReady
-            }
-          : null,
+        primary: { ...primaryConfig, ready: primaryReady },
+        fallback: null,
         workerKeySet,
         heartbeatKeySet
       },
-      queue: {
-        pending: queue.rows[0]?.pending || 0,
-        failed: queue.rows[0]?.failed || 0
-      },
-      checks: {
-        primaryReady,
-        fallbackReady: hasFallback ? fallbackReady : null,
-        workerKeySet,
-        heartbeatKeySet
-      },
-      routes: {
-        barCategories: routeBarCategories,
-        barKeywords: routeBarKeywords
-      },
-      ready: warnings.length === 0,
+      queue: { pending, failed },
+      checks: { primaryReady, fallbackReady: null, workerKeySet, heartbeatKeySet },
+      routes: { barCategories: routeBarCategories, barKeywords: routeBarKeywords },
+      ready: primaryReady,
       warnings
     });
   } catch (err: any) {

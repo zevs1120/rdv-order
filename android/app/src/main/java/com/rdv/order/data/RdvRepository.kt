@@ -17,10 +17,12 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.*
 
 @Serializable data class Workspace(val draft: Draft, val pending: List<PendingSubmission> = emptyList())
+enum class BillPrintResult { QUEUED, PENDING, FAILED }
 
 class RdvRepository(val api: Transport, private val store: KeyValueStore, private val origin: () -> String,
     private val clock: () -> Long = System::currentTimeMillis, private val newKey: () -> String = { UUID.randomUUID().toString() }) {
     private val workspaceMutex = Mutex()
+    private val billPrintMutex = Mutex()
     private val menuMemory = java.util.Collections.synchronizedMap(LinkedHashMap<String, CachedMenu>())
     private fun menuKey(shift: String) = "menu:${digest(storageOrigin())}:$shift"
     // Match the public menu's existing 60-second freshness window; never cache financial reports here.
@@ -174,7 +176,58 @@ class RdvRepository(val api: Transport, private val store: KeyValueStore, privat
         return result
     }
     suspend fun bill(table: String): Bill = decodeResponse<Bill>(api.request("/api/tables/bill", query = mapOf("tableNo" to table), timeoutMs = 6_000).text)
-    suspend fun printBill(table: String) { api.request("/api/tables/print-bill", "POST", jsonBody("tableNo" to table, "waitForResult" to true), timeoutMs = 45_000, retries = 0) }
+    suspend fun printBill(table: String, sessionId: String): BillPrintResult = billPrintMutex.withLock {
+        require(table.isNotBlank() && sessionId.isNotBlank()) { "请刷新账单后重试" }
+        val storageKey = "bill-print:${scope()}:$table:$sessionId"
+        val previous = withContext(Dispatchers.IO) { store.get(storageKey) }
+        val requestId = previous ?: newKey().also { key ->
+            // Persist the intent before any network write, including across process restarts.
+            withContext(Dispatchers.IO) { store.put(storageKey, key) }
+        }
+        suspend fun status(): BillPrintResult? {
+            val body = RdvJson.parseToJsonElement(api.request("/api/print/status",
+                query = mapOf("requestId" to requestId), timeoutMs = 4_500, retries = 0).text).jsonObject
+            if (!body.flag("found")) return null
+            return when (body.text("status")) {
+                "failed", "expired", "cancelled" -> BillPrintResult.FAILED
+                "queued", "sending", "accepted", "completed" -> BillPrintResult.QUEUED
+                else -> BillPrintResult.PENDING
+            }
+        }
+        if (previous != null) {
+            val known = try { status() } catch (error: Exception) {
+                currentCoroutineContext().ensureActive()
+                if (error is ApiException && error.status == 401) throw error
+                return@withLock BillPrintResult.PENDING
+            }
+            if (known != null) {
+                if (known != BillPrintResult.PENDING) withContext(Dispatchers.IO) { runCatching { store.remove(storageKey) } }
+                return@withLock known
+            }
+        }
+        val outcome = try {
+            val body = RdvJson.parseToJsonElement(api.request("/api/tables/print-bill", "POST",
+                jsonBody("tableNo" to table, "sessionId" to sessionId), idempotencyKey = requestId, timeoutMs = 8_000, retries = 0).text).jsonObject
+            if (body.flag("ok") && body.flag("queued")) when (body.text("status")) {
+                "unknown" -> BillPrintResult.PENDING
+                "failed", "expired", "cancelled" -> BillPrintResult.FAILED
+                else -> BillPrintResult.QUEUED
+            }
+            else try { status() ?: BillPrintResult.PENDING } catch (error: Exception) {
+                currentCoroutineContext().ensureActive(); BillPrintResult.PENDING
+            }
+        } catch (error: Exception) {
+            currentCoroutineContext().ensureActive()
+            if (error is ApiException && error.status == 401) throw error
+            val known = try { status() } catch (lookupError: Exception) {
+                currentCoroutineContext().ensureActive(); null
+            }
+            known ?: if (error is ApiException && error.status < 500 && error.status != 408 && error.status != 409) BillPrintResult.FAILED
+            else BillPrintResult.PENDING
+        }
+        if (outcome != BillPrintResult.PENDING) withContext(Dispatchers.IO) { runCatching { store.remove(storageKey) } }
+        outcome
+    }
     suspend fun checkout(table: String, expectedSessionId: String? = null, expectedTotalAmount: Long? = null): CheckoutResult = RdvJson.decodeFromString<CheckoutResult>(api.request("/api/tables/checkout", "POST", jsonBody("tableNo" to table, "expectedSessionId" to expectedSessionId, "expectedTotalAmount" to expectedTotalAmount), timeoutMs = 8_000, retries = 1).text)
     suspend fun close(table: String) { api.request("/api/tables/close", "POST", jsonBody("tableNo" to table), timeoutMs = 7_000, retries = 1) }
     suspend fun unmerge(table: String): JsonObject = requestObject("/api/tables/unmerge", "POST", jsonBody("tableNo" to table), timeoutMs = 7_000, retries = 1)

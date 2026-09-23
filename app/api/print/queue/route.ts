@@ -2,36 +2,19 @@ import { NextResponse } from "next/server";
 import { pool } from "../../../../lib/db";
 import { requirePermission } from "../../../../lib/permissions";
 import { writeAuditLogSafe } from "../../../../lib/audit";
-
-type ClearedJobRow = {
-  id: string;
-};
-
 export async function DELETE(req: Request) {
   try {
     const auth = await requirePermission(req, "device.manage");
-    const { rows } = await pool.query<ClearedJobRow>(
-      `DELETE FROM print_jobs
-       WHERE status IN ('pending', 'printing', 'failed')
-       RETURNING id`
+    // Never delete evidence, cancel an in-flight send, or clear the XPYUN queue.
+    const { rows } = await pool.query<{ id: string }>(
+      `UPDATE print_deliveries SET status = 'cancelled', updated_at = now()
+       WHERE status IN ('queued', 'failed', 'expired', 'unknown') RETURNING id`
     );
-
-    await writeAuditLogSafe({
-      actorUserId: auth.userId,
-      action: "print.queue.clear",
-      entityType: "print_queue",
-      entityId: "active",
-      detail: {
-        clearedCount: rows.length,
-        clearedStatuses: ["pending", "printing", "failed"]
-      },
-      req
-    });
-
+    await writeAuditLogSafe({ actorUserId: auth.userId, action: "print.queue.clear",
+      entityType: "print_queue", entityId: "active", detail: { clearedCount: rows.length }, req });
     return NextResponse.json({ ok: true, cleared: rows.length });
-  } catch (err: any) {
-    if (err.message === "UNAUTHORIZED") return NextResponse.json({ error: "未登录" }, { status: 401 });
-    if (err.message === "FORBIDDEN") return NextResponse.json({ error: "无权限" }, { status: 403 });
-    return NextResponse.json({ error: "清空打印队列失败" }, { status: 500 });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "";
+    return NextResponse.json({ error: "暂时无法清理打印任务" }, { status: message === "UNAUTHORIZED" ? 401 : message === "FORBIDDEN" ? 403 : 503 });
   }
 }

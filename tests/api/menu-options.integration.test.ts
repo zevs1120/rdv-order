@@ -5,6 +5,7 @@ const mocks = vi.hoisted(() => ({ query: vi.fn(), connect: vi.fn(), after: vi.fn
 vi.mock('../../lib/db', () => ({ pool: mocks }));
 vi.mock('../../lib/permissions', () => ({ requireOrderCreate: async () => ({ userId: '11111111-1111-4111-8111-111111111111' }), requirePermission: async () => ({ userId: '11111111-1111-4111-8111-111111111111' }) }));
 vi.mock('../../lib/audit', () => ({ writeAuditLogSafe: vi.fn() }));
+vi.mock('../../lib/printing/start', () => ({ startPrintDelivery: vi.fn() }));
 vi.mock('next/server', async original => ({ ...await original<typeof import('next/server')>(), after: mocks.after }));
 import { POST } from '../../app/api/orders/route';
 import { POST as checkout } from '../../app/api/tables/checkout/route';
@@ -13,7 +14,7 @@ import { POST as merge } from '../../app/api/orders/merge/route';
 import { POST as returnItem } from '../../app/api/orders/[id]/return-item/route';
 import { GET as bill } from '../../app/api/tables/bill/route';
 import { getOrderFinance } from '../../lib/order-finance';
-import { __printTestUtils } from '../../lib/print';
+import { renderOrderTicket } from '../../lib/printing/tickets';
 import { refreshCatalog } from '../../scripts/menu/catalog-september-2026.mjs';
 let db: PGlite;
 let menu: any[];
@@ -25,9 +26,11 @@ const create = async (items: unknown[], key?: string) => POST(request({ tableNo:
 beforeAll(async () => {
   db = new PGlite();
   await db.exec(readFileSync('db/schema.sql', 'utf8').replace('CREATE EXTENSION IF NOT EXISTS pgcrypto;', ''));
+  await db.exec(readFileSync('db/migrations/026_print_deliveries.sql', 'utf8'));
 }, 20000);
 beforeEach(async () => {
   vi.clearAllMocks();
+  vi.stubEnv('XPYUN_USER', 'fixture'); vi.stubEnv('XPYUN_USER_KEY', 'fixture'); vi.stubEnv('XPYUN_SN', 'fixture');
   mocks.query.mockImplementation((sql, params) => db.query(sql, params));
   mocks.connect.mockResolvedValue({ query: async (sql: string, params: unknown[]) => {
     try { return await db.query(sql, params); } catch (err) { console.error('Fixture SQL failure:', (err as Error).message); throw err; }
@@ -44,7 +47,7 @@ it('requires exactly one allowed drink, rejects forged choices/prices and create
     expect((await create([{ menuItemId: item.id, qty: 1, choices, price: 0 }])).status).toBe(400);
   }
   expect((await db.query('SELECT * FROM orders')).rows).toHaveLength(0);
-  expect((await db.query('SELECT * FROM print_jobs')).rows).toHaveLength(0);
+  expect((await db.query('SELECT * FROM print_deliveries')).rows).toHaveLength(0);
   expect(mocks.after).not.toHaveBeenCalled();
 });
 it('free meals retain separate drinks, zero balance and replay does not duplicate the ticket', async () => {
@@ -57,10 +60,11 @@ it('free meals retain separate drinks, zero balance and replay does not duplicat
   expect((await getOrderFinance(orderId))?.totalAmount).toBe(0);
   expect((await (await create(items)).json()).deduped).toBe(true);
   expect(mocks.after).toHaveBeenCalledTimes(1);
-  const content = __printTestUtils.toXpyunKitchenContent({ type: 'order', orderId, tableNo: '01', createdAt: new Date().toISOString(), waiterName: 'fixture',
-    totalQty: 2, totalAmount: 0, tickets: [{ target: 'kitchen', items: rows.map(r => ({ name: item.name, qty: 1, note: r.note, unitPrice: 0, amount: 0, target: 'kitchen' })) }] } as any);
-  expect(content).toContain('CHINESE WONTON SET'); expect(content).toContain('Coke Zero');
-  expect(content).not.toContain('PHP');
+  const content = renderOrderTicket({ tableNo: '01', createdAt: new Date().toISOString(), waiter: 'fixture',
+    items: rows.map(r => ({ name: item.name, qty: 1, note: r.note, unitPrice: 0 })) });
+  const kitchen = content.split('<CB>RDV GUEST COPY<BR></CB>')[0];
+  expect(kitchen).toContain('CHINESE WONTON SET'); expect(kitchen).toContain('Coke Zero');
+  expect(kitchen).not.toContain('PHP');
   await db.exec("INSERT INTO pricing_rules(name,charge_type,mode,value,is_active) VALUES('fixture fixed tax','tax','amount',50,true)");
   const closed = await checkout(request({ tableNo: '01' }));
   expect(closed.status).toBe(200); expect((await closed.json()).totalAmount).toBe(0);

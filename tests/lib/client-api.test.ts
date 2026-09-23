@@ -99,3 +99,20 @@ describe("order response recovery", () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 });
+
+describe("bill print response recovery", () => {
+  it("checks a lost response and reuses the same intent on the next explicit click", async () => {
+    fetchMock.mockRejectedValueOnce(new TypeError("response lost"))
+      .mockResolvedValueOnce(json({ found: false }))
+      .mockResolvedValueOnce(json({ found: false }))
+      .mockResolvedValueOnce(json({ ok: true, queued: true, jobId: "job-1" }, 202));
+    const { submitBillPrintRecovering } = await import("../../lib/client-api");
+    expect(await submitBillPrintRecovering("06", "session-a", "bill-intent-1", false)).toBe("pending");
+    expect(await submitBillPrintRecovering("06", "session-a", "bill-intent-1", true)).toBe("queued");
+    const writes = fetchMock.mock.calls.filter(([url]) => url === "/api/tables/print-bill");
+    expect(writes).toHaveLength(2);
+    expect(writes[0][1].headers.get("X-Idempotency-Key")).toBe("bill-intent-1");
+    expect(writes[1][1].headers.get("X-Idempotency-Key")).toBe("bill-intent-1");
+    expect(JSON.parse(writes[1][1].body).sessionId).toBe("session-a");
+  });
+});

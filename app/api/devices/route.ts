@@ -2,12 +2,13 @@ import { NextResponse } from "next/server";
 import { pool } from "../../../lib/db";
 import { requirePermission } from "../../../lib/permissions";
 import { writeAuditLogSafe } from "../../../lib/audit";
+import { queryPrimaryPrinterStatus } from "../../../lib/printing/service";
 
 export async function GET(req: Request) {
   try {
     await requirePermission(req, "device.view");
 
-    const [devices, jobs] = await Promise.all([
+    const [devices, jobs, livePrinter] = await Promise.all([
       pool.query(
         `SELECT id, device_code, device_type, label, status, is_backup, fail_count, last_seen_at, last_error, updated_at
          FROM device_status
@@ -15,44 +16,44 @@ export async function GET(req: Request) {
       ),
       pool.query<{ pending: number; failed: number }>(
         `SELECT
-           COUNT(*) FILTER (WHERE status IN ('pending', 'printing'))::int AS pending,
-           COUNT(*) FILTER (WHERE status = 'failed')::int AS failed
-         FROM print_jobs`
-      )
+           COUNT(*) FILTER (WHERE status IN ('queued', 'sending', 'accepted'))::int AS pending,
+           COUNT(*) FILTER (WHERE status IN ('failed', 'unknown', 'expired'))::int AS failed
+         FROM print_deliveries`
+      ),
+      queryPrimaryPrinterStatus()
     ]);
 
-    const failThreshold = Math.max(1, Number(process.env.PRINT_ALERT_FAIL_COUNT || 3) || 3);
-    const queueFailedThreshold = Math.max(1, Number(process.env.PRINT_ALERT_QUEUE_FAILED || 3) || 3);
-
+    const pending = Number(jobs.rows[0]?.pending) || 0;
+    const failed = Number(jobs.rows[0]?.failed) || 0;
     const alerts: Array<{
       level: "warning" | "critical";
       code: string;
       message: string;
     }> = [];
-    for (const device of devices.rows as Array<{ device_code: string; fail_count: number; status: string; is_backup: boolean }>) {
-      if ((device.fail_count || 0) >= failThreshold) {
-        alerts.push({
-          level: device.status === "offline" ? "critical" : "warning",
-          code: "device_fail_count_high",
-          message: `${device.device_code} 连续失败 ${device.fail_count} 次`
-        });
-      }
-    }
-    const queueFailed = jobs.rows[0]?.failed || 0;
-    if (queueFailed >= queueFailedThreshold) {
+    if (failed > 0) {
       alerts.push({
         level: "critical",
-        code: "print_queue_failed_high",
-        message: `打印失败队列 ${queueFailed}，建议切换备用打印通道`
+        code: "print_queue_needs_attention",
+        message: `有 ${failed} 条打印任务需要处理`
       });
     }
 
+    const deviceRows = devices.rows as Array<Record<string, unknown> & { device_code: string; status: string; last_seen_at: string | null }>;
+    const visibleDevices = deviceRows.map((device) => device.device_code === "printer-primary"
+      ? {
+          ...device,
+          status: livePrinter.status,
+          last_seen_at: livePrinter.status === "unknown" ? null : livePrinter.checkedAt,
+          live_status: livePrinter.status,
+          live_checked_at: livePrinter.checkedAt,
+          live_latency_ms: livePrinter.latencyMs
+        }
+      : device);
+
     return NextResponse.json({
-      devices: devices.rows,
-      printQueue: {
-        pending: jobs.rows[0]?.pending || 0,
-        failed: jobs.rows[0]?.failed || 0
-      },
+      devices: visibleDevices,
+      livePrinter,
+      printQueue: { pending, failed },
       alerts
     });
   } catch (err: any) {

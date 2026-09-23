@@ -378,8 +378,14 @@ class RdvViewModel(val repository: RdvRepository, val strings: Strings, private 
         enterTableInternal(TableInfo(tableNo, listOf(tableNo), status = "open", guestCount = body.number("guestCount").toInt()))
     }
     fun printBill() = action {
-        repository.printBill(state.value.draft!!.tableNo)
-        message(text("order.printReceiptSuccess"))
+        val draft = state.value.draft ?: return@action
+        val sessionId = state.value.bill?.sessionId
+        if (sessionId.isNullOrBlank()) { error(either("请刷新账单后重试", "Refresh the bill and try again.")); return@action }
+        when (repository.printBill(draft.tableNo, sessionId)) {
+            BillPrintResult.QUEUED -> message(either("正在打印", "Printing…"))
+            BillPrintResult.PENDING -> message(either("正在处理，请稍后重试", "Still processing. Try again shortly."))
+            BillPrintResult.FAILED -> error(either("打印失败，请重试", "Printing failed. Try again."))
+        }
     }
     fun returnItem(order: String, item: BillItem, qty: Int) = action {
         require(qty in 1..item.qty) { "退菜数量无效" }

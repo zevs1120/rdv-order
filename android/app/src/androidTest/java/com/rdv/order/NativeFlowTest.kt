@@ -50,7 +50,7 @@ class NativeFlowTest {
         add.performScrollTo().assertIsDisplayed()
         compose.onNodeWithTag("submit").assertIsDisplayed()
     }
-    @Test fun printConnectionFailuresRemainVisibleAndWritesAreNotReplayed() {
+    @Test fun printResponseLossKeepsOneIntentUntilExplicitRetry() {
         login(); openTable()
         transport.printDelayMs = 2200
         transport.printFailure = true
@@ -58,13 +58,16 @@ class NativeFlowTest {
         compose.waitUntil(5_000) { transport.calls.any { it.path == "/api/tables/print-bill" } }
         assertTrue(vm.state.value.busy)
         compose.waitUntil(10_000) { !vm.state.value.busy }
-        assertTrue(vm.state.value.error.contains("Print service timed out"))
+        assertEquals("Still processing. Try again shortly.", vm.state.value.message)
         assertEquals(1, transport.calls.count { it.path == "/api/tables/print-bill" })
         transport.printFailure = false
         compose.runOnIdle { vm.printBill() }
         compose.waitUntil(10_000) { !vm.state.value.busy }
         assertEquals("", vm.state.value.error)
+        assertEquals("Printing…", vm.state.value.message)
         assertEquals(2, transport.calls.count { it.path == "/api/tables/print-bill" })
+        val writes = transport.calls.filter { it.path == "/api/tables/print-bill" }
+        assertEquals(writes[0].key, writes[1].key)
     }
     @Test fun devicePageDisplaysActualCloudOfflineState() {
         transport.livePrinterStatus = "offline"

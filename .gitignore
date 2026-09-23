@@ -31,3 +31,8 @@ android/keystore.properties
 *.jks
 *.keystore
 .vercel
+
+# Generated durable-workflow routes and local run storage
+app/.well-known/workflow/
+.workflow-data/
+/.swc

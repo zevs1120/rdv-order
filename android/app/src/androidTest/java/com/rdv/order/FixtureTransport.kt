@@ -89,8 +89,9 @@ class FixtureTransport : Transport {
             "/api/tables/print-bill" -> {
                 kotlinx.coroutines.delay(printDelayMs)
                 if (printFailure) throw ApiException(504, "打印服务响应超时，结果未确认，请先核对是否出纸")
-                "{\"accepted\":true}"
+                "{\"ok\":true,\"queued\":true,\"jobId\":\"fixture-print-job\"}"
             }
+            "/api/print/status" -> "{\"found\":false}"
             "/api/tables/guests" -> { val table = request.text("tableNo"); opened[table] = request.number("guestCount").toInt(); request.toString() }
             "/api/tables/checkout" -> if (method == "GET") {
                 val table = query["tableNo"] ?: "01"; val current = bill(table)

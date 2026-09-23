@@ -1,6 +1,6 @@
 {
   "name": "rdv-order",
-  "version": "1.1.4",
+  "version": "1.2.0",
   "private": true,
   "engines": {
     "node": "22.x"
@@ -13,7 +13,6 @@
     "build": "next build",
     "start": "next start",
     "check:print-env": "node scripts/check-print-env.js",
-    "worker:print": "node scripts/print-dispatcher.mjs",
     "lint": "tsc --noEmit",
     "test": "VITE_CJS_IGNORE_WARNING=true vitest run",
     "test:watch": "VITE_CJS_IGNORE_WARNING=true vitest",
@@ -25,11 +24,13 @@
     "android:stage-release": "node scripts/android/stage-release.mjs"
   },
   "dependencies": {
+    "iconv-lite": "0.7.0",
     "jose": "^5.9.4",
     "next": "15.5.25",
     "pg": "^8.12.0",
     "react": "18.3.1",
-    "react-dom": "18.3.1"
+    "react-dom": "18.3.1",
+    "workflow": "4.8.9"
   },
   "devDependencies": {
     "@electric-sql/pglite": "0.5.8",

@@ -2,7 +2,10 @@ import { after, NextResponse } from "next/server";
 import { pool } from "../../../lib/db";
 import { requireOrderCreate, requirePermission } from "../../../lib/permissions";
 import { parseItems } from "../../../lib/orders-utils";
-import { runOrderPrintWorker } from "../../../lib/print-worker";
+import { prepareOrderDelivery } from "../../../lib/printing/service";
+import { startPrintDelivery } from "../../../lib/printing/start";
+import { drainDeliveryQueue } from "../../../lib/printing/queue";
+import { XpyunTransport } from "../../../lib/printing/transport";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
@@ -35,7 +38,12 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "请求幂等键格式错误" }, { status: 400 });
     }
 
-    const { rows } = await pool.query<{
+    const tx = await pool.connect();
+    let printJobId: string | undefined;
+    const { rows } = await (async () => {
+      try {
+        await tx.query("BEGIN");
+        const result = await tx.query<{
       session_open: boolean;
       valid_items: boolean;
       order_id: string | null;
@@ -74,14 +82,6 @@ export async function POST(req: Request) {
          FROM created_order co
          JOIN input_items ii ON co.inserted = true
          RETURNING 1
-       ),
-       queued_print AS (
-         INSERT INTO print_jobs (order_id, status, retry_count)
-         SELECT id, 'pending', 0
-         FROM created_order
-         WHERE inserted = true
-         ON CONFLICT (order_id) DO NOTHING
-         RETURNING 1
        )
        SELECT
          EXISTS (SELECT 1 FROM session_ok) AS session_open,
@@ -99,6 +99,19 @@ export async function POST(req: Request) {
         items.map((item) => JSON.stringify(item.choices || {}))
       ]
     );
+        const saved = result.rows[0];
+        if (saved?.inserted && saved.order_id) {
+          const delivery = await prepareOrderDelivery(tx, saved.order_id);
+          printJobId = delivery.id;
+          await startPrintDelivery(delivery.id);
+        }
+        await tx.query("COMMIT");
+        return result;
+      } catch (error) {
+        await tx.query("ROLLBACK").catch(() => {});
+        throw error;
+      } finally { tx.release(); }
+    })();
 
     const result = rows[0];
     if (!result?.session_open) {
@@ -112,22 +125,15 @@ export async function POST(req: Request) {
     }
 
     const deduped = result.inserted === false;
-    if (result.inserted === true && String(process.env.PRINT_WAKE_ON_ORDER || "true").trim().toLowerCase() !== "false") {
-      const orderId = result.order_id;
+    if (printJobId) {
+      const jobId = printJobId;
+      // Fast local wake; the durable run remains responsible after interruption.
       try {
-        // Keep printing inside the serverless request lifetime without delaying the order receipt.
         after(async () => {
-          try {
-            const printResult = await runOrderPrintWorker(orderId);
-            if (printResult.failed) console.error("[order-print] print failed; inspect print queue");
-          } catch {
-            console.error("[order-print] worker failed; inspect print queue");
-          }
+          try { await drainDeliveryQueue({ jobId, transportForSn: sn => XpyunTransport.fromEnvironment(sn), maxJobs: 2 }); }
+          catch { console.error("[print] fast wake deferred to durable delivery"); }
         });
-      } catch {
-        // The order is already committed. Keep its receipt valid and its queued job recoverable.
-        console.error("[order-print] scheduling failed; inspect print queue");
-      }
+      } catch { /* The committed task already has a durable recovery owner. */ }
     }
     return NextResponse.json({
       orderId: result.order_id,

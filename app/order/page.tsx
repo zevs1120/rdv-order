@@ -1,6 +1,6 @@
 "use client";
 
-import { submitOrderRecovering } from "../../lib/client-api";
+import { submitOrderRecovering, submitBillPrintRecovering } from "../../lib/client-api";
 
 import { useConnectionRefresh } from "../../lib/use-connection-refresh";
 import { SvgIcon } from "../../components/ui/svg-icon";
@@ -103,6 +103,14 @@ type ToastState = {
   actionLabel?: string;
   onAction?: () => void;
 };
+
+function billPrintAccountId(): string {
+  const token = getStoredAuth().token;
+  try {
+    const claim = JSON.parse(atob(token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/")));
+    return typeof claim.userId === "string" ? claim.userId : "";
+  } catch { return ""; }
+}
 type MenuCachePayload = {
   updatedAt: number;
   items: MenuItem[];
@@ -1228,16 +1236,22 @@ export default function OrderPage() {
     setError("");
     setPrintingBillReceipt(true);
     try {
-      await apiFetchJson("/api/tables/print-bill", {
-        method: "POST",
-        body: { tableNo, waitForResult: true },
-        timeoutMs: 45000,
-        retries: 0,
-        adaptiveTimeout: false
-      });
-      window.alert(t("order.printReceiptSuccess", "Guest copy sent to printer"));
+      const accountId = billPrintAccountId();
+      if (!accountId || !billSessionId) throw new Error(lang === "zh" ? "请刷新账单后重试" : "Refresh the bill and try again.");
+      const storageKey = `rdv_bill_print:${accountId}:${tableNo}:${billSessionId}`;
+      const priorId = safeStorageGet("local", storageKey);
+      const requestId = priorId || crypto.randomUUID();
+      if (!priorId) {
+        safeStorageSet("local", storageKey, requestId);
+        if (safeStorageGet("local", storageKey) !== requestId) throw new Error(lang === "zh" ? "无法保存打印请求，请稍后重试" : "Unable to save the print request. Try again.");
+      }
+      const result = await submitBillPrintRecovering(tableNo, billSessionId, requestId, Boolean(priorId));
+      if (result !== "pending") safeStorageRemove("local", storageKey);
+      if (result === "queued") window.alert(lang === "zh" ? "正在打印" : "Printing…");
+      else if (result === "failed") setError(lang === "zh" ? "打印失败，请重试" : "Printing failed. Try again.");
+      else setError(lang === "zh" ? "正在处理，请稍后重试" : "Still processing. Try again shortly.");
     } catch (err: any) {
-      setError(err.message || t("order.printReceiptFailed", "Failed to print receipt"));
+      setError(err.message || (lang === "zh" ? "打印请求失败，请重试" : "Print request failed. Try again."));
     } finally {
       setPrintingBillReceipt(false);
     }

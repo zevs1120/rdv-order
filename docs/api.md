@@ -1,5 +1,14 @@
 # API Reference
 
+## Printing rebuild — 2026-09-23
+
+`POST /api/orders` preserves its input/output and request-key deduplication. The transaction now saves `print_deliveries` and durably starts its workflow before committing; it no longer inserts into historical `print_jobs`.
+
+`POST /api/tables/print-bill` accepts `{tableNo,sessionId?}` and `X-Idempotency-Key`; returns 202 `{ok,queued,jobId,requestId,status}` after the task is saved. `waitForResult` from old clients is accepted but no longer delays the response. `GET /api/print/status?requestId=...` is scoped to the authenticated order-creating user and returns `{found,status?,jobId?}`. Internal statuses are queued/sending/accepted/completed/unknown/failed/expired/cancelled; they are not physical paper proof.
+
+`POST /api/print/dispatch` now requires `device.manage`; it creates one deliberate reprint of a failed/expired new task on a still-open table. Unknown tasks are not replayed. `DELETE /api/print/queue` cancels pending/failed/expired/unknown new tasks and keeps their records; it does not clear the cloud queue or affect in-flight/accepted tasks. Health/devices read only the new task table and current XPYUN status. Old worker-key dispatch is retired.
+
+
 ## Backend maintenance (2026-09-19)
 
 Existing request/response fields, permissions and client workflows remain unchanged. Bill reads are combined and scoped to relevant orders; menu/current search share a scan; checkout batches finance reads without changing amounts or locking. Receipt preparation retains byte-identical content. Print recovery never resends abandoned unknown outcomes or cloud-accepted jobs just because a database save failed. See [implementation and verification](backend-maintenance-2026-09-19.md).
@@ -21,7 +30,7 @@ Base: Next.js Route Handlers under `app/api`.
 ## Auth & Permission
 - JWT bearer token: `Authorization: Bearer <token>`
 - Permission checks are enforced server-side (`requirePermission`).
-- Worker-only header for print dispatch: `X-Print-Worker-Key`.
+- Print dispatch requires an authenticated manager with `device.manage`.
 
 ## Endpoint Index
 

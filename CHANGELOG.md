@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.2.0 — 2026-09-23
+
+- Rebuilt official XPYUN printing, including continuous kitchen/guest copies on the same printer and short offline cloud buffering.
+- Added durable task recovery and stable receipt requests on web/Android with concise feedback.
+- Removed the old print dispatcher and provider fallback implementation; retained existing business data and layout.
+
+
 ## 1.1.2 — 2026-09-09
 
 - 修复 Android 历史订单与收入报表频繁切换时间范围时的卡顿及请求堆积；历史列表按需渲染，查询仅显示最后一次选择。

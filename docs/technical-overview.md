@@ -1,5 +1,10 @@
 # Technical Overview
 
+## Printing schema — 2026-09-23
+
+Migration 026 adds `print_deliveries` with immutable content/snapshot/target/key, durable attempt count, cloud ID, timestamps and a unique active sender per printer. It does not migrate or alter historical `print_jobs`. New order and receipt writes use this table with Vercel Workflow recovery. Existing databases require 026 before backend deployment; fresh databases receive the same definitions from `db/schema.sql`.
+
+
 ## Menu schema 024 (pending rollout)
 
 `menu_items` adds immutable sequence-assigned `code`, JSON `option_groups` and `is_complimentary`. `order_items` adds `choices` and `unit_price`; an insert trigger validates required choices, snapshots price and adds printable choice labels to notes. Legacy prices are frozen at migration time before repricing; earlier price history cannot be reconstructed. All accounting/printing paths prefer saved prices. Catalog refresh preserves unmatched active employee dishes, checks a durable code registry and rolls back on mapping drift. Details: `menu-september-2026.md`.

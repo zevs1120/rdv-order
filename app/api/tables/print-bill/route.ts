@@ -1,61 +1,46 @@
-import { recordPrintConfirmation } from "../../../../lib/print-confirmation";
 import { after, NextResponse } from "next/server";
-import { dispatchTableBillPrint, PrintDispatchError } from "../../../../lib/print";
+import { randomUUID } from "node:crypto";
+import { pool } from "../../../../lib/db";
 import { requireOrderCreate } from "../../../../lib/permissions";
-import { writePrintAuditLogSafe } from "../../../../lib/audit";
+import { prepareReceiptDelivery } from "../../../../lib/printing/service";
+import { startPrintDelivery } from "../../../../lib/printing/start";
+import { drainDeliveryQueue } from "../../../../lib/printing/queue";
+import { XpyunTransport } from "../../../../lib/printing/transport";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
-type Body = {
-  waitForResult?: unknown;
-  tableNo?: unknown;
-};
-
 export async function POST(req: Request) {
   try {
     const auth = await requireOrderCreate(req);
-    const body = (await req.json().catch(() => null)) as Body | null;
+    const body = await req.json().catch(() => null) as { tableNo?: unknown; sessionId?: unknown } | null;
     const tableNo = String(body?.tableNo || "").trim();
-    if (!tableNo) {
-      return NextResponse.json({ error: "缺少桌号" }, { status: 400 });
-    }
-
-    const print = async () => {
-      try {
-        const result = await dispatchTableBillPrint(tableNo);
-        await writePrintAuditLogSafe({
-          actorUserId: auth.userId, action: "table.print_receipt", entityType: "table", entityId: tableNo,
-          detail: { provider: result.provider, slot: result.slot, remoteJobId: result.remoteJobId || null }, req
-        });
-        return result;
-      } catch (err) {
-        await writePrintAuditLogSafe({
-          actorUserId: auth.userId, action: "table.print_receipt_failed", entityType: "table", entityId: tableNo,
-          detail: { error: err instanceof PrintDispatchError ? err.message : "账单打印失败" }, req
-        });
-        throw err;
-      }
-    };
-    // Updated clients wait for cloud acceptance; preserve short-request clients
-    // during the mandatory APK rollout instead of making them time out at 1.8s.
-    if (body?.waitForResult === true) {
-      const result = await print();
-      after(() => recordPrintConfirmation(result, "table", tableNo));
-      return NextResponse.json({ ok: true, accepted: true, remoteJobId: result.remoteJobId || null });
-    }
-    after(async () => {
-      try { const result = await print(); await recordPrintConfirmation(result, "table", tableNo); } catch { console.error("[print-bill] failed; inspect receipt audit and device error"); }
-    });
-
-    return NextResponse.json({
-      ok: true,
-      queued: true
-    }, { status: 202 });
-  } catch (err: any) {
-    if (err.message === "UNAUTHORIZED") return NextResponse.json({ error: "未登录" }, { status: 401 });
-    if (err.message === "FORBIDDEN") return NextResponse.json({ error: "无权限" }, { status: 403 });
-    if (err instanceof PrintDispatchError) return NextResponse.json({ error: err.message }, { status: err.outcome === "unknown" ? 504 : 503 });
-    return NextResponse.json({ error: "账单打印失败" }, { status: 500 });
+    const sessionId = typeof body?.sessionId === "string" ? body.sessionId : undefined;
+    const requestId = req.headers.get("x-idempotency-key") || randomUUID();
+    if (!tableNo || !/^[a-zA-Z0-9_-]{8,80}$/.test(requestId)) return NextResponse.json({ error: "打印参数无效" }, { status: 400 });
+    const tx = await pool.connect();
+    let job;
+    try {
+      await tx.query("BEGIN");
+      job = await prepareReceiptDelivery(tx, auth.userId, requestId, tableNo, sessionId);
+      if (job.status === "queued") await startPrintDelivery(job.id);
+      await tx.query("COMMIT");
+    } catch (error) {
+      await tx.query("ROLLBACK").catch(() => {});
+      throw error;
+    } finally { tx.release(); }
+    const jobId = job.id;
+    try {
+      after(async () => {
+        try { await drainDeliveryQueue({ jobId, transportForSn: sn => XpyunTransport.fromEnvironment(sn), maxJobs: 2 }); }
+        catch { console.error("[print] receipt wake deferred to durable delivery"); }
+      });
+    } catch { /* Durable run is already saved. */ }
+    return NextResponse.json({ ok: true, queued: true, jobId, requestId, status: job.status }, { status: 202 });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "打印暂时不可用，请重试";
+    if (message === "UNAUTHORIZED") return NextResponse.json({ error: "未登录" }, { status: 401 });
+    if (message === "FORBIDDEN") return NextResponse.json({ error: "无权限" }, { status: 403 });
+    return NextResponse.json({ error: /桌台|账单|不匹配/.test(message) ? message : "打印暂时不可用，请重试" }, { status: 503 });
   }
 }

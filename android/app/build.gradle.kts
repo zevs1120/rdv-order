@@ -26,8 +26,8 @@ android {
         applicationId = "com.rdv.order"
         minSdk = 26
         targetSdk = 36
-        versionCode = 13
-        versionName = "1.1.4"
+        versionCode = 14
+        versionName = "1.2.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         buildConfigField("String", "API_BASE_URL", "\"$endpoint\"")
     }

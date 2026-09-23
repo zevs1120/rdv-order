@@ -2,12 +2,14 @@ import { readFileSync } from "node:fs";
 import { PGlite } from "@electric-sql/pglite";
 import { afterAll, afterEach, beforeAll, beforeEach, expect, it, vi } from "vitest";
 
-const mocks = vi.hoisted(() => ({ query: vi.fn(), metadata: vi.fn() }));
+const mocks = vi.hoisted(() => ({ query: vi.fn(), metadata: vi.fn(), enqueue: vi.fn() }));
 vi.mock("../../lib/db", () => ({ pool: { query: mocks.query }, printMetadataPool: { query: mocks.metadata } }));
 vi.mock("../../lib/permissions", () => ({ requirePermission: async () => ({ role: "manager" }) }));
+vi.mock("../../lib/printing/queue", () => ({ enqueueDelivery: mocks.enqueue }));
 import { GET as bill } from "../../app/api/tables/bill/route";
 import { GET as menu } from "../../app/api/menu/route";
-import { dispatchTableBillPrint, __printTestUtils } from "../../lib/print";
+import { prepareReceiptDelivery } from "../../lib/printing/service";
+import { renderBillTicket } from "../../lib/printing/tickets";
 
 // Frozen pre-optimization SQL, so parity does not merely mirror the new implementation.
 const billBaseline: string[] = JSON.parse(readFileSync(new URL("../fixtures/bill-query-baseline.json", import.meta.url), "utf8"));
@@ -56,7 +58,13 @@ beforeAll(async () => {
   `);
 }, 20_000);
 afterAll(async () => db.close());
-beforeEach(() => mocks.query.mockReset().mockImplementation((sql, params) => db.query(sql, params)));
+beforeEach(() => {
+  mocks.enqueue.mockReset().mockImplementation(async (_tx, input) => input);
+  mocks.query.mockReset().mockImplementation((sql, params) => {
+    if (sql.includes("pg_advisory_xact_lock") || sql.includes("FROM print_deliveries")) return { rows: [] };
+    return db.query(sql, params);
+  });
+});
 afterEach(() => { vi.useRealTimers(); vi.unstubAllGlobals(); vi.unstubAllEnvs(); });
 
 it.each(["05", "07"])("returns the exact existing bill, including timestamps, notes and exclusions, for table %s", async tableNo => {
@@ -82,11 +90,7 @@ it("preserves the unopened-table response", async () => {
 it("sends byte-identical receipt content using two reads, with no real printer calls", async () => {
   vi.useFakeTimers({ toFake: ["Date"] });
   vi.setSystemTime(new Date("2026-09-19T12:00:00Z"));
-  mocks.metadata.mockResolvedValue({ rows: [] });
-  for (const [key, value] of Object.entries({ PRINT_PROVIDER: "xpyun", PRINT_FALLBACK_PROVIDER: "",
-    XPYUN_USER: "fixture", XPYUN_USER_KEY: "fixture", XPYUN_SN: "fixture", XPYUN_API_URL: "https://fixture.invalid/api/openapi/xprinter/print" })) vi.stubEnv(key, value);
-  const fetch = vi.fn().mockResolvedValue(new Response(JSON.stringify({ code: 0, data: "fixture-job" })));
-  vi.stubGlobal("fetch", fetch);
+  for (const [key, value] of Object.entries({ XPYUN_USER: "fixture", XPYUN_USER_KEY: "fixture", XPYUN_SN: "fixture" })) vi.stubEnv(key, value);
   const session = (await db.query<any>(receiptBaseline[0], ["05"])).rows[0];
   const params = ["05", session.opened_at];
   const items = (await db.query<any>(receiptBaseline[1], params)).rows.map(row => ({ name: row.name, note: row.note || null,
@@ -95,13 +99,13 @@ it("sends byte-identical receipt content using two reads, with no real printer c
   const charges = (await db.query<any>(receiptBaseline[2], params)).rows.map(row => ({ label: labels[row.charge_type] || "ADJUSTMENT", amount: Number(row.amount) }));
   const itemAmount = items.reduce((sum, item) => sum + Math.max(0, item.amount), 0);
   const chargeAmount = charges.reduce((sum, item) => sum + item.amount, 0);
-  const expected = __printTestUtils.toXpyunTableBillContent({ type: "table_bill", printVersion: 2, tableNo: "05",
+  const expected = renderBillTicket({ tableNo: "05",
     openedAt: session.opened_at, printedAt: new Date().toISOString(), items, charges, itemAmount, chargeAmount,
     totalAmount: itemAmount + chargeAmount, totalQty: items.reduce((sum, item) => sum + Math.max(0, item.qty), 0) });
-  expect(await dispatchTableBillPrint("05")).toMatchObject({ remoteJobId: "fixture-job" });
-  expect(JSON.parse(fetch.mock.calls[0][1].body).content).toBe(expected);
-  expect(fetch).toHaveBeenCalledTimes(1);
-  expect(mocks.query).toHaveBeenCalledTimes(2);
+  const prepared = await prepareReceiptDelivery({ query: mocks.query } as any, "actor", "intent-1", "05", "session");
+  expect(prepared.content).toBe(expected);
+  expect(mocks.enqueue).toHaveBeenCalledTimes(1);
+  expect(mocks.query.mock.calls.filter(([sql]) => sql.includes("FROM table_sessions") || sql.includes("WITH active_orders"))).toHaveLength(2);
 });
 
 const fields = "id, name, price, category, description, menu_group, item_type, allergens, code, option_groups, is_complimentary";

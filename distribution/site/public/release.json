@@ -1,26 +1,26 @@
 {
   "name": "RDV Order",
-  "version": "1.1.4",
-  "versionCode": 13,
+  "version": "1.2.0",
+  "versionCode": 14,
   "minAndroid": "8.0",
   "apiOrigin": "https://order.resortdejavu.cn",
-  "file": "/releases/rdv-order-1.1.4.apk",
-  "bytes": 1625429,
-  "sha256": "4de7203b3819764ef2c8ea46b439045658685ee65e4db4cf2ab4d97c714a62ab",
+  "file": "/releases/rdv-order-1.2.0.apk",
+  "bytes": 1625433,
+  "sha256": "cf9628b0bf625578c7ebe4c32b622295eb7bafec1c8107a4dfaa0a1d72fa82bc",
   "notes": {
-    "zh": "恢复下单厨房联和前台联，修复已下单后的超时误报及打印回执处理。",
-    "en": "Restore kitchen and front-desk copies; fix timeout errors after saved orders and print acknowledgements."
+    "zh": "重建打印连接与下单打印，支持短暂断线自动恢复，简化打印操作。",
+    "en": "Rebuilt printer connectivity and order printing, added brief-disconnection recovery, and simplified printing."
   },
   "deltas": [
     {
       "format": "rdv-copy-add-v1",
-      "baseVersionCode": 12,
-      "baseSha256": "879a90325e1708a692bcd5e229259d75d5777679e55a23301206442ab6f88a9c",
-      "file": "/releases/rdv-order-1.1.4-from-12.rdvdelta",
-      "bytes": 1283513,
-      "sha256": "d2bedd26ee7978ad671e69676db26e73e03c92eaf8f6bb6d7655b442d9c6bbee"
+      "baseVersionCode": 13,
+      "baseSha256": "4de7203b3819764ef2c8ea46b439045658685ee65e4db4cf2ab4d97c714a62ab",
+      "file": "/releases/rdv-order-1.2.0-from-13.rdvdelta",
+      "bytes": 1282709,
+      "sha256": "a85c5c82fe4a2ce4880618b999ab8c4359dad3cb40933ef3fa1976d9b3496b4e"
     }
   ],
-  "releaseDate": "2026-09-21",
-  "releaseDateSha256": "4de7203b3819764ef2c8ea46b439045658685ee65e4db4cf2ab4d97c714a62ab"
+  "releaseDate": "2026-09-23",
+  "releaseDateSha256": "cf9628b0bf625578c7ebe4c32b622295eb7bafec1c8107a4dfaa0a1d72fa82bc"
 }

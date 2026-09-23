@@ -60,11 +60,11 @@ npm run dev
 
 The project is deployed in the existing Vercel account and linked to `zevs1120/rdv-order`, production branch `main`. Open [the hotel ordering system](https://order.resortdejavu.cn). Production environment variables have been configured; no re-import is needed. See [deployment runbook](docs/hotel-first-deployment.md) and [verified delivery record](docs/deployment-delivery.md).
 
-`vercel.json` installs with `npm ci --include=dev` and builds with `npm run verify` so each deployment runs types, tests and the Next build. Node 22.x is pinned in `package.json`. Production-branch pushes deploy production; other branches normally create previews. Keep preview data and printers isolated. This does not automatically deploy an unpushed local commit.
+`vercel.json` installs with `npm ci --include=dev` and builds with `npm run build`; focused checks run locally before delivery. Node 22.x is pinned in `package.json`. Production-branch pushes deploy production; other branches normally create previews. Keep preview data and printers isolated. This does not automatically deploy an unpushed local commit.
 
 The configured function region is `sin1` (Singapore), matching the existing database region. The `rdv-order` project is now created and linked to GitHub; production variables are configured as secrets. Preview deployments are disabled until isolated data is configured. Production uses the stable production domain with application login; Vercel standard protection remains on deployment-specific/preview URLs.
 
-New orders automatically trigger their own queued kitchen print through Next.js `after()`. Failed jobs retain the original retry/clear controls. No always-on service or cron is needed; the optional `worker:print` utility remains off. The restored trigger has isolated regression coverage; physical printing must still be verified after deployment.
+New orders save a two-copy print snapshot and durably start a Vercel Workflow before committing. `after()` accelerates the first attempt; the workflow owns recovery. XPYUN buffers a brief printer disconnect with a 120-second expiry. Apply migration 026 before deploying this version. The former print worker and dispatcher are removed; historical jobs are not replayed. See [printing rebuild](docs/print-rebuild-2026-09-23.md).
 
 ## Quality Baseline
 Follow the proportional checks in `CONTRIBUTING.md`; verify a completed web batch with:
