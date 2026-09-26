@@ -12,6 +12,7 @@ vi.mock("../../lib/printing/queue", async original => ({
 vi.mock("next/server", async original => ({ ...await original<typeof import("next/server")>(), after: mocks.after }));
 
 import { POST } from "../../app/api/orders/route";
+import { POST as retryPrint } from "../../app/api/print/dispatch/route";
 import { DELETE as clearQueue } from "../../app/api/print/queue/route";
 import { enqueueDelivery } from "../../lib/printing/queue";
 
@@ -45,7 +46,7 @@ describe("order and durable print intent (isolated PostgreSQL WASM)", () => {
     await db.query("INSERT INTO table_sessions (table_no, guest_count, opened_by) VALUES ('01', 2, $1)", [userId]);
   });
 
-  it("commits one order and one targeted print intent before waking delivery", async () => {
+  it("commits one order and one targeted intent owned only by the durable workflow", async () => {
     await enqueueDelivery(db, { kind: "self_test", intentKey: "older-pending", printerSn: "fixture-sn", content: "older", snapshot: {} });
     const response = await POST(request());
     expect(response.status).toBe(200);
@@ -56,8 +57,8 @@ describe("order and durable print intent (isolated PostgreSQL WASM)", () => {
     const current = deliveries.find(row => row.order_id === orderId)!;
     expect(current).toMatchObject({ kind: "order", status: "queued" });
     expect(mocks.start).toHaveBeenCalledWith(current.id);
-    await mocks.after.mock.calls[0][0]();
-    expect(mocks.drain).toHaveBeenCalledWith(expect.objectContaining({ jobId: current.id }));
+    expect(mocks.after).not.toHaveBeenCalled();
+    expect(mocks.drain).not.toHaveBeenCalled();
   });
 
   it("same-key replay preserves one order, its items and its print intent", async () => {
@@ -68,7 +69,7 @@ describe("order and durable print intent (isolated PostgreSQL WASM)", () => {
       expect((await db.query<{ count: number }>(`SELECT COUNT(*)::int AS count FROM ${table}`)).rows[0].count).toBe(1);
     }
     expect(mocks.start).toHaveBeenCalledTimes(1);
-    expect(mocks.after).toHaveBeenCalledTimes(1);
+    expect(mocks.after).not.toHaveBeenCalled();
   });
 
   it("rejected orders create no print intent or callback", async () => {
@@ -86,15 +87,27 @@ describe("order and durable print intent (isolated PostgreSQL WASM)", () => {
     expect(mocks.after).not.toHaveBeenCalled();
   });
 
-  it("keeps the committed order when its optional fast wake fails", async () => {
+  it("returns the saved order without a second in-request printer connection", async () => {
     vi.spyOn(console, "error").mockImplementation(() => {});
     mocks.drain.mockRejectedValue(new Error("temporary wake failure"));
     const response = await POST(request());
     expect(response.status).toBe(200);
     const { orderId } = await response.json();
-    await expect(mocks.after.mock.calls[0][0]()).resolves.toBeUndefined();
+    expect(mocks.after).not.toHaveBeenCalled();
+    expect(mocks.drain).not.toHaveBeenCalled();
     expect((await db.query<{ count: number }>("SELECT COUNT(*)::int AS count FROM orders WHERE id = $1", [orderId])).rows[0].count).toBe(1);
     expect((await db.query<{ count: number }>("SELECT COUNT(*)::int AS count FROM print_deliveries WHERE order_id = $1", [orderId])).rows[0].count).toBe(1);
+  });
+
+  it("does not clone a historical expired task that already has a cloud order", async () => {
+    const { orderId } = await (await POST(request())).json();
+    await db.query("UPDATE print_deliveries SET status = 'expired', remote_id = 'fixture-remote' WHERE order_id = $1", [orderId]);
+    mocks.start.mockClear();
+    const response = await retryPrint(new Request("http://localhost/api/print/dispatch", { method: "POST" }));
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({ picked: 0, queued: false });
+    expect(mocks.start).not.toHaveBeenCalled();
+    expect((await db.query<{ count: number }>("SELECT COUNT(*)::int AS count FROM print_deliveries")).rows[0].count).toBe(1);
   });
 
   it("manager clear cancels an unsent intent without deleting its evidence", async () => {

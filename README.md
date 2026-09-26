@@ -64,7 +64,7 @@ The project is deployed in the existing Vercel account and linked to `zevs1120/r
 
 The configured function region is `sin1` (Singapore), matching the existing database region. The `rdv-order` project is now created and linked to GitHub; production variables are configured as secrets. Preview deployments are disabled until isolated data is configured. Production uses the stable production domain with application login; Vercel standard protection remains on deployment-specific/preview URLs.
 
-New orders save a two-copy print snapshot and durably start a Vercel Workflow before committing. `after()` accelerates the first attempt; the workflow owns recovery. XPYUN buffers a brief printer disconnect with a 120-second expiry. Apply migration 026 before deploying this version. The former print worker and dispatcher are removed; historical jobs are not replayed. See [printing rebuild](docs/print-rebuild-2026-09-23.md).
+New orders save a two-copy print snapshot and durably start a Vercel Workflow before committing. The workflow alone owns sending and recovery; the order request does not open a competing printer connection. XPYUN buffers a brief printer disconnect within the 120-second sending window. Accepted cloud orders are queried separately for up to ten minutes and never automatically resent. Apply migration 026 before deploying this version. The former print worker and dispatcher are removed; historical jobs are not replayed. See [printing rebuild](docs/print-rebuild-2026-09-23.md).
 
 ## Quality Baseline
 Follow the proportional checks in `CONTRIBUTING.md`; verify a completed web batch with:

@@ -59,7 +59,7 @@ it('free meals retain separate drinks, zero balance and replay does not duplicat
   expect(rows.map(r => [r.unit_price, r.note])).toEqual([[0, 'Beverage: Coke'], [0, 'Beverage: Coke Zero']]);
   expect((await getOrderFinance(orderId))?.totalAmount).toBe(0);
   expect((await (await create(items)).json()).deduped).toBe(true);
-  expect(mocks.after).toHaveBeenCalledTimes(1);
+  expect(mocks.after).not.toHaveBeenCalled();
   const content = renderOrderTicket({ tableNo: '01', createdAt: new Date().toISOString(), waiter: 'fixture',
     items: rows.map(r => ({ name: item.name, qty: 1, note: r.note, unitPrice: 0 })) });
   const kitchen = content.split('<CB>RDV GUEST COPY<BR></CB>')[0];

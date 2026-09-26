@@ -49,6 +49,7 @@ export type XpyunDeliveryError = Error & { kind?: "offline" | "rejected" | "unkn
 
 const CLOUD_BUFFER_SECONDS = 120;
 const DEDUPE_SECONDS = 300;
+const SAME_KEY_RETRY_DELAY_SECONDS = 5;
 
 function assertInput(input: DeliveryInput) {
   if (!input.intentKey.trim() || !input.printerSn.trim() || !input.content.trim()) {
@@ -180,13 +181,13 @@ async function scheduleSameKeyRetry(id: string, from: "unknown" | "failed", db: 
   const { rows } = await db.query<{ id: string }>(
     `UPDATE print_deliveries SET status = 'queued',
        unknown_retry_count = CASE WHEN $2 = 'unknown' THEN 1 ELSE unknown_retry_count END,
-       next_attempt_at = now(), updated_at = now()
+       next_attempt_at = now() + ($4::int * INTERVAL '1 second'), updated_at = now()
      WHERE id = $1 AND status = $2 AND remote_id IS NULL
        AND unknown_retry_count = 0
        AND first_attempt_at > now() - ($3::int * INTERVAL '1 second')
        AND attempt_count < 2
        AND created_at > now() - INTERVAL '120 seconds'
-     RETURNING id`, [id, from, DEDUPE_SECONDS]
+     RETURNING id`, [id, from, DEDUPE_SECONDS, SAME_KEY_RETRY_DELAY_SECONDS]
   );
   return Boolean(rows[0]);
 }
@@ -264,7 +265,8 @@ export async function drainDeliveryQueue(options: {
     }
   }
 
-  // Query existing remote orders without ever resubmitting their content.
+  // The 120-second creation window ends new sends, not read-only tracking of
+  // an already accepted remote order. Keep the remote ID if confirmation ends.
   if (Date.now() < deadline) {
     const { rows } = await db.query<Pick<Delivery, "id" | "remote_id" | "printer_sn">>(
       `SELECT id, remote_id, printer_sn FROM print_deliveries
@@ -277,14 +279,18 @@ export async function drainDeliveryQueue(options: {
       let cloudState: "completed" | "pending" | "unknown" = "unknown";
       try { cloudState = await options.transportForSn(job.printer_sn).orderState(job.remote_id!); }
       catch { /* A failed status read is never permission to print again. */ }
-      if (cloudState === "completed") await recordCloudCompletion(job.id, job.remote_id!, db);
+      if (cloudState === "completed") {
+        await recordCloudCompletion(job.id, job.remote_id!, db);
+      } else {
+        await db.query(
+          `UPDATE print_deliveries SET status = 'unknown', updated_at = now(),
+             last_error = COALESCE(last_error, '云端订单在跟踪期限内未确认；保留远端编号，不自动重发')
+           WHERE id = $1 AND remote_id = $2 AND status = 'accepted'
+             AND updated_at < now() - INTERVAL '10 minutes'`,
+          [job.id, job.remote_id]
+        );
+      }
     }
   }
-  await db.query(
-    `UPDATE print_deliveries SET status = 'expired', updated_at = now(),
-       last_error = COALESCE(last_error, '云端缓冲期限已过，未证实出纸')
-     WHERE status = 'accepted' AND created_at < now() - INTERVAL '120 seconds'
-       AND ($1::uuid IS NULL OR id = $1::uuid)`, [options.jobId || null]
-  );
   return result;
 }

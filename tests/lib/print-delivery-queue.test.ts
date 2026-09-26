@@ -51,7 +51,9 @@ describe("isolated print delivery queue", () => {
     await recordUnknown(first!, "response lost", db);
     expect(await scheduleUnknownSameKeyRetry(first!.id, db)).toBe(true);
     expect(await scheduleUnknownSameKeyRetry(first!.id, db)).toBe(false);
-    const retry = await claimDelivery(db);
+    expect(await claimDelivery(db, first!.id)).toBeNull();
+    await pg.query("UPDATE print_deliveries SET next_attempt_at = now() - INTERVAL '1 second' WHERE id = $1", [first!.id]);
+    const retry = await claimDelivery(db, first!.id);
     expect(retry?.id).toBe(first?.id);
     expect(retry).toMatchObject({ attempt_count: 2, unknown_retry_count: 1, provider_key: first?.provider_key });
     await recordOffline(retry!, "printer offline", db);
@@ -81,6 +83,42 @@ describe("isolated print delivery queue", () => {
     )).rows[0]).toMatchObject({ status: "queued", unknown_retry_count: 1 });
   });
 
+  it("confirms an accepted remote order after the 120-second new-send deadline", async () => {
+    const job = await enqueueDelivery(db, intent());
+    const send = vi.fn().mockResolvedValue({ kind: "accepted", remoteId: "remote-late" });
+    const orderState = vi.fn().mockResolvedValueOnce("pending").mockResolvedValueOnce("completed");
+    const transportForSn = () => ({ send, orderState });
+    await drainDeliveryQueue({ db, jobId: job.id, transportForSn });
+    await pg.query("UPDATE print_deliveries SET created_at = now() - INTERVAL '121 seconds' WHERE id = $1", [job.id]);
+    await drainDeliveryQueue({ db, jobId: job.id, transportForSn });
+    expect(send).toHaveBeenCalledTimes(1);
+    expect(orderState).toHaveBeenCalledTimes(2);
+    expect((await pg.query<{ status: string; remote_id: string }>(
+      "SELECT status, remote_id FROM print_deliveries WHERE id = $1", [job.id]
+    )).rows[0]).toMatchObject({ status: "completed", remote_id: "remote-late" });
+  });
+
+  it("keeps an unconfirmed remote order read-only, then retains its ID as unknown", async () => {
+    const job = await enqueueDelivery(db, intent());
+    const send = vi.fn().mockResolvedValue({ kind: "accepted", remoteId: "remote-unconfirmed" });
+    const orderState = vi.fn().mockResolvedValueOnce("pending").mockResolvedValueOnce("unknown")
+      .mockResolvedValueOnce("unknown");
+    const transportForSn = () => ({ send, orderState });
+    await drainDeliveryQueue({ db, jobId: job.id, transportForSn });
+    await pg.query("UPDATE print_deliveries SET created_at = now() - INTERVAL '121 seconds' WHERE id = $1", [job.id]);
+    await drainDeliveryQueue({ db, jobId: job.id, transportForSn });
+    expect((await pg.query<{ status: string }>(
+      "SELECT status FROM print_deliveries WHERE id = $1", [job.id]
+    )).rows[0].status).toBe("accepted");
+    await pg.query("UPDATE print_deliveries SET updated_at = now() - INTERVAL '11 minutes' WHERE id = $1", [job.id]);
+    await drainDeliveryQueue({ db, jobId: job.id, transportForSn });
+    expect(send).toHaveBeenCalledTimes(1);
+    expect(orderState).toHaveBeenCalledTimes(3);
+    expect((await pg.query<{ status: string; remote_id: string }>(
+      "SELECT status, remote_id FROM print_deliveries WHERE id = $1", [job.id]
+    )).rows[0]).toMatchObject({ status: "unknown", remote_id: "remote-unconfirmed" });
+  });
+
   it("targets one workflow job and never sends an order after its creation window", async () => {
     const old = await enqueueDelivery(db, intent());
     const fresh = await enqueueDelivery(db, { kind: "receipt", intentKey: "fresh", printerSn: "fixture-sn",
@@ -99,8 +137,12 @@ describe("isolated print delivery queue", () => {
     const job = await enqueueDelivery(db, intent());
     const retryable = Object.assign(new Error("XPYUN 1004"), { kind: "rejected", code: 1004 });
     const send = vi.fn().mockRejectedValueOnce(retryable).mockResolvedValueOnce({ kind: "accepted", remoteId: "remote" });
-    await drainDeliveryQueue({ db, jobId: job.id, maxJobs: 2,
-      transportForSn: () => ({ send, orderState: vi.fn().mockResolvedValue("completed" as const) }) });
+    const transportForSn = () => ({ send, orderState: vi.fn().mockResolvedValue("completed" as const) });
+    await drainDeliveryQueue({ db, jobId: job.id, transportForSn });
+    expect(send).toHaveBeenCalledTimes(1);
+    expect(await claimDelivery(db, job.id)).toBeNull();
+    await pg.query("UPDATE print_deliveries SET next_attempt_at = now() - INTERVAL '1 second' WHERE id = $1", [job.id]);
+    await drainDeliveryQueue({ db, jobId: job.id, transportForSn });
     expect(send).toHaveBeenCalledTimes(2);
     expect(send.mock.calls[0][1]).toBe(send.mock.calls[1][1]);
     expect((await pg.query<{ attempt_count: number; unknown_retry_count: number }>(

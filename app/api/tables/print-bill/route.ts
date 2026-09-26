@@ -1,11 +1,9 @@
-import { after, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { randomUUID } from "node:crypto";
 import { pool } from "../../../../lib/db";
 import { requireOrderCreate } from "../../../../lib/permissions";
 import { prepareReceiptDelivery } from "../../../../lib/printing/service";
 import { startPrintDelivery } from "../../../../lib/printing/start";
-import { drainDeliveryQueue } from "../../../../lib/printing/queue";
-import { XpyunTransport } from "../../../../lib/printing/transport";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -30,12 +28,6 @@ export async function POST(req: Request) {
       throw error;
     } finally { tx.release(); }
     const jobId = job.id;
-    try {
-      after(async () => {
-        try { await drainDeliveryQueue({ jobId, transportForSn: sn => XpyunTransport.fromEnvironment(sn), maxJobs: 2 }); }
-        catch { console.error("[print] receipt wake deferred to durable delivery"); }
-      });
-    } catch { /* Durable run is already saved. */ }
     return NextResponse.json({ ok: true, queued: true, jobId, requestId, status: job.status }, { status: 202 });
   } catch (error) {
     const message = error instanceof Error ? error.message : "打印暂时不可用，请重试";

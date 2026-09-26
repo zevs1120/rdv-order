@@ -46,9 +46,8 @@ describe("orders API", () => {
     expect(await response.json()).toMatchObject({ orderId: "order-1", deduped: false });
     expect(mocks.prepare).toHaveBeenCalledWith(expect.anything(), "order-1");
     expect(mocks.start).toHaveBeenCalledWith("job-1");
-    expect(mocks.after).toHaveBeenCalledTimes(1);
-    await mocks.after.mock.calls[0][0]();
-    expect(mocks.drain).toHaveBeenCalledWith(expect.objectContaining({ jobId: "job-1" }));
+    expect(mocks.after).not.toHaveBeenCalled();
+    expect(mocks.drain).not.toHaveBeenCalled();
   });
 
   it("returns an existing order without preparing or waking a second print", async () => {

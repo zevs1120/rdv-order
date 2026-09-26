@@ -1,10 +1,8 @@
-import { after, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { pool } from "../../../../lib/db";
 import { requirePermission } from "../../../../lib/permissions";
 import { prepareTestDelivery } from "../../../../lib/printing/service";
 import { startPrintDelivery } from "../../../../lib/printing/start";
-import { drainDeliveryQueue } from "../../../../lib/printing/queue";
-import { XpyunTransport } from "../../../../lib/printing/transport";
 export const runtime = "nodejs";
 export const maxDuration = 60;
 export async function POST(req: Request) {
@@ -20,8 +18,6 @@ export async function POST(req: Request) {
     } catch (error) { await tx.query("ROLLBACK").catch(() => {}); throw error; }
     finally { tx.release(); }
     const jobId = job.id;
-    try { after(async () => { try { await drainDeliveryQueue({ jobId, transportForSn: sn => XpyunTransport.fromEnvironment(sn) }); } catch {} }); }
-    catch { /* Durable run is already saved. */ }
     return NextResponse.json({ ok: true, queued: true, jobId, provider: "xpyun", slot: "primary" }, { status: 202 });
   } catch (error) {
     const message = error instanceof Error ? error.message : "";

@@ -1,11 +1,9 @@
-import { after, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { pool } from "../../../lib/db";
 import { requireOrderCreate, requirePermission } from "../../../lib/permissions";
 import { parseItems } from "../../../lib/orders-utils";
 import { prepareOrderDelivery } from "../../../lib/printing/service";
 import { startPrintDelivery } from "../../../lib/printing/start";
-import { drainDeliveryQueue } from "../../../lib/printing/queue";
-import { XpyunTransport } from "../../../lib/printing/transport";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
@@ -39,7 +37,6 @@ export async function POST(req: Request) {
     }
 
     const tx = await pool.connect();
-    let printJobId: string | undefined;
     const { rows } = await (async () => {
       try {
         await tx.query("BEGIN");
@@ -102,7 +99,6 @@ export async function POST(req: Request) {
         const saved = result.rows[0];
         if (saved?.inserted && saved.order_id) {
           const delivery = await prepareOrderDelivery(tx, saved.order_id);
-          printJobId = delivery.id;
           await startPrintDelivery(delivery.id);
         }
         await tx.query("COMMIT");
@@ -125,16 +121,6 @@ export async function POST(req: Request) {
     }
 
     const deduped = result.inserted === false;
-    if (printJobId) {
-      const jobId = printJobId;
-      // Fast local wake; the durable run remains responsible after interruption.
-      try {
-        after(async () => {
-          try { await drainDeliveryQueue({ jobId, transportForSn: sn => XpyunTransport.fromEnvironment(sn), maxJobs: 2 }); }
-          catch { console.error("[print] fast wake deferred to durable delivery"); }
-        });
-      } catch { /* The committed task already has a durable recovery owner. */ }
-    }
     return NextResponse.json({
       orderId: result.order_id,
       deduped,

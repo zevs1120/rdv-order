@@ -29,7 +29,7 @@ it("persists one receipt intent and returns promptly before provider delivery", 
   expect(mocks.prepare).toHaveBeenCalledWith(expect.anything(), "actor", "receipt-intent-1", "06", "session-06");
   expect(mocks.start).toHaveBeenCalledWith("job-1");
   expect(mocks.drain).not.toHaveBeenCalled();
-  expect(mocks.after).toHaveBeenCalledTimes(1);
+  expect(mocks.after).not.toHaveBeenCalled();
 });
 
 it("returns the existing unknown intent without starting a second print", async () => {

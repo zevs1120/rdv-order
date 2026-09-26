@@ -4,9 +4,9 @@
 
 `POST /api/orders` preserves its input/output and request-key deduplication. The transaction now saves `print_deliveries` and durably starts its workflow before committing; it no longer inserts into historical `print_jobs`.
 
-`POST /api/tables/print-bill` accepts `{tableNo,sessionId?}` and `X-Idempotency-Key`; returns 202 `{ok,queued,jobId,requestId,status}` after the task is saved. `waitForResult` from old clients is accepted but no longer delays the response. `GET /api/print/status?requestId=...` is scoped to the authenticated order-creating user and returns `{found,status?,jobId?}`. Internal statuses are queued/sending/accepted/completed/unknown/failed/expired/cancelled; they are not physical paper proof.
+`POST /api/tables/print-bill` accepts `{tableNo,sessionId?}` and `X-Idempotency-Key`; returns 202 `{ok,queued,jobId,requestId,status}` after the task is saved. `waitForResult` from old clients is accepted but no longer delays the response. `GET /api/print/status?requestId=...` is scoped to the authenticated order-creating user and returns `{found,status?,jobId?}`. Internal statuses are queued/sending/accepted/completed/unknown/failed/expired/cancelled; they are not physical paper proof. The 120-second sending deadline does not expire an accepted cloud order: its remote ID is queried for up to ten minutes, then retained as unknown if still unconfirmed.
 
-`POST /api/print/dispatch` now requires `device.manage`; it creates one deliberate reprint of a failed/expired new task on a still-open table. Unknown tasks are not replayed. `DELETE /api/print/queue` cancels pending/failed/expired/unknown new tasks and keeps their records; it does not clear the cloud queue or affect in-flight/accepted tasks. Health/devices read only the new task table and current XPYUN status. Old worker-key dispatch is retired.
+`POST /api/print/dispatch` now requires `device.manage`; it creates one deliberate reprint of a failed/expired new task without a remote ID on a still-open table. Unknown tasks and tasks with a remote ID are not replayed. `DELETE /api/print/queue` cancels pending/failed/expired/unknown new tasks and keeps their records; it does not clear the cloud queue or affect in-flight/accepted tasks. Health/devices read only the new task table and current XPYUN status. Old worker-key dispatch is retired.
 
 
 ## Backend maintenance (2026-09-19)
@@ -101,7 +101,7 @@ Base: Next.js Route Handlers under `app/api`.
 }
 ```
 
-Order/items/queue are saved atomically. On a new insertion, `after()` automatically processes that order's queued print (unless `PRINT_WAKE_ON_ORDER=false`). Same-key replay keeps the existing response and does not register another print or recreate a cleared job. The success response confirms the saved order, not physical paper. Printing failures stay available through existing queue operations; runtime/lifecycle errors do not turn an already committed order into a submission failure.
+Order/items/queue are saved atomically. On a new insertion, the durable Workflow processes that order's queued print. It is the sole sender; the request has no `after()` print callback. Same-key replay keeps the existing response and does not register another print or recreate a cleared job. The success response confirms the saved order, not physical paper. Printing failures stay available through existing queue operations; runtime/lifecycle errors do not turn an already committed order into a submission failure.
 
 ### Open Table
 `POST /api/tables`
