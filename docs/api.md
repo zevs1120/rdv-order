@@ -198,6 +198,8 @@ No database migration or existing endpoint behavior change is required.
 
 `GET /api/print/health` adds `livePrinter: {status, checkedAt, latencyMs}`. This is a read-only XPYUN query; status is online/offline/degraded/unknown. Configuration `ready` remains separate. A failed query produces unknown. Its additive `connection.requestStarted` diagnostic is false when transport failed before submitting the request body (`unreachable`), and true once submission began; true does not prove provider acceptance. Self-test errors retain actionable provider/connection descriptions. New clients retry one queued job per action.
 
+`POST /api/print/connection-probe` is a temporary, fixed-target read-only XPYUN status probe (no print submission or queue/database writes). It requires `Authorization: Bearer <JWT>` signed with `JWT_SECRET` using HS256, with issuer `rdv-maintenance`, audience `rdv-print-probe`, and a numeric `exp`. It returns the runtime region, elapsed time, status and provider code. The Edge probe is not yet deployed; even an online response would verify only that status-query path, not print submission or physical paper.
+
 
 ### 芯烨云回执兼容说明（2026-09-20）
 

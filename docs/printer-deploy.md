@@ -1,8 +1,8 @@
 # Printer Deploy Checklist
 
-## Current printing deployment — 2026-09-27 correction pending deployment
+## Current printing deployment — 2026-09-27 correction LIVE
 
-The last confirmed LIVE deployment is the diagnostic-only build from 2026-09-27, still observed in `sin1`. The current source targets `hkg1` for new function invocations: under the existing Hobby single-region plan, API routes, Workflow steps and health checks run in Hong Kong while Neon stays in Singapore. This routes around the observed `sin1` pre-TCP connection failures; deployment, stable connectivity and paper output are not yet confirmed. Existing Workflows stay with their original deployment and region; no historical tasks are replayed. No database migration or separate service is needed, and there is no need to upgrade the Vercel plan.
+Correction `9ff3e3f` is LIVE. The Vercel deployment resources confirm the Workflow flow and step functions in `HKG1`; new function invocations use `hkg1`: under the existing Hobby single-region plan, API routes, Workflow steps and health checks run in Hong Kong while Neon stays in Singapore. This routes around the observed `sin1` pre-TCP connection failures; three production status queries succeeded after rollout; sustained stability and physical paper output remain unverified. Existing Workflows stay with their original deployment and region; no historical tasks are replayed. No database migration or separate service is needed, and there is no need to upgrade the Vercel plan.
 
 The transport correction waits for TLS `secureConnect` before sending the payload, with up to a four-second connection deadline and a ten-second total request deadline. Confirmed pre-send `unreachable` failures retry the original task every five seconds within its creation-based 120-second window, preserving its provider key without consuming the ambiguous-outcome resend allowance. Once a request may have been sent, bounded same-key handling applies; known remote IDs are query-only. See [the incident record](print-network-2026-09-27.md).
 
@@ -64,7 +64,7 @@ Optional fallback provider:
 - `PRINT_FORCE_SINGLE_COPY=true`
 
 ## 3) Pre-Deploy Check
-The last confirmed Vercel deployment used production-only secrets and `sin1`, matching the database. Current source targets `hkg1` for new deployments; do not treat that as deployed until Vercel confirms it. No optional dispatcher or cron is activated. The existing historical queue is retained; deployment does not drain or replay it.
+The confirmed Vercel deployment uses production-only secrets and `hkg1`; the database remains in Singapore. No optional dispatcher or cron is activated. The existing historical queue is retained; deployment does not drain or replay it.
 
 ```bash
 npm run check:print-env
