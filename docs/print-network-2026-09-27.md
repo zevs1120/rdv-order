@@ -1,6 +1,6 @@
 # Printing network incident — 2026-09-27
 
-The user reports continued frequent no-paper failures after8038fe8 and has authorized backend investigation. One official-console test, `RDV-CLOUD-0927-A`, has been submitted; physical result is pending. Do not ask staff to reconstruct individual table/timestamp records. No historical queue replay, printer rebind or node switch is authorized.
+The user reports continued frequent no-paper failures after8038fe8 and has authorized backend investigation. One official-console test, `RDV-CLOUD-0927-A`, and one marked system self-test have been submitted; physical output remains pending. Do not ask staff to reconstruct individual table/timestamp records. No historical queue replay, printer rebind or node switch is authorized.
 
 ## Observations
 
@@ -44,7 +44,7 @@ Focused validation: transport 7, queue 10, order integration 7, receipt route 3 
 
 ## Follow-up and temporary probe (2026-09-27)
 
-From 15:10–15:15 GMT+8, print-path checks in `hkg1` continued to show connection timeouts; affected new deliveries had no `remote_id`. The latest print order shown in the official backend's print-query list was at 14:02. The user-authorized official-console test `RDV-CLOUD-0927-A` is the only new test submission; its physical result remains pending.
+From 15:10–15:15 GMT+8, print-path checks in `hkg1` continued to show connection timeouts; affected new deliveries had no `remote_id`. The latest print order shown in the official backend's print-query list was at 14:02. The user-authorized official-console test `RDV-CLOUD-0927-A` was the first test submission; the one later system self-test is recorded below. Physical output remains pending.
 
 A temporary Edge endpoint, `POST /api/print/connection-probe`, was deployed as `6706c12`; both Vercel checks succeeded. It is intended to compare a fixed, read-only XPYUN status query from Edge `hkg1` with the failing Node/Workflow path. It does not submit a print, touch the queue or change printer/account settings. A successful status query would distinguish an execution-path difference for this query only; it would not demonstrate print-submission success or physical output. A failed probe would not by itself establish a single network root cause. See [API reference](api.md) for its signed maintenance-token requirements.
 
@@ -56,12 +56,17 @@ The probe compatibility update `5b19052` removes the cache option and uses manua
 
 At 15:47:49, the Edge status probe returned online in 427 ms. Five seconds later, the Node health query on the same `5b19052` deployment timed out during TCP connect after about four seconds. This is evidence of an execution-path difference for status queries, not a successful print submission or paper output.
 
-The temporary `POST /api/print/connection-probe` route was retired after this comparison; it is not a supported API. The formal provider gateway below is separate and remains source-pending deployment.
+The temporary `POST /api/print/connection-probe` route was retired after this comparison; it is not a supported API. The formal provider gateway below is separate and now LIVE.
 
-## Provider Edge gateway — source pending deployment
+## Provider Edge gateway — LIVE via 456f603
 
 `lib/printing/provider-edge.ts` and `app/api/print/provider/route.ts` now implement a same-project `hkg1` Edge hop for Vercel XPYUN print/status/order-state calls. The existing Workflow and queue still own durable delivery, retry windows and state; no APP/API workflow or UI change is intended. The route validates a short HS256 token bound to the exact operation body and the configured printer SN, then uses XPYUN credentials from its own environment. Local transport remains direct.
 
-Node-to-Edge timeout, HTTP failure or malformed response is classified `unknown`, since the provider may already have received the print. The existing bounded retry uses the same provider key; when a remote ID is known, the task remains query-only. The gateway source is not deployed. Android remains 1.2.0/code14; no printer node/account change or history replay occurred. No physical paper result is established by the probe or source checks.
+Node-to-Edge timeout, HTTP failure or malformed response is classified `unknown`, since the provider may already have received the print. The existing bounded retry uses the same provider key; when a remote ID is known, the task remains query-only. The gateway is deployed via `456f603`. Android remains 1.2.0/code14; no printer node/account change or history replay occurred. No physical paper result is established by the probe or source checks.
 
 Focused source validation reported by root: 22 checks (Edge 5, transport 7, queue 10), Next production build/TypeScript and print-env presence check passed. The initial harness failed on `Array.at` under the project TypeScript library; it was changed to `pop()` and only the five Edge checks were rerun. The first print-env check lacked the local environment; the presence check passed after explicitly loading it. No physical print test is implied.
+
+
+Final deployment evidence: commit `456f60321df5b6123e6065937a8219f0b9f702c4`, backend `MAMH24c56kj2uaV6qvwmRFHVLXxJ` and downloads `B3Dr765oYtPRf2bnmboRDZu2zZVz` both report successful Vercel checks; the backend dashboard is Ready. The temporary probe was removed in this deployment. At 15:55:58 and 15:56:00 GMT+8, production health returned online in 1247/455 ms, with diagnostic hostname `order.resortdejavu.cn`, demonstrating Node→Edge→XPYUN. A later 16:00:35 read also returned online in 720 ms.
+
+Exactly one system self-test was submitted at 15:56:36, labeled `PRINTER TEST - DO NOT PREPARE FOOD`: job `531cc8cb-de2a-4133-9623-0c428c0d7683`, one attempt, remote `OM26092715564478698484`. The official console shows received 15:56:44 and completed 15:56:47; the durable record became completed at 15:57:08. During this check, a naturally submitted order (not created by this maintenance task) also used the new path: job `ab6f7470-ba4e-444f-9d92-e6de7ade38ed`, one attempt, remote `OM26092715565907435223`, official receipt/completion 15:56:59/15:57:02 and local completed 15:57:23. No business order, historical replay, cloud queue clear, device rebinding or node/account change was performed by this task. These are actual production/cloud records, not fixtures; physical paper still requires the pending user confirmation. Android remains 1.2.0/code14 with no installation required.
