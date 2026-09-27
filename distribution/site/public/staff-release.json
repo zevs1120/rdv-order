@@ -1,17 +1,17 @@
 {
   "name": "RDV Team",
   "status": "available",
-  "version": "2.1.5",
-  "versionCode": 18,
+  "version": "2.1.9",
+  "versionCode": 22,
   "minAndroid": "8.0",
   "packageName": "com.rdv.staff",
-  "file": "/releases/rdv-team-2.1.5.apk",
-  "bytes": 3087120,
-  "sha256": "26d1eb35d3cc72e9f32837d39d82b5f48c2479e210eefa1c78630bf2ad4cfba7",
+  "file": "/releases/rdv-team-2.1.9.apk",
+  "bytes": 3156380,
+  "sha256": "0daebcee3a66e7b18ce84302231a6c6187e2edf7bfa17f0a0d116e4f774f370b",
   "notes": {
-    "zh": "考勤修正：旧班次在排班下班时间两小时后自动记为缺下班卡，新一天可正常开始；打卡前先确认班次状态，避免定位重试与下班提示冲突。包含排班当天发布与聊天分享、@提醒与聊天刷新、任务发布及服务恢复优化。",
-    "en": "Attendance fix: unfinished shifts become missing clock-out two hours after scheduled end, and clock-in checks the current shift before requesting location. Also includes schedule sharing, mention/chat refresh, task publishing and service recovery improvements."
+    "zh": "支持提前发布明天及未来一周排班，完善晚排班关联、午夜缺卡与当天误签退撤销；优化通知和同步，降低资源用量。",
+    "en": "Publish tomorrow or a future week in advance. Improved late schedule linking, midnight attendance and same-day mistaken clock-out undo. Optimized notifications and sync reduce resource use."
   },
-  "releaseDate": "2026-09-20",
-  "releaseDateSha256": "26d1eb35d3cc72e9f32837d39d82b5f48c2479e210eefa1c78630bf2ad4cfba7"
+  "releaseDate": "2026-09-27",
+  "releaseDateSha256": "0daebcee3a66e7b18ce84302231a6c6187e2edf7bfa17f0a0d116e4f774f370b"
 }
