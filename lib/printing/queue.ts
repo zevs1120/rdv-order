@@ -47,7 +47,7 @@ export type XpyunDeliveryTransport = {
   orderState(remoteId: string): Promise<"completed" | "pending" | "unknown">;
 };
 
-export type XpyunDeliveryError = Error & { kind?: "offline" | "rejected" | "unknown"; code?: number; diagnostic?: XpyunDiagnostic };
+export type XpyunDeliveryError = Error & { kind?: "offline" | "rejected" | "unknown" | "unreachable"; code?: number; diagnostic?: XpyunDiagnostic };
 
 const CLOUD_BUFFER_SECONDS = 120;
 const DEDUPE_SECONDS = 300;
@@ -178,6 +178,24 @@ export async function recordOffline(job: Delivery, reason: string, db: QueueDb =
   return Boolean(rows[0]);
 }
 
+// Only use this for a transport-confirmed failure before request.end(). No
+// print payload could have left this process, so this claim was not a possible
+// send. The lease check makes the counter correction atomic with releasing it.
+export async function recordUnreachable(job: Delivery, reason: string, db: QueueDb = pool): Promise<boolean> {
+  const { rows } = await db.query<{ id: string }>(
+    `UPDATE print_deliveries SET
+       status = CASE WHEN created_at > now() - INTERVAL '120 seconds' THEN 'queued'
+         WHEN unknown_retry_count > 0 THEN 'unknown' ELSE 'expired' END,
+       attempt_count = GREATEST(0, attempt_count - 1),
+       first_attempt_at = CASE WHEN attempt_count <= 1 THEN NULL ELSE first_attempt_at END,
+       next_attempt_at = now() + INTERVAL '5 seconds', last_error = $3,
+       lease_token = NULL, sending_started_at = NULL, updated_at = now()
+     WHERE id = $1 AND lease_token = $2::uuid AND status = 'sending' RETURNING id`,
+    [job.id, job.lease_token, reason.slice(0, 500)]
+  );
+  return Boolean(rows[0]);
+}
+
 // Persist the one permitted same-key resend before another sending lease exists.
 async function scheduleSameKeyRetry(id: string, from: "unknown" | "failed", db: QueueDb): Promise<boolean> {
   const { rows } = await db.query<{ id: string }>(
@@ -240,7 +258,10 @@ export async function drainDeliveryQueue(options: {
       const error = cause as XpyunDeliveryError;
       if (error.diagnostic) await recordConnectionFailure("print", error.diagnostic, job.id);
       const message = error.message || "打印请求失败";
-      if (error.kind === "offline") {
+      if (error.kind === "unreachable") {
+        await recordUnreachable(job, message, db);
+        result.failed++;
+      } else if (error.kind === "offline") {
         await recordOffline(job, message, db);
         result.failed++;
       } else if (error.kind === "rejected") {

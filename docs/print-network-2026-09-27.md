@@ -18,4 +18,22 @@ The morning08:10–08:19 failures are outside accessible detailed runtime-log re
 
 Keep all send/queue/retry deadlines, API endpoint, device/account, IPv4/IPv6 selection, two-copy content and UI unchanged. Capture bounded safe lookup/address-family/connection-attempt details and TCP/TLS timings. Health returns the connection observation as an additive manager-readable field. Failed sends/health checks preserve safe details in the existing audit_logs through the existing bounded metadata pool; no new schema, dependencies or monitoring service. Diagnostics never include keys, signing inputs, account identifiers, printer SN or receipt content, and never trigger a print.
 
-This change is diagnostic, not a claim of restored printing. Production target-IP comparison and delivery status are appended after publication.
+This change is diagnostic, not a claim of restored printing.
+
+## Deployment evidence
+
+The diagnostic-only change is LIVE via `167cdc87ddc673c5fff1be307ea278dda4c8ea76`. Both Vercel checks succeeded: `rdv-order` deployment `D7VoRD4jRxWJh1fqDyJf7jqA1c7c` and `rdv-downloads` deployment `HenWHWWaXG2xbUU7gaKNFuSq5GBx`; the backend dashboard reports Ready.
+
+At 13:21 GMT+8, three new-version health queries returned online in 431/318/487 ms. All resolved to the same IPv4 `101.37.24.59`; TCP connected in 189/70/211 ms and TLS completed in 329/210/370 ms. Each provider response had code 0. These observations show the new diagnostic fields working and a successful route at those moments; they do not establish stable connectivity or explain the older failures. Their target IP was not captured, so this evidence neither rules out DNS differences nor proves Vercel egress IP filtering.
+
+Five focused transport checks, eight queue checks, TypeScript and the Next production build passed. The first run exposed a new fixture array-matching assertion; it was corrected and only transport checks were rerun. No broader suites were repeated.
+
+The change adds diagnostics only; it does not repair or claim to repair the connection. Android remains 1.2.0/code14 with no changes. No new paper test, queue replay/clear, device rebinding or node switch occurred. Actual paper output and long-term connection stability remain unverified.
+
+## Connection-path correction (deployment pending)
+
+The corrective source change moves new Vercel function invocations from `sin1` to `hkg1`. This Hobby deployment uses one function region; order routes, Workflow steps and health checks will therefore run in Hong Kong while Neon remains in Singapore. This routes around the reproducible `sin1` connect-phase failures; it does not establish that all external causes are excluded or that printing is fixed. No database migration or separate service is needed, and there is no need to upgrade the Vercel plan.
+
+Transport now waits for TLS `secureConnect` before submitting the request body, with a connection-phase deadline of up to four seconds; the total print request deadline remains ten seconds. A failure before `request.end(payload)` is classified as `unreachable`, so the payload is known not to have been sent. The queue retries that same delivery every five seconds with its original provider key during the creation-based 120-second sending window. Because non-delivery is certain, its attempt accounting is restored and it does not consume the one bounded resend allowed for an ambiguous outcome. Once a request may have been sent, ambiguity retains the same-key bounded retry; a known remote ID remains query-only.
+
+These changes are not yet confirmed deployed. A new deployment does not move Workflows already running in the old deployment to `hkg1`; historical tasks are not replayed. Stability and physical paper output still require real-world verification. The diagnostic deployment and its limited evidence above remain the latest confirmed LIVE state.

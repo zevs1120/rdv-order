@@ -150,6 +150,50 @@ describe("isolated print delivery queue", () => {
     )).rows[0]).toMatchObject({ attempt_count: 2, unknown_retry_count: 0 });
   });
 
+  it("releases pre-send connection failures without consuming a possible send", async () => {
+    const job = await enqueueDelivery(db, intent());
+    const unreachable = Object.assign(new Error("TCP unavailable"), { kind: "unreachable" });
+    const send = vi.fn().mockRejectedValueOnce(unreachable).mockRejectedValueOnce(unreachable)
+      .mockResolvedValueOnce({ kind: "accepted", remoteId: "remote-recovered" });
+    const transportForSn = () => ({ send, orderState: vi.fn().mockResolvedValue("completed" as const) });
+    for (let attempt = 0; attempt < 2; attempt++) {
+      await drainDeliveryQueue({ db, jobId: job.id, transportForSn });
+      expect((await pg.query<{ status: string; attempt_count: number; unknown_retry_count: number; first_attempt_at: Date | null }>(
+        "SELECT status, attempt_count, unknown_retry_count, first_attempt_at FROM print_deliveries WHERE id = $1", [job.id]
+      )).rows[0]).toMatchObject({ status: "queued", attempt_count: 0, unknown_retry_count: 0, first_attempt_at: null });
+      expect(await claimDelivery(db, job.id)).toBeNull();
+      await pg.query("UPDATE print_deliveries SET next_attempt_at = now() - INTERVAL '1 second' WHERE id = $1", [job.id]);
+    }
+    await drainDeliveryQueue({ db, jobId: job.id, transportForSn });
+    expect(send).toHaveBeenCalledTimes(3);
+    expect((await pg.query<{ status: string; attempt_count: number; remote_id: string }>(
+      "SELECT status, attempt_count, remote_id FROM print_deliveries WHERE id = $1", [job.id]
+    )).rows[0]).toMatchObject({ status: "completed", attempt_count: 1, remote_id: "remote-recovered" });
+  });
+
+  it("keeps one unknown-outcome recovery despite a pre-send connection failure", async () => {
+    const job = await enqueueDelivery(db, intent());
+    const unknown = Object.assign(new Error("reply lost"), { kind: "unknown" });
+    const unreachable = Object.assign(new Error("TCP unavailable"), { kind: "unreachable" });
+    const send = vi.fn().mockRejectedValueOnce(unknown).mockRejectedValueOnce(unreachable)
+      .mockRejectedValueOnce(unknown);
+    const transportForSn = () => ({ send, orderState: vi.fn() });
+    await drainDeliveryQueue({ db, jobId: job.id, transportForSn });
+    await pg.query("UPDATE print_deliveries SET next_attempt_at = now() - INTERVAL '1 second' WHERE id = $1", [job.id]);
+    await drainDeliveryQueue({ db, jobId: job.id, transportForSn });
+    expect((await pg.query<{ status: string; attempt_count: number; unknown_retry_count: number }>(
+      "SELECT status, attempt_count, unknown_retry_count FROM print_deliveries WHERE id = $1", [job.id]
+    )).rows[0]).toMatchObject({ status: "queued", attempt_count: 1, unknown_retry_count: 1 });
+    await pg.query("UPDATE print_deliveries SET next_attempt_at = now() - INTERVAL '1 second' WHERE id = $1", [job.id]);
+    await drainDeliveryQueue({ db, jobId: job.id, transportForSn });
+    await drainDeliveryQueue({ db, jobId: job.id, transportForSn });
+    expect(send).toHaveBeenCalledTimes(3);
+    expect(send.mock.calls.map(call => call[1])).toEqual([job.provider_key, job.provider_key, job.provider_key]);
+    expect((await pg.query<{ status: string; attempt_count: number; unknown_retry_count: number }>(
+      "SELECT status, attempt_count, unknown_retry_count FROM print_deliveries WHERE id = $1", [job.id]
+    )).rows[0]).toMatchObject({ status: "unknown", attempt_count: 2, unknown_retry_count: 1 });
+  });
+
   it("does not treat a database write failure after cloud acceptance as a send failure", async () => {
     const job = await enqueueDelivery(db, intent());
     const send = vi.fn().mockResolvedValue({ kind: "accepted", remoteId: "remote" });

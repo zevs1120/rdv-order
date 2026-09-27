@@ -18,11 +18,12 @@ export type XpyunDiagnostic = {
   httpStatus?: number;
   socketCode?: string;
   providerCode?: number;
+  requestStarted?: boolean;
 };
 
 export class XpyunError extends Error {
   constructor(
-    public readonly kind: "offline" | "rejected" | "unknown",
+    public readonly kind: "offline" | "rejected" | "unknown" | "unreachable",
     public readonly code?: number,
     message = "打印连接暂时不可用",
     public readonly diagnostic?: XpyunDiagnostic
@@ -64,8 +65,11 @@ export class XpyunTransport {
     const attempts: NonNullable<XpyunDiagnostic["attempts"]> = [];
     let tcpConnectedMs: number | undefined;
     let tlsConnectedMs: number | undefined;
+    // No HTTP headers/body are handed to the socket until TLS is ready.
+    // This is an explicit safe-reconnect boundary, not an inference from an error code.
+    let requestStarted = false;
     const diagnostic = (reason: TransportReason, details: { httpStatus?: number; socketCode?: string; providerCode?: number } = {}): XpyunDiagnostic =>
-      ({ reason, phase, durationMs: Date.now() - startedAt, hostname: this.endpoint.hostname,
+      ({ reason, phase, durationMs: Date.now() - startedAt, hostname: this.endpoint.hostname, requestStarted,
         ...(lookup && { lookup: { ...lookup } }), attempts: attempts.map(attempt => ({ ...attempt })),
         ...(tcpConnectedMs !== undefined && { tcpConnectedMs }),
         ...(tlsConnectedMs !== undefined && { tlsConnectedMs }), ...details });
@@ -80,11 +84,13 @@ export class XpyunTransport {
     try {
       const responseBody = await new Promise<string>((resolve, reject) => {
         let settled = false;
-        let timer: NodeJS.Timeout;
+        let timer: NodeJS.Timeout | undefined;
+        let connectTimer: NodeJS.Timeout | undefined;
         const finish = (error?: XpyunError, value?: string) => {
           if (settled) return;
           settled = true;
           clearTimeout(timer);
+          clearTimeout(connectTimer);
           if (error) reject(error);
           else resolve(value!);
         };
@@ -134,16 +140,26 @@ export class XpyunTransport {
           socket.on("connectionAttemptTimeout", (address: string, _port: number, family: number) =>
             recordAttempt(address, family, "TIMEOUT"));
           socket.once("connect", () => { phase = "tls"; tcpConnectedMs = Date.now() - startedAt; });
-          socket.once("secureConnect", () => { phase = "response"; tlsConnectedMs = Date.now() - startedAt; });
+          socket.once("secureConnect", () => {
+            if (settled) return;
+            phase = "response";
+            tlsConnectedMs = Date.now() - startedAt;
+            clearTimeout(connectTimer);
+            requestStarted = true;
+            request.end(payload);
+          });
         });
-        request.on("error", error => finish(new XpyunError("unknown", undefined, undefined, diagnostic("socket", {
+        request.on("error", error => finish(new XpyunError(requestStarted ? "unknown" : "unreachable", undefined, undefined, diagnostic("socket", {
           socketCode: safeSocketCode(error)
         }))));
         timer = setTimeout(() => {
-          finish(new XpyunError("unknown", undefined, undefined, diagnostic("timeout")));
+          finish(new XpyunError(requestStarted ? "unknown" : "unreachable", undefined, undefined, diagnostic("timeout")));
           request.destroy();
         }, timeoutMs);
-        request.end(payload);
+        connectTimer = setTimeout(() => {
+          finish(new XpyunError("unreachable", undefined, undefined, diagnostic("timeout")));
+          request.destroy();
+        }, Math.min(timeoutMs, 4000));
       });
       phase = "parse";
       let reply: unknown;
@@ -156,7 +172,7 @@ export class XpyunTransport {
       if (reply.code !== 0) console.warn("print.transport", { method, ...this._lastDiagnostic });
       return { code: reply.code, data: "data" in reply ? reply.data : undefined };
     } catch (error) {
-      const failure = error instanceof XpyunError ? error : new XpyunError("unknown", undefined, undefined, diagnostic("socket", {
+      const failure = error instanceof XpyunError ? error : new XpyunError(requestStarted ? "unknown" : "unreachable", undefined, undefined, diagnostic("socket", {
         socketCode: safeSocketCode(error)
       }));
       this._lastDiagnostic = failure.diagnostic || diagnostic("socket", { socketCode: safeSocketCode(error) });

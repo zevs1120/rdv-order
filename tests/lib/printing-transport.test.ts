@@ -17,17 +17,20 @@ function replyWith(body: string, statusCode = 200) {
     request.end = vi.fn((payload: Buffer) => {
       payloads.push(payload.toString("utf8"));
       queueMicrotask(() => {
-        const socket = new EventEmitter();
-        request.emit("socket", socket);
-        socket.emit("lookup", null, "203.0.113.10", 4, "open.xpyun.net");
-        socket.emit("connectionAttempt", "203.0.113.10", 443, 4);
-        socket.emit("connect");
-        socket.emit("secureConnect");
         const response = Object.assign(new EventEmitter(), { statusCode, destroy: vi.fn() });
         callback(response);
         response.emit("data", Buffer.from(body));
         response.emit("end");
       });
+    });
+    queueMicrotask(() => {
+      const socket = new EventEmitter();
+      request.emit("socket", socket);
+      socket.emit("lookup", null, "203.0.113.10", 4, "open.xpyun.net");
+      socket.emit("connectionAttempt", "203.0.113.10", 443, 4);
+      socket.emit("connect");
+      expect(request.end).not.toHaveBeenCalled();
+      socket.emit("secureConnect");
     });
     requests.push(request);
     return request;
@@ -69,7 +72,8 @@ describe("new XPYUN transport", () => {
   it("records bounded connection attempts without request or printer secrets", async () => {
     vi.useFakeTimers();
     const request = new EventEmitter() as FakeRequest;
-    request.end = vi.fn(() => queueMicrotask(() => {
+    request.end = vi.fn();
+    requestMock.mockImplementation(() => { queueMicrotask(() => {
       const socket = new EventEmitter();
       request.emit("socket", socket);
       socket.emit("lookup", null, "203.0.113.1", 4, "open.xpyun.net");
@@ -79,9 +83,8 @@ describe("new XPYUN transport", () => {
       socket.emit("connectionAttemptTimeout", "203.0.113.1", 443, 4);
       socket.emit("connectionAttemptFailed", "203.0.113.2", 443, 4,
         Object.assign(new Error("private network detail"), { code: "ETIMEDOUT" }));
-    }));
+    }); return request; });
     request.destroy = vi.fn(() => { request.emit("error", new Error("closed")); return request; });
-    requestMock.mockReturnValue(request);
     const transport = XpyunTransport.fromEnvironment();
     const pending = transport.printerStatus();
     await vi.advanceTimersByTimeAsync(4000);
@@ -95,16 +98,42 @@ describe("new XPYUN transport", () => {
     expect(logged).not.toMatch(/fixture-device|fixture-key|private network detail/);
   });
 
-  it("destroys the request at the full deadline and keeps its result unknown", async () => {
+  it("never writes a ticket after a connection deadline, including a late TLS event", async () => {
     vi.useFakeTimers();
     const request = new EventEmitter() as FakeRequest;
+    const socket = new EventEmitter();
     request.end = vi.fn();
     request.destroy = vi.fn(() => { request.emit("error", Object.assign(new Error("closed"), { code: "ECONNRESET" })); return request; });
     requestMock.mockReturnValue(request);
     const pending = XpyunTransport.fromEnvironment().send("ticket", "fixture-key", 120);
-    const assertion = expect(pending).rejects.toMatchObject({ kind: "unknown", diagnostic: { reason: "timeout", phase: "dns", durationMs: 10_000 } });
+    request.emit("socket", socket);
+    const assertion = expect(pending).rejects.toMatchObject({ kind: "unreachable", diagnostic: {
+      reason: "timeout", phase: "dns", durationMs: 4000, requestStarted: false
+    } });
+    await vi.advanceTimersByTimeAsync(4000);
+    await assertion;
+    socket.emit("secureConnect");
+    expect(request.end).not.toHaveBeenCalled();
+    expect(request.destroy).toHaveBeenCalledTimes(1);
+    expect(requestMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps the ten-second response deadline unknown after handing off the ticket", async () => {
+    vi.useFakeTimers();
+    const request = new EventEmitter() as FakeRequest;
+    const socket = new EventEmitter();
+    request.end = vi.fn();
+    request.destroy = vi.fn(() => request);
+    requestMock.mockReturnValue(request);
+    const pending = XpyunTransport.fromEnvironment().send("ticket", "fixture-key", 120);
+    request.emit("socket", socket);
+    socket.emit("secureConnect");
+    const assertion = expect(pending).rejects.toMatchObject({ kind: "unknown", diagnostic: {
+      reason: "timeout", phase: "response", durationMs: 10_000, requestStarted: true
+    } });
     await vi.advanceTimersByTimeAsync(10_000);
     await assertion;
+    expect(request.end).toHaveBeenCalledTimes(1);
     expect(request.destroy).toHaveBeenCalledTimes(1);
     expect(requestMock).toHaveBeenCalledTimes(1);
   });
@@ -114,11 +143,31 @@ describe("new XPYUN transport", () => {
     request.end = vi.fn(() => queueMicrotask(() => request.emit("error", Object.assign(new Error("private network detail"), { code: "ECONNRESET" }))));
     request.destroy = vi.fn();
     requestMock.mockReturnValue(request);
-    await expect(XpyunTransport.fromEnvironment().send("secret ticket", "fixture-key", 120)).rejects.toMatchObject({
+    const pending = XpyunTransport.fromEnvironment().send("secret ticket", "fixture-key", 120);
+    const socket = new EventEmitter();
+    request.emit("socket", socket);
+    socket.emit("secureConnect");
+    await expect(pending).rejects.toMatchObject({
       kind: "unknown", diagnostic: { reason: "socket", socketCode: "ECONNRESET" }
     });
     const logged = JSON.stringify(vi.mocked(console.warn).mock.calls);
     expect(logged).not.toMatch(/secret ticket|fixture-device|fixture-key|private network detail/);
+  });
+
+  it("safely reconnects after a TLS error without sending credentials or paper", async () => {
+    const request = new EventEmitter() as FakeRequest;
+    request.end = vi.fn();
+    request.destroy = vi.fn();
+    requestMock.mockReturnValue(request);
+    const pending = XpyunTransport.fromEnvironment().send("secret ticket", "fixture-key", 120);
+    const socket = new EventEmitter();
+    request.emit("socket", socket);
+    socket.emit("connect");
+    request.emit("error", Object.assign(new Error("TLS disconnected"), { code: "ECONNRESET" }));
+    await expect(pending).rejects.toMatchObject({ kind: "unreachable", diagnostic: {
+      phase: "tls", requestStarted: false
+    } });
+    expect(request.end).not.toHaveBeenCalled();
   });
 
   it("preserves provider deduplication and rejects malformed responses as unknown", async () => {

@@ -196,7 +196,7 @@ No database migration or existing endpoint behavior change is required.
 
 `POST /api/tables/print-bill` accepts optional `waitForResult: true`: returns 200 `{ok:true, accepted:true, remoteJobId}` after provider acceptance, 503 on rejection/offline, 504 on unknown transport outcome. It does not guarantee physical paper output. Omitting the flag retains the legacy 202 background contract. Both paths audit receipt failures. Clients use 45-second deadlines and never automatically replay a print write.
 
-`GET /api/print/health` adds `livePrinter: {status, checkedAt, latencyMs}`. This is a read-only XPYUN query; status is online/offline/degraded/unknown. Configuration `ready` remains separate. A failed query produces unknown. Self-test errors now retain actionable provider/connection descriptions. New clients retry one queued job per action.
+`GET /api/print/health` adds `livePrinter: {status, checkedAt, latencyMs}`. This is a read-only XPYUN query; status is online/offline/degraded/unknown. Configuration `ready` remains separate. A failed query produces unknown. Its additive `connection.requestStarted` diagnostic is false when transport failed before submitting the request body (`unreachable`), and true once submission began; true does not prove provider acceptance. Self-test errors retain actionable provider/connection descriptions. New clients retry one queued job per action.
 
 
 ### 芯烨云回执兼容说明（2026-09-20）
