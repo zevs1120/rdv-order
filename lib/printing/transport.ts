@@ -1,16 +1,31 @@
 import { createHash } from "node:crypto";
 import { request as httpsRequest } from "node:https";
+import { isIP } from "node:net";
 import iconv from "iconv-lite";
 
 type TransportPhase = "dns" | "connect" | "tls" | "response" | "body" | "parse";
-type TransportReason = "timeout" | "http" | "invalid_json" | "invalid_response" | "body_limit" | "socket";
+type TransportReason = "timeout" | "http" | "invalid_json" | "invalid_response" | "body_limit" | "socket" | "provider" | "response";
+
+export type XpyunDiagnostic = {
+  reason: TransportReason;
+  phase: TransportPhase;
+  durationMs: number;
+  hostname?: string;
+  lookup?: { address?: string; family?: 4 | 6; errorCode?: string };
+  attempts?: Array<{ address: string; family: 4 | 6; code?: string }>;
+  tcpConnectedMs?: number;
+  tlsConnectedMs?: number;
+  httpStatus?: number;
+  socketCode?: string;
+  providerCode?: number;
+};
 
 export class XpyunError extends Error {
   constructor(
     public readonly kind: "offline" | "rejected" | "unknown",
     public readonly code?: number,
     message = "打印连接暂时不可用",
-    public readonly diagnostic?: { reason: TransportReason; phase: TransportPhase; durationMs: number; httpStatus?: number; socketCode?: string }
+    public readonly diagnostic?: XpyunDiagnostic
   ) {
     super(message);
     this.name = "XpyunError";
@@ -21,7 +36,10 @@ const MAX_RESPONSE_BYTES = 64 * 1024;
 
 /** One HTTP attempt. Recovery belongs to the durable job, never to a nested retry loop. */
 export class XpyunTransport {
+  private _lastDiagnostic: XpyunDiagnostic | undefined;
   private constructor(readonly sn: string, private readonly user: string, private readonly key: string, private readonly endpoint: URL) {}
+
+  get lastDiagnostic(): XpyunDiagnostic | undefined { return this._lastDiagnostic; }
 
   static fromEnvironment(snOverride?: string) {
     const user = (process.env.XPYUN_USER || process.env.XPYUN_USERKEY && process.env.USER || process.env.USERKEY && process.env.USER || "").trim();
@@ -36,13 +54,29 @@ export class XpyunTransport {
   }
 
   private async request(method: string, body: Record<string, unknown>, timeoutMs: number) {
+    this._lastDiagnostic = undefined;
     const timestamp = String(Math.floor(Date.now() / 1000));
     const sign = createHash("sha1").update(this.user + this.key + timestamp).digest("hex");
     const payload = Buffer.from(JSON.stringify({ user: this.user, timestamp, sign, ...body }), "utf8");
     const startedAt = Date.now();
     let phase: TransportPhase = "dns";
-    const diagnostic = (reason: TransportReason, details: { httpStatus?: number; socketCode?: string } = {}) =>
-      ({ reason, phase, durationMs: Date.now() - startedAt, ...details });
+    let lookup: XpyunDiagnostic["lookup"];
+    const attempts: NonNullable<XpyunDiagnostic["attempts"]> = [];
+    let tcpConnectedMs: number | undefined;
+    let tlsConnectedMs: number | undefined;
+    const diagnostic = (reason: TransportReason, details: { httpStatus?: number; socketCode?: string; providerCode?: number } = {}): XpyunDiagnostic =>
+      ({ reason, phase, durationMs: Date.now() - startedAt, hostname: this.endpoint.hostname,
+        ...(lookup && { lookup: { ...lookup } }), attempts: attempts.map(attempt => ({ ...attempt })),
+        ...(tcpConnectedMs !== undefined && { tcpConnectedMs }),
+        ...(tlsConnectedMs !== undefined && { tlsConnectedMs }), ...details });
+    const recordAttempt = (address: string, family: number, code?: string) => {
+      if (typeof address !== "string" || isIP(address) !== family || family !== 4 && family !== 6) return;
+      if (code) {
+        const existing = [...attempts].reverse().find(attempt => attempt.address === address && attempt.family === family);
+        if (existing) { existing.code = code; return; }
+      }
+      if (attempts.length < 6) attempts.push({ address, family, ...(code && { code }) });
+    };
     try {
       const responseBody = await new Promise<string>((resolve, reject) => {
         let settled = false;
@@ -86,9 +120,21 @@ export class XpyunTransport {
         });
         request.on("socket", socket => {
           phase = "dns";
-          socket.once("lookup", () => { phase = "connect"; });
-          socket.once("connect", () => { phase = "tls"; });
-          socket.once("secureConnect", () => { phase = "response"; });
+          socket.once("lookup", (error: Error | null, address: string, family: number) => {
+            lookup = {
+              ...(typeof address === "string" && isIP(address) && { address }),
+              ...((family === 4 || family === 6) && { family }),
+              ...(safeSocketCode(error) && { errorCode: safeSocketCode(error) })
+            };
+            phase = error ? "dns" : "connect";
+          });
+          socket.on("connectionAttempt", (address: string, _port: number, family: number) => recordAttempt(address, family));
+          socket.on("connectionAttemptFailed", (address: string, _port: number, family: number, error: Error) =>
+            recordAttempt(address, family, safeSocketCode(error) || "FAILED"));
+          socket.on("connectionAttemptTimeout", (address: string, _port: number, family: number) =>
+            recordAttempt(address, family, "TIMEOUT"));
+          socket.once("connect", () => { phase = "tls"; tcpConnectedMs = Date.now() - startedAt; });
+          socket.once("secureConnect", () => { phase = "response"; tlsConnectedMs = Date.now() - startedAt; });
         });
         request.on("error", error => finish(new XpyunError("unknown", undefined, undefined, diagnostic("socket", {
           socketCode: safeSocketCode(error)
@@ -106,16 +152,15 @@ export class XpyunTransport {
       if (!reply || typeof reply !== "object" || !("code" in reply) || typeof reply.code !== "number" || !Number.isInteger(reply.code)) {
         throw new XpyunError("unknown", undefined, undefined, diagnostic("invalid_response"));
       }
-      if (reply.code !== 0) console.warn("print.transport", { method, phase, reason: "provider", code: reply.code, ms: Date.now() - startedAt });
+      this._lastDiagnostic = diagnostic(reply.code === 0 ? "response" : "provider", { providerCode: reply.code });
+      if (reply.code !== 0) console.warn("print.transport", { method, ...this._lastDiagnostic });
       return { code: reply.code, data: "data" in reply ? reply.data : undefined };
     } catch (error) {
       const failure = error instanceof XpyunError ? error : new XpyunError("unknown", undefined, undefined, diagnostic("socket", {
         socketCode: safeSocketCode(error)
       }));
-      if (failure.diagnostic) console.warn("print.transport", {
-        method, phase: failure.diagnostic.phase, reason: failure.diagnostic.reason,
-        code: failure.diagnostic.socketCode, status: failure.diagnostic.httpStatus, ms: failure.diagnostic.durationMs
-      });
+      this._lastDiagnostic = failure.diagnostic || diagnostic("socket", { socketCode: safeSocketCode(error) });
+      console.warn("print.transport", { method, ...this._lastDiagnostic });
       throw failure;
     }
   }

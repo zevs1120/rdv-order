@@ -1,6 +1,8 @@
 import { createHash } from "node:crypto";
 import type { QueryResultRow } from "pg";
 import { pool } from "../db";
+import type { XpyunDiagnostic } from "./transport";
+import { recordConnectionFailure } from "./diagnostics";
 
 // This module never reads or modifies the historical print_jobs table.
 export type DeliveryKind = "order" | "receipt" | "self_test" | "reprint";
@@ -45,7 +47,7 @@ export type XpyunDeliveryTransport = {
   orderState(remoteId: string): Promise<"completed" | "pending" | "unknown">;
 };
 
-export type XpyunDeliveryError = Error & { kind?: "offline" | "rejected" | "unknown"; code?: number };
+export type XpyunDeliveryError = Error & { kind?: "offline" | "rejected" | "unknown"; code?: number; diagnostic?: XpyunDiagnostic };
 
 const CLOUD_BUFFER_SECONDS = 120;
 const DEDUPE_SECONDS = 300;
@@ -236,6 +238,7 @@ export async function drainDeliveryQueue(options: {
       reply = await transport.send(job.content, job.provider_key, expiresIn);
     } catch (cause) {
       const error = cause as XpyunDeliveryError;
+      if (error.diagnostic) await recordConnectionFailure("print", error.diagnostic, job.id);
       const message = error.message || "打印请求失败";
       if (error.kind === "offline") {
         await recordOffline(job, message, db);

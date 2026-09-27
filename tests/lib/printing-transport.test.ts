@@ -17,6 +17,12 @@ function replyWith(body: string, statusCode = 200) {
     request.end = vi.fn((payload: Buffer) => {
       payloads.push(payload.toString("utf8"));
       queueMicrotask(() => {
+        const socket = new EventEmitter();
+        request.emit("socket", socket);
+        socket.emit("lookup", null, "203.0.113.10", 4, "open.xpyun.net");
+        socket.emit("connectionAttempt", "203.0.113.10", 443, 4);
+        socket.emit("connect");
+        socket.emit("secureConnect");
         const response = Object.assign(new EventEmitter(), { statusCode, destroy: vi.fn() });
         callback(response);
         response.emit("data", Buffer.from(body));
@@ -53,6 +59,40 @@ describe("new XPYUN transport", () => {
     const body = JSON.parse(payloads[0]);
     expect(body).toMatchObject({ mode: 1, expiresIn: 90, copies: 1, idempotent: "fixture-key", sn: "fixture-device", content: "KITCHEN<BR>GUEST<BR>" });
     expect(body.sign).toMatch(/^[a-f0-9]{40}$/);
+    expect(transport.lastDiagnostic).toMatchObject({
+      hostname: "open.xpyun.net", lookup: { address: "203.0.113.10", family: 4 },
+      attempts: [{ address: "203.0.113.10", family: 4 }],
+      tcpConnectedMs: expect.any(Number), tlsConnectedMs: expect.any(Number)
+    });
+  });
+
+  it("records bounded connection attempts without request or printer secrets", async () => {
+    vi.useFakeTimers();
+    const request = new EventEmitter() as FakeRequest;
+    request.end = vi.fn(() => queueMicrotask(() => {
+      const socket = new EventEmitter();
+      request.emit("socket", socket);
+      socket.emit("lookup", null, "203.0.113.1", 4, "open.xpyun.net");
+      for (let index = 1; index <= 8; index++) {
+        socket.emit("connectionAttempt", `203.0.113.${index}`, 443, 4);
+      }
+      socket.emit("connectionAttemptTimeout", "203.0.113.1", 443, 4);
+      socket.emit("connectionAttemptFailed", "203.0.113.2", 443, 4,
+        Object.assign(new Error("private network detail"), { code: "ETIMEDOUT" }));
+    }));
+    request.destroy = vi.fn(() => { request.emit("error", new Error("closed")); return request; });
+    requestMock.mockReturnValue(request);
+    const transport = XpyunTransport.fromEnvironment();
+    const pending = transport.printerStatus();
+    await vi.advanceTimersByTimeAsync(4000);
+    expect(await pending).toBe("unknown");
+    expect(transport.lastDiagnostic).toMatchObject({ reason: "timeout", phase: "connect",
+      lookup: { address: "203.0.113.1", family: 4 },
+      attempts: expect.arrayContaining([{ address: "203.0.113.1", family: 4, code: "TIMEOUT" },
+        { address: "203.0.113.2", family: 4, code: "ETIMEDOUT" }]) });
+    expect(transport.lastDiagnostic?.attempts).toHaveLength(6);
+    const logged = JSON.stringify(vi.mocked(console.warn).mock.calls);
+    expect(logged).not.toMatch(/fixture-device|fixture-key|private network detail/);
   });
 
   it("destroys the request at the full deadline and keeps its result unknown", async () => {

@@ -3,7 +3,8 @@ import type { PoolClient } from "pg";
 import { pool } from "../db";
 import { enqueueDelivery, type Delivery, type QueueDb } from "./queue";
 import { renderOrderTicket, renderBillTicket, renderTestTicket, type BillTicketPayload } from "./tickets";
-import { XpyunTransport } from "./transport";
+import { XpyunTransport, type XpyunDiagnostic } from "./transport";
+import { recordConnectionFailure } from "./diagnostics";
 
 export function printerConfigured() {
   try { XpyunTransport.fromEnvironment(); return true; } catch { return false; }
@@ -12,8 +13,16 @@ export function printerConfigured() {
 export async function queryPrimaryPrinterStatus() {
   const started = Date.now();
   let status: "online" | "offline" | "degraded" | "unknown" = "unknown";
-  try { status = await XpyunTransport.fromEnvironment().printerStatus(); } catch { /* Configuration shown separately. */ }
-  return { status, checkedAt: new Date().toISOString(), latencyMs: Date.now() - started };
+  let connection: XpyunDiagnostic | undefined;
+  let latencyMs: number | undefined;
+  try {
+    const transport = XpyunTransport.fromEnvironment();
+    status = await transport.printerStatus();
+    latencyMs = Date.now() - started;
+    connection = transport.lastDiagnostic || undefined;
+    if (status === "unknown" && connection) await recordConnectionFailure("queryPrinterStatus", connection);
+  } catch { /* Configuration shown separately. */ }
+  return { status, checkedAt: new Date().toISOString(), latencyMs: latencyMs ?? Date.now() - started, ...(connection ? { connection } : {}) };
 }
 
 export async function prepareOrderDelivery(tx: QueueDb, orderId: string) {
