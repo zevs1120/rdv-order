@@ -59,8 +59,7 @@ export async function POST(request: Request) {
       method: "POST",
       headers: { "Content-Type": "application/json;charset=UTF-8" },
       body: JSON.stringify({ user, timestamp, sign, sn }),
-      cache: "no-store",
-      redirect: "error",
+      redirect: "manual",
       signal: controller.signal
     });
     phase = "response";
