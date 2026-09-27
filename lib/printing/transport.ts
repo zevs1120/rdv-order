@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { request as httpsRequest } from "node:https";
 import { isIP } from "node:net";
 import iconv from "iconv-lite";
+import { callEdgeProvider, EdgeGatewayError, type EdgeOperation } from "./provider-edge";
 
 type TransportPhase = "dns" | "connect" | "tls" | "response" | "body" | "parse";
 type TransportReason = "timeout" | "http" | "invalid_json" | "invalid_response" | "body_limit" | "socket" | "provider" | "response";
@@ -55,6 +56,9 @@ export class XpyunTransport {
   }
 
   private async request(method: string, body: Record<string, unknown>, timeoutMs: number) {
+    if (process.env.VERCEL === "1" || process.env.VERCEL_ENV === "production" || process.env.VERCEL_ENV === "preview") {
+      return this.requestViaEdge(method, body);
+    }
     this._lastDiagnostic = undefined;
     const timestamp = String(Math.floor(Date.now() / 1000));
     const sign = createHash("sha1").update(this.user + this.key + timestamp).digest("hex");
@@ -181,7 +185,46 @@ export class XpyunTransport {
     }
   }
 
-  async send(content: string, key: string, expiresIn: number): Promise<{ kind: "accepted"; remoteId: string } | { kind: "duplicate" }> {
+  private async requestViaEdge(method: string, body: Record<string, unknown>) {
+    this._lastDiagnostic = undefined;
+    const startedAt = Date.now();
+    const diagnostic = (reason: TransportReason, httpStatus?: number, providerCode?: number): XpyunDiagnostic => ({
+      reason, phase: "response", durationMs: Date.now() - startedAt,
+      hostname: "order.resortdejavu.cn", requestStarted: true,
+      ...(httpStatus !== undefined && { httpStatus }),
+      ...(providerCode !== undefined && { providerCode })
+    });
+    try {
+      let operation: EdgeOperation;
+      if (method === "print" && typeof body.content === "string" && typeof body.idempotent === "string"
+        && typeof body.expiresIn === "number") {
+        operation = { method, sn: this.sn, content: body.content, key: body.idempotent,
+          expireAt: typeof body.expireAt === "number" ? body.expireAt : Date.now() + body.expiresIn * 1000 };
+      } else if (method === "queryPrinterStatus") {
+        operation = { method, sn: this.sn };
+      } else if (method === "queryOrderState" && typeof body.orderId === "string") {
+        operation = { method, sn: this.sn, orderId: body.orderId };
+      } else {
+        throw new XpyunError("rejected", undefined, "打印请求参数无效");
+      }
+      const reply = await callEdgeProvider(operation);
+      if (reply.kind === "not_sent") throw new XpyunError("rejected", reply.code, "打印任务未发送");
+      this._lastDiagnostic = diagnostic(reply.code === 0 ? "response" : "provider", undefined, reply.code);
+      if (reply.code !== 0) console.warn("print.transport", { method, ...this._lastDiagnostic });
+      return { code: reply.code, data: reply.data };
+    } catch (cause) {
+      const gatewayError = cause instanceof EdgeGatewayError ? cause : undefined;
+      // The Edge function may have sent the print before either hop failed.
+      // Only its explicit pre-provider not_sent response is a known rejection.
+      const error = cause instanceof XpyunError ? cause : new XpyunError("unknown", undefined, undefined,
+        diagnostic(gatewayError?.reason || "socket", gatewayError?.httpStatus));
+      this._lastDiagnostic = error.diagnostic || diagnostic(gatewayError?.reason || "invalid_response", gatewayError?.httpStatus);
+      console.warn("print.transport", { method, ...this._lastDiagnostic });
+      throw error;
+    }
+  }
+
+  async send(content: string, key: string, expiresIn: number, expiresAt?: number): Promise<{ kind: "accepted"; remoteId: string } | { kind: "duplicate" }> {
     if (!content.trim() || iconv.encode(content, "gbk").length > 12 * 1024 || !/^[a-zA-Z0-9_-]{1,50}$/.test(key)) {
       throw new XpyunError("rejected", 1007, "票据内容无法打印");
     }
@@ -190,7 +233,9 @@ export class XpyunTransport {
     // old kitchen orders suddenly printing much later. No online preflight gate.
     const reply = await this.request("print", {
       sn: this.sn, content, copies: 1, mode: 1,
-      expiresIn: Math.min(120, Math.floor(expiresIn)), idempotent: key
+      expiresIn: Math.min(120, Math.floor(expiresIn)), idempotent: key,
+      ...((process.env.VERCEL === "1" || process.env.VERCEL_ENV === "production" || process.env.VERCEL_ENV === "preview")
+        && expiresAt !== undefined ? { expireAt: expiresAt } : {})
     }, 10_000);
     if (reply.code === 0 && typeof reply.data === "string" && reply.data.trim()) return { kind: "accepted", remoteId: reply.data };
     if (reply.code === 1013) return { kind: "duplicate" };

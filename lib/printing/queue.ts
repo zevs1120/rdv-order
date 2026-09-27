@@ -41,7 +41,7 @@ export type DeliveryInput = {
 };
 
 export type XpyunDeliveryTransport = {
-  send(content: string, key: string, expiresIn: number): Promise<
+  send(content: string, key: string, expiresIn: number, expiresAt?: number): Promise<
     { kind: "accepted"; remoteId: string } | { kind: "duplicate" }
   >;
   orderState(remoteId: string): Promise<"completed" | "pending" | "unknown">;
@@ -253,7 +253,7 @@ export async function drainDeliveryQueue(options: {
     let reply: Awaited<ReturnType<XpyunDeliveryTransport["send"]>>;
     try {
       const transport = options.transportForSn(job.printer_sn);
-      reply = await transport.send(job.content, job.provider_key, expiresIn);
+      reply = await transport.send(job.content, job.provider_key, expiresIn, first + CLOUD_BUFFER_SECONDS * 1000);
     } catch (cause) {
       const error = cause as XpyunDeliveryError;
       if (error.diagnostic) await recordConnectionFailure("print", error.diagnostic, job.id);
