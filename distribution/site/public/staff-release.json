@@ -1,17 +1,17 @@
 {
   "name": "RDV Team",
   "status": "available",
-  "version": "2.1.9",
-  "versionCode": 22,
+  "version": "2.1.10",
+  "versionCode": 23,
   "minAndroid": "8.0",
   "packageName": "com.rdv.staff",
-  "file": "/releases/rdv-team-2.1.9.apk",
-  "bytes": 3156380,
-  "sha256": "0daebcee3a66e7b18ce84302231a6c6187e2edf7bfa17f0a0d116e4f774f370b",
+  "file": "/releases/rdv-team-2.1.10.apk",
+  "bytes": 3156432,
+  "sha256": "dd93747bd2d289108939f7cce654df53bc9aa3868e8ea136e9de09e1ae0903e9",
   "notes": {
-    "zh": "支持提前发布明天及未来一周排班，完善晚排班关联、午夜缺卡与当天误签退撤销；优化通知和同步，降低资源用量。",
-    "en": "Publish tomorrow or a future week in advance. Improved late schedule linking, midnight attendance and same-day mistaken clock-out undo. Optimized notifications and sync reduce resource use."
+    "zh": "Security 全天接收 Supplies / Concierge 客人新单并可接单配送；修复应用内下载安装、授权返回与中断恢复。",
+    "en": "Security receives guest Supplies and Concierge requests around the clock and can handle deliveries. Fixed in-app update installation, permission return and interrupted update recovery."
   },
-  "releaseDate": "2026-09-27",
-  "releaseDateSha256": "0daebcee3a66e7b18ce84302231a6c6187e2edf7bfa17f0a0d116e4f774f370b"
+  "releaseDate": "2026-09-30",
+  "releaseDateSha256": "dd93747bd2d289108939f7cce654df53bc9aa3868e8ea136e9de09e1ae0903e9"
 }
