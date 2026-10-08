@@ -7,11 +7,11 @@
   "packageName": "com.rdv.staff",
   "file": "/releases/rdv-team-2.1.13.apk",
   "bytes": 3374420,
-  "sha256": "c9f04ead063fa9947c3a64812f0186dbef19997a2853059ecbe0348e1df6c363",
+  "sha256": "061a9c31f432735c32ca266bef344128ae668da2c79abf394e01b1f590cfc8a2",
   "notes": {
     "zh": "修复应用内更新的下载后安装、授权返回和中断恢复，保留原有账号及数据。",
     "en": "Fixed installation after in-app downloads, permission return and interrupted updates. Existing app data is retained."
   },
   "releaseDate": "2026-10-08",
-  "releaseDateSha256": "c9f04ead063fa9947c3a64812f0186dbef19997a2853059ecbe0348e1df6c363"
+  "releaseDateSha256": "061a9c31f432735c32ca266bef344128ae668da2c79abf394e01b1f590cfc8a2"
 }
