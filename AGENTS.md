@@ -1,6 +1,8 @@
-## Team 双渠道实际安装修复（2026-10-08）
+## Team 双渠道实际安装修复（2026-10-08 最新）
 
-- 用户明确要求实际装得上和更新得上，范围包括Team App内与下载页；提示、哈希或打开安装器不能代替安装完成。Team准备原签名2.1.13/code26，下载站同步相同APK、清单及稳定入口；JS／元数据失败仍有直接下载链接。Order业务与APK保持原样，无push。实际发布和浏览器覆盖安装结果见docs/team-2.1.13-download-release.md，不把准备状态写成已发布。
+- 用户明确要求实际装得上和更新得上，范围包括Team App内与下载页；提示、哈希或打开安装器不能代替安装完成。原签名2.1.13/code26已正式发布；下载站同步相同APK、清单及稳定入口，JS／元数据失败仍有直接下载链接。
+- 下载站源码7ce8224，部署dpl_3QLtKeXYqy5xhQkEAVgF5Psjyodc READY并切production。公网完整包与Team原签名包一致；Android15隔离Chrome实际从正式页下载、来源授权、系统确认，2.1.12/code25成功覆盖到2.1.13/code26且原数据标记保留，正常启动登录页。禁用JS的390px公网页面下载链接可见。详情docs/team-2.1.13-download-release.md；未验未知员工真机。
+- Order业务、APK和清单保持原样，无Git push或经营数据操作。
 
 # RDV project working memory
 
