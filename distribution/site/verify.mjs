@@ -47,9 +47,10 @@ const language = read('./public/language.js').toString();
 assert.ok(page.includes(`href="${release.file}"`), 'Download button points to wrong APK');
 assert.ok(page.includes(`v${release.version}`), 'Page version differs from APK release');
 assert.ok(page.includes(`Android ${release.minAndroid}+`), 'Minimum Android version differs');
-assert.equal([...page.matchAll(/\sdownload="/g)].length, 1, 'Only the released ordering app may offer an APK');
+assert.equal([...page.matchAll(/\sdownload="/g)].length, 1, 'Order retains its versioned download attribute');
 const staff = page.match(/<section id="panel-staff"[\s\S]*?<\/section>/)?.[0];
 assert.ok(staff?.includes('id="staff-release-slot"'), 'Staff release slot is missing');
+if (staffRelease.status === 'available') assert.ok(staff.includes('href="/rdv-team.apk"'), 'Team must remain downloadable without JavaScript or metadata requests');
 assert.match(staffRelease.name, /^RDV Team$/);
 assert.ok(['unavailable', 'available'].includes(staffRelease.status), 'Staff release status is invalid');
 if (staffRelease.status === 'unavailable') {

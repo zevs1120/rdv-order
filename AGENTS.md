@@ -1,3 +1,7 @@
+## Team 双渠道实际安装修复（2026-10-08）
+
+- 用户明确要求实际装得上和更新得上，范围包括Team App内与下载页；提示、哈希或打开安装器不能代替安装完成。Team准备原签名2.1.13/code26，下载站同步相同APK、清单及稳定入口；JS／元数据失败仍有直接下载链接。Order业务与APK保持原样，无push。实际发布和浏览器覆盖安装结果见docs/team-2.1.13-download-release.md，不把准备状态写成已发布。
+
 # RDV project working memory
 
 ## Core priorities and updates (2026-09-08)

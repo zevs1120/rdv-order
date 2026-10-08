@@ -1,17 +1,17 @@
 {
   "name": "RDV Team",
   "status": "available",
-  "version": "2.1.10",
-  "versionCode": 23,
+  "version": "2.1.13",
+  "versionCode": 26,
   "minAndroid": "8.0",
   "packageName": "com.rdv.staff",
-  "file": "/releases/rdv-team-2.1.10.apk",
-  "bytes": 3156432,
-  "sha256": "dd93747bd2d289108939f7cce654df53bc9aa3868e8ea136e9de09e1ae0903e9",
+  "file": "/releases/rdv-team-2.1.13.apk",
+  "bytes": 3374420,
+  "sha256": "c9f04ead063fa9947c3a64812f0186dbef19997a2853059ecbe0348e1df6c363",
   "notes": {
-    "zh": "Security 全天接收 Supplies / Concierge 客人新单并可接单配送；修复应用内下载安装、授权返回与中断恢复。",
-    "en": "Security receives guest Supplies and Concierge requests around the clock and can handle deliveries. Fixed in-app update installation, permission return and interrupted update recovery."
+    "zh": "修复应用内更新的下载后安装、授权返回和中断恢复，保留原有账号及数据。",
+    "en": "Fixed installation after in-app downloads, permission return and interrupted updates. Existing app data is retained."
   },
-  "releaseDate": "2026-09-30",
-  "releaseDateSha256": "dd93747bd2d289108939f7cce654df53bc9aa3868e8ea136e9de09e1ae0903e9"
+  "releaseDate": "2026-10-08",
+  "releaseDateSha256": "c9f04ead063fa9947c3a64812f0186dbef19997a2853059ecbe0348e1df6c363"
 }
