@@ -1,7 +1,8 @@
 import { jwtVerify } from "jose";
 
-export const runtime = "edge";
+export const runtime = "nodejs";
 export const preferredRegion = "hkg1";
+export const maxDuration = 20;
 export const dynamic = "force-dynamic";
 
 const ROOT = "https://open.xpyun.net/api/openapi/xprinter/";
@@ -128,7 +129,14 @@ export async function POST(request: Request) {
     }
     return Response.json({ kind: "provider", code: result.code, ...(data !== undefined && { data }), latencyMs: Date.now() - startedAt },
       { headers: { "Cache-Control": "no-store" } });
-  } catch {
+  } catch (error) {
+    console.warn("print.provider_connection", {
+      method: operation.method,
+      durationMs: Date.now() - startedAt,
+      name: error instanceof Error ? error.name : "unknown",
+      causeCode: error instanceof Error && "cause" in error && error.cause
+        && typeof error.cause === "object" && "code" in error.cause ? error.cause.code : undefined
+    });
     return new Response(null, { status: 502 });
   } finally {
     clearTimeout(timer);

@@ -1,6 +1,16 @@
 # Printer Deploy Checklist
 
-## Current printing deployment — 2026-09-27 Edge gateway LIVE
+## Current printer replacement — 2026-10-13
+
+The user wants the Ethernet-connected XP-N260L (80mm, SN ending FF94B, firmware V88.13) to replace the old printer for kitchen copies, priced guest copies and whole-table receipts. The old device stays registered for a later role decision. The new device is registered in the existing XPYUN account as `RDV N260L` and reports online. One direct official-API setup ticket, `RDV-NEW-1013` / `OM26101313184835787128`, was confirmed by the user to print clearly.
+
+Production and the local private environment now select the new `XPYUN_SN` and `XPYUN_LINE_WIDTH=48`. There were no active print deliveries before this change. Redeploying existing source `01784cf` as `dpl_GidNQkSZf1qHBU8dHw7TJ6X542Cg` applied those settings, but repeated gateway status calls returned HTTP502 after about 4.5 seconds. One system self-test (`96a8302a-ae20-48ba-be7e-df7a66919b48`) correctly captured the new printer and 48-column content, then stopped at `unknown` after two attempts without a remote ID. It is retained and must not be replayed.
+
+The only runtime correction moves the provider gateway from Edge to Node in the same `hkg1` region, with a 20-second function limit and credential-free connection diagnostics. Authorization, official XPYUN host, ticket contents, deadlines, single sender and bounded retry rules are unchanged. Candidate `dpl_C874sxfEQUuPLMPzLkEErCTrhW7F` was deployed with `--prod --skip-domain`; its read-only provider call returned online in 680ms before promotion. Five focused gateway tests and the completed `npm run verify` baseline (153 web tests, TypeScript and Next production build) passed. Android and downloads artifacts are unchanged and their suites were not repeated. Setup evidence is in ignored `artifacts/printer-replacement-2026-10-13/`.
+
+The verified candidate was promoted to Production. The public health endpoint returned ready/online in 1,255ms. One new system self-test (`817528da-578e-4813-b9be-5ca4360f9de6`, remote `OM26101313361702987589`) completed on the new device in one attempt without error. Its heading is `RDV KITCHEN COPY / TABLE TEST` and it includes `PRINTER TEST - DO NOT PREPARE FOOD`; user confirmation of this second ticket's physical output is pending. This is distinct from the already-confirmed direct setup ticket. No business order was created, no historical delivery was replayed and no queue was cleared. The temporary candidate deployment protection bypass credential was revoked after use. The existing Android 1.2.0/code14 APK (Android 8+) needs no update.
+
+## Previous printing deployment — 2026-09-27 Edge gateway
 
 Earlier correction `9ff3e3f` was deployed, but its direct Node connection failures returned; it is superseded by `456f603` below. The Vercel deployment resources confirm the Workflow flow and step functions in `HKG1`; new function invocations use `hkg1`: under the existing Hobby single-region plan, API routes, Workflow steps and health checks run in Hong Kong while Neon stays in Singapore. This routes around the observed `sin1` pre-TCP connection failures; three production status queries succeeded after rollout; sustained stability and physical paper output remain unverified. Existing Workflows stay with their original deployment and region; no historical tasks are replayed. No database migration or separate service is needed, and there is no need to upgrade the Vercel plan.
 
