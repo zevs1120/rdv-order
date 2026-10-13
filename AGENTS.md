@@ -1,10 +1,10 @@
-## 主打印机更换（2026-10-13，已切正式；系统票实物确认待回）
+## 主打印机更换（2026-10-13，已上线并实际出纸验收）
 
 - 用户明确要求新机器先完全替代旧机器，承接厨房联、客人联和整桌账单；旧机器等新机完成后另定角色，此阶段不做双机分单。
 - 用户照片确认新机为芯烨云 XP-N260L，80mm，USB+LAN+WiFi，云 SN 尾号 FF94B。已通过现有账号的官方 addPrinters 注册为 `RDV N260L`，返回 success。用户用网线联网；Safari 官方设备页及 API 随后确认新机在线正常，固件 V88.13，旧机离线。
 - 官方 API 单次测试 `RDV-NEW-1013`，远端 `OM26101313184835787128`；用户明确确认已出纸、文字清楚。随后只改 rdv-order Production 的 XPYUN_SN 和 XPYUN_LINE_WIDTH=48，同步本地私有配置；既有源码01784cf重新部署 dpl_GidNQkSZf1qHBU8dHw7TJ6X542Cg Ready，正式域名已绑定。APK和旧机绑定保持不变。
-- 切换前活动打印任务为0。正式系统仅提交一次 self_test：96a8302a-ae20-48ba-be7e-df7a66919b48，确认使用新SN和48列；当前因 Node→Edge→XPYUN 超时为 unknown/2 attempts/no remote ID，不可重放。正式网关状态查询持续HTTP502约4.5s，直接官方API及实物已成功，不能把云平台关联成功等同于APP已可打印。
-- provider 路由改 Node hkg1、maxDuration20，鉴权/重试/内容规则不变，新增不含凭据的连接诊断。隔离候选 dpl_C874sxfEQUuPLMPzLkEErCTrhW7F 返回在线680ms；5个既有网关用例及 npm run verify（153 tests、TypeScript、Next生产构建）通过，print-env齐全。候选已 promote 接管正式域名；正式 health 在线1255ms。仅再提交一次系统测试票817528da-578e-4813-b9be-5ca4360f9de6，使用新机、attempts1、远端OM26101313361702987589、completed无错误。云完成不等于实物验收；已询问用户第二张 TABLE TEST 票，待回答，首张直连票已获实物确认。
+- 切换前活动打印任务为0。正式系统仅提交一次 self_test：96a8302a-ae20-48ba-be7e-df7a66919b48，确认使用新SN和48列；该次因 Node→Edge→XPYUN 超时停在 unknown/2 attempts/no remote ID，保留且不可重放。修正前正式网关状态查询持续HTTP502约4.5s；下条记录最终修正和实物结果。
+- provider 路由改 Node hkg1、maxDuration20，鉴权/重试/内容规则不变，新增不含凭据的连接诊断。隔离候选 dpl_C874sxfEQUuPLMPzLkEErCTrhW7F 返回在线680ms；5个既有网关用例及 npm run verify（153 tests、TypeScript、Next生产构建）通过，print-env齐全。候选已 promote 接管正式域名；正式 health 在线1255ms。仅再提交一次系统测试票817528da-578e-4813-b9be-5ca4360f9de6，使用新机、attempts1、远端OM26101313361702987589、completed无错误。用户随后明确确认第二张正式系统 TABLE TEST 票“已出纸，内容正常”；与首张直连票合计两种路径均有实物确认。后台修正 ac26540 已推送。
 - 只改后台连接和打印机配置，APP仍1.2.0/code14、Android8+，无APK/下载产物/数据库迁移。临时候选部署保护绕过凭据已撤销。证据存于忽略目录 artifacts/printer-replacement-2026-10-13/。不改历史任务快照，不重放历史任务；旧机新角色等待用户后续指定。
 
 ## Team 双渠道实际安装修复（2026-10-08 最新）
