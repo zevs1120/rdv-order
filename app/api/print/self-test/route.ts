@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { pool } from "../../../../lib/db";
 import { requirePermission } from "../../../../lib/permissions";
 import { prepareTestDelivery } from "../../../../lib/printing/service";
-import { startPrintDelivery } from "../../../../lib/printing/start";
+import { sendPrint } from "../../../../lib/printing/records";
 export const runtime = "nodejs";
 export const maxDuration = 60;
 export async function POST(req: Request) {
@@ -13,12 +13,12 @@ export async function POST(req: Request) {
     try {
       await tx.query("BEGIN");
       job = await prepareTestDelivery(tx);
-      await startPrintDelivery(job.id);
       await tx.query("COMMIT");
     } catch (error) { await tx.query("ROLLBACK").catch(() => {}); throw error; }
     finally { tx.release(); }
     const jobId = job.id;
-    return NextResponse.json({ ok: true, queued: true, jobId, provider: "xpyun", slot: "primary" }, { status: 202 });
+    const status = await sendPrint(jobId);
+    return NextResponse.json({ ok: true, queued: true, status, jobId, provider: "xpyun", slot: "primary" }, { status: 202 });
   } catch (error) {
     const message = error instanceof Error ? error.message : "";
     return NextResponse.json({ error: "打印暂时不可用，请重试" }, { status: message === "UNAUTHORIZED" ? 401 : message === "FORBIDDEN" ? 403 : 503 });

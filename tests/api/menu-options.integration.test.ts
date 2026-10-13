@@ -5,7 +5,7 @@ const mocks = vi.hoisted(() => ({ query: vi.fn(), connect: vi.fn(), after: vi.fn
 vi.mock('../../lib/db', () => ({ pool: mocks }));
 vi.mock('../../lib/permissions', () => ({ requireOrderCreate: async () => ({ userId: '11111111-1111-4111-8111-111111111111' }), requirePermission: async () => ({ userId: '11111111-1111-4111-8111-111111111111' }) }));
 vi.mock('../../lib/audit', () => ({ writeAuditLogSafe: vi.fn() }));
-vi.mock('../../lib/printing/start', () => ({ startPrintDelivery: vi.fn() }));
+vi.mock('../../lib/printing/records', async original => ({ ...await original<typeof import('../../lib/printing/records')>(), sendPrint: vi.fn() }));
 vi.mock('next/server', async original => ({ ...await original<typeof import('next/server')>(), after: mocks.after }));
 import { POST } from '../../app/api/orders/route';
 import { POST as checkout } from '../../app/api/tables/checkout/route';

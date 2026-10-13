@@ -5,8 +5,7 @@ vi.mock("next/server", async original => ({ ...await original<typeof import("nex
 vi.mock("../../lib/db", () => ({ pool: { connect: mocks.connect } }));
 vi.mock("../../lib/permissions", () => ({ requireOrderCreate: mocks.permission, requirePermission: mocks.permission }));
 vi.mock("../../lib/printing/service", () => ({ prepareOrderDelivery: mocks.prepare }));
-vi.mock("../../lib/printing/start", () => ({ startPrintDelivery: mocks.start }));
-vi.mock("../../lib/printing/queue", () => ({ drainDeliveryQueue: mocks.drain }));
+vi.mock("../../lib/printing/records", () => ({ sendPrint: mocks.start }));
 
 import { POST } from "../../app/api/orders/route";
 import { buildItemSignature, parseItems } from "../../lib/orders-utils";
@@ -29,7 +28,7 @@ describe("orders API", () => {
       : { rows: [] });
     mocks.connect.mockResolvedValue({ query: mocks.txQuery, release: vi.fn() });
     mocks.prepare.mockResolvedValue({ id: "job-1" });
-    mocks.start.mockResolvedValue(undefined);
+    mocks.start.mockResolvedValue("accepted");
     mocks.drain.mockResolvedValue({ picked: 1, accepted: 1, unknown: 0, failed: 0 });
   });
 

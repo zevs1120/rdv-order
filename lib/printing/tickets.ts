@@ -170,29 +170,9 @@ function renderKitchen(payload: {
   return rows.join("");
 }
 
-function renderGuestOrder(payload: OrderTicketPayload) {
-  const items = payload.items;
-  const totalQty = items.reduce((sum, item) => sum + Math.max(0, Number(item.qty) || 0), 0);
-  const total = items.reduce((sum, item) => sum + Math.max(0, Number(item.qty) || 0) * Math.max(0, Number(item.unitPrice) || 0), 0);
-  const rows = ["<CB>RDV GUEST COPY<BR></CB>", line(`TABLE ${payload.tableNo}`, { center: true, forceTag: "B" }), line(`Time: ${dateTime(payload.createdAt)}`, { forceTag: "N" })];
-  if (payload.waiter) rows.push(line(`Server: ${payload.waiter}`, { forceTag: "N" }));
-  rows.push(...guestFields(), line(divider("="), { forceTag: "" }));
-  for (const item of items) {
-    const qty = Math.max(0, Number(item.qty) || 0);
-    const price = Math.max(0, Number(item.unitPrice) || 0);
-    for (const row of wrapped(localizeMenuText(item.name, "en").toUpperCase())) rows.push(line(row, { forceTag: "N" }));
-    rows.push(line(amountRow(quantityLabel(item), price, qty * price), { forceTag: "N" }));
-    if (item.note) for (const row of wrapped(`NOTE: ${item.note}`)) rows.push(line(row, { forceTag: "N" }));
-    rows.push(line(divider(), { forceTag: "" }));
-  }
-  rows.push(line(`ITEM LINES: ${items.length}`, { forceTag: "N" }), line(`TOTAL QTY : ${totalQty}`, { forceTag: "N" }), line(`TOTAL     : ${php(total)}`, { forceTag: "N" }));
-  rows.push(line(divider("="), { forceTag: "" }), "<C><N>THANK YOU</N><BR></C>", "<BR>", "<BR>", "<BR>");
-  return rows.join("");
-}
-
-/** Render the kitchen and priced guest copies as one immutable cloud job body. */
+/** Orders print only the kitchen copy; bill printing has its own action. */
 export function renderOrderTicket(payload: OrderTicketPayload): string {
-  return renderKitchen(payload) + renderGuestOrder(payload);
+  return renderKitchen(payload);
 }
 
 export function renderBillTicket(payload: BillTicketPayload): string {

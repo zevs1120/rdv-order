@@ -2,12 +2,11 @@
 
 ## Printing rebuild — 2026-09-23
 
-`POST /api/orders` preserves its input/output and request-key deduplication. The transaction now saves `print_deliveries` and durably starts its workflow before committing; it no longer inserts into historical `print_jobs`.
+`POST /api/orders` retains its request format and idempotency key. It atomically saves the order and one kitchen print snapshot, commits, then awaits one direct XPYUN submission before responding. An additive `printStatus` field reports the submission state; the saved order remains successful if printing is unknown/failed. Replaying the order key never prints again.
 
-`POST /api/tables/print-bill` accepts `{tableNo,sessionId?}` and `X-Idempotency-Key`; returns 202 `{ok,queued,jobId,requestId,status}` after the task is saved. `waitForResult` from old clients is accepted but no longer delays the response. `GET /api/print/status?requestId=...` is scoped to the authenticated order-creating user and returns `{found,status?,jobId?}`. Internal statuses are queued/sending/accepted/completed/unknown/failed/expired/cancelled; they are not physical paper proof. The 120-second sending deadline does not expire an accepted cloud order: its remote ID is queried for up to ten minutes, then retained as unknown if still unconfirmed.
+`POST /api/tables/print-bill` accepts `{tableNo,sessionId?}` and `X-Idempotency-Key`, saves the bill snapshot, commits, directly submits, and returns the existing 202 `{ok,queued,jobId,requestId,status}` contract. `queued` preserves client compatibility; `status` distinguishes provider acceptance from failure/unknown. `GET /api/print/status?requestId=...` remains scoped to its actor and queries only a known remote ID; it never submits paper. Accepted/completed are cloud states, not physical proof.
 
-`POST /api/print/dispatch` now requires `device.manage`; it creates one deliberate reprint of a failed/expired new task without a remote ID on a still-open table. Unknown tasks and tasks with a remote ID are not replayed. `DELETE /api/print/queue` cancels pending/failed/expired/unknown new tasks and keeps their records; it does not clear the cloud queue or affect in-flight/accepted tasks. Health/devices read the new task table and current XPYUN status. The additive `livePrinter.connection` diagnostic contains only target hostname/IP, address family, network phases/timings and safe error codes; failed connection observations are audited without changing print tasks. Old worker-key dispatch is retired.
-
+Self-test and explicit manager retry use the same direct sender after committing. Retry considers only definitively failed records from the new implementation and an active table session. Historical queues and unknown/accepted outcomes are not replayed. The old `POST /api/print/provider` endpoint is removed.
 
 ## Backend maintenance (2026-09-19)
 
@@ -101,7 +100,7 @@ Base: Next.js Route Handlers under `app/api`.
 }
 ```
 
-Order/items/queue are saved atomically. On a new insertion, the durable Workflow processes that order's queued print. It is the sole sender; the request has no `after()` print callback. Same-key replay keeps the existing response and does not register another print or recreate a cleared job. The success response confirms the saved order, not physical paper. Printing failures stay available through existing queue operations; runtime/lifecycle errors do not turn an already committed order into a submission failure.
+Order/items/print snapshot are saved atomically. After committing a new insertion, the request awaits its direct XPYUN submission. Same-key replay keeps the existing response and does not register another print or recreate a cleared job. The success response confirms the saved order, not physical paper. Printing failures stay available through existing queue operations; runtime/lifecycle errors do not turn an already committed order into a submission failure.
 
 ### Open Table
 `POST /api/tables`
@@ -200,7 +199,7 @@ No database migration or existing endpoint behavior change is required.
 
 The temporary read-only `/api/print/connection-probe` endpoint has been retired after the runtime comparison; it is not a supported current API. Its diagnostic history is recorded in [the printing network incident](print-network-2026-09-27.md).
 
-`POST /api/print/provider` is an internal same-project gateway running on Node in `hkg1` with a 20-second function limit (2026-10-13; supersedes the Edge runtime in `456f603`). The Node transport calls it for print, printer-status and order-state operations; the existing durable Workflow and queue remain the job owner. Requests require an HS256 token signed with `JWT_SECRET`, issuer `rdv-print-internal`, audience `rdv-xpyun-gateway`, a short expiry and a SHA-256 hash bound to the exact request body. The gateway accepts only the configured printer SN and validated operations; it reads XPYUN credentials from its own environment. A gateway timeout or invalid response is an unknown send outcome and follows the queue's bounded same-key retry; known remote IDs remain query-only. Provider deadlines remain 10 seconds for printing and 4 seconds for read-only queries. Connection failures log only operation, elapsed time, error name and cause code. This route is internal; the APP keeps using its existing endpoints.
+The internal provider gateway has been removed. All printer requests use the direct official API adapter described above.
 
 
 ### 芯烨云回执兼容说明（2026-09-20）

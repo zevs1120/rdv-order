@@ -5,16 +5,15 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vites
 const mocks = vi.hoisted(() => ({ query: vi.fn(), connect: vi.fn(), after: vi.fn(), start: vi.fn(), drain: vi.fn(), permission: vi.fn() }));
 vi.mock("../../lib/db", () => ({ pool: { query: mocks.query, connect: mocks.connect } }));
 vi.mock("../../lib/permissions", () => ({ requireOrderCreate: mocks.permission, requirePermission: mocks.permission }));
-vi.mock("../../lib/printing/start", () => ({ startPrintDelivery: mocks.start }));
-vi.mock("../../lib/printing/queue", async original => ({
-  ...await original<typeof import("../../lib/printing/queue")>(), drainDeliveryQueue: mocks.drain
+vi.mock("../../lib/printing/records", async original => ({
+  ...await original<typeof import("../../lib/printing/records")>(), sendPrint: mocks.start
 }));
 vi.mock("next/server", async original => ({ ...await original<typeof import("next/server")>(), after: mocks.after }));
 
 import { POST } from "../../app/api/orders/route";
 import { POST as retryPrint } from "../../app/api/print/dispatch/route";
 import { DELETE as clearQueue } from "../../app/api/print/queue/route";
-import { enqueueDelivery } from "../../lib/printing/queue";
+import { savePrint } from "../../lib/printing/records";
 
 const userId = "11111111-1111-4111-8111-111111111111";
 const dishId = "22222222-2222-4222-8222-222222222222";
@@ -37,7 +36,7 @@ describe("order and durable print intent (isolated PostgreSQL WASM)", () => {
     mocks.query.mockImplementation((sql: string, params?: unknown[]) => db.query(sql, params));
     mocks.connect.mockResolvedValue({ query: (sql: string, params?: unknown[]) => db.query(sql, params), release: vi.fn() });
     mocks.permission.mockResolvedValue({ userId, role: "manager" });
-    mocks.start.mockResolvedValue(undefined);
+    mocks.start.mockResolvedValue("accepted");
     mocks.drain.mockResolvedValue({ picked: 1, accepted: 1, unknown: 0, failed: 0 });
     vi.stubEnv("XPYUN_USER", "fixture"); vi.stubEnv("XPYUN_USER_KEY", "fixture"); vi.stubEnv("XPYUN_SN", "fixture-sn");
     await db.exec("TRUNCATE print_deliveries, users, menu_items, orders, table_sessions, audit_logs CASCADE");
@@ -46,8 +45,8 @@ describe("order and durable print intent (isolated PostgreSQL WASM)", () => {
     await db.query("INSERT INTO table_sessions (table_no, guest_count, opened_by) VALUES ('01', 2, $1)", [userId]);
   });
 
-  it("commits one order and one targeted intent owned only by the durable workflow", async () => {
-    await enqueueDelivery(db, { kind: "self_test", intentKey: "older-pending", printerSn: "fixture-sn", content: "older", snapshot: {} });
+  it("commits one order then awaits its direct print, leaving older jobs alone", async () => {
+    await savePrint(db, { kind: "self_test", intentKey: "older-pending", printerSn: "fixture-sn", content: "older", snapshot: {} });
     const response = await POST(request());
     expect(response.status).toBe(200);
     const { orderId } = await response.json();
@@ -79,12 +78,21 @@ describe("order and durable print intent (isolated PostgreSQL WASM)", () => {
     expect(mocks.after).not.toHaveBeenCalled();
   });
 
-  it("rolls back the order and print intent if durable start fails", async () => {
-    mocks.start.mockRejectedValue(new Error("workflow unavailable"));
-    expect((await POST(request())).status).toBe(500);
-    expect((await db.query("SELECT * FROM orders")).rows).toEqual([]);
-    expect((await db.query("SELECT * FROM print_deliveries")).rows).toEqual([]);
-    expect(mocks.after).not.toHaveBeenCalled();
+  it("waits for a direct send after COMMIT and never rolls back a saved order on an unknown print", async () => {
+    let release!: () => void;
+    const pending = new Promise<void>(resolve => { release = resolve; });
+    mocks.start.mockImplementation(async () => {
+      expect((await db.query("SELECT * FROM orders")).rows).toHaveLength(1);
+      await pending;
+      return "unknown";
+    });
+    let responded = false;
+    const response = POST(request()).then(value => { responded = true; return value; });
+    await vi.waitFor(() => expect(mocks.start).toHaveBeenCalled());
+    expect(responded).toBe(false);
+    release();
+    expect(await (await response).json()).toMatchObject({ printStatus: "unknown" });
+    expect((await db.query("SELECT * FROM orders")).rows).toHaveLength(1);
   });
 
   it("returns the saved order without a second in-request printer connection", async () => {

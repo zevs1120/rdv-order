@@ -1,3 +1,4 @@
+import { refreshPrints } from "../../../../lib/printing/records";
 import { NextResponse } from "next/server";
 import { queryPrimaryPrinterStatus, printerConfigured } from "../../../../lib/printing/service";
 import { pool } from "../../../../lib/db";
@@ -22,6 +23,7 @@ function parseList(csv: string | undefined) {
 export async function GET(req: Request) {
   try {
     await requirePermission(req, "device.view");
+    await refreshPrints();
 
     const primaryConfig = xpyunConfig();
     const primaryReady = printerConfigured();

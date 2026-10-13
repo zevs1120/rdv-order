@@ -1,3 +1,7 @@
+# Current printing deployment — official direct rewrite, 2026-10-13
+
+The user rejected further patches after the first real order failed. The complete connection/relay/workflow implementation is replaced. Current scope and verification are in [the rewrite record](printing-official-2026-10-13.md). Earlier successful self-tests do **not** establish real-order acceptance.
+
 # Printer Deploy Checklist
 
 ## Current printer replacement — 2026-10-13
@@ -9,6 +13,19 @@ Production and the local private environment now select the new `XPYUN_SN` and `
 The only runtime correction moves the provider gateway from Edge to Node in the same `hkg1` region, with a 20-second function limit and credential-free connection diagnostics. Authorization, official XPYUN host, ticket contents, deadlines, single sender and bounded retry rules are unchanged. Candidate `dpl_C874sxfEQUuPLMPzLkEErCTrhW7F` was deployed with `--prod --skip-domain`; its read-only provider call returned online in 680ms before promotion. Five focused gateway tests and the completed `npm run verify` baseline (153 web tests, TypeScript and Next production build) passed. Android and downloads artifacts are unchanged and their suites were not repeated. Setup evidence is in ignored `artifacts/printer-replacement-2026-10-13/`.
 
 The verified candidate was promoted to Production. The public health endpoint returned ready/online in 1,255ms. One new system self-test (`817528da-578e-4813-b9be-5ca4360f9de6`, remote `OM26101313361702987589`) completed on the new device in one attempt without error. Its heading is `RDV KITCHEN COPY / TABLE TEST` and it includes `PRINTER TEST - DO NOT PREPARE FOOD`; the user confirmed that this second ticket physically printed with normal content. Both the direct setup path and the formal system path therefore have on-site paper confirmation. Backend source correction `ac26540` was committed and pushed. No business order was created, no historical delivery was replayed and no queue was cleared. The temporary candidate deployment protection bypass credential was revoked after use. The existing Android 1.2.0/code14 APK (Android 8+) needs no update.
+
+## Follow-up incident at 13:47 — acceptance withdrawn
+
+The user immediately reported that the first real order did not print. The two earlier paper confirmations are valid for those individual test tickets only; they did not establish reliable normal-order printing. Source `ac26540` changed the runtime but did not resolve the recurring connection failure.
+
+Read-only evidence on the live `9ed0ba6` deployment:
+
+- Order delivery `893439dd-42ba-4b9e-ba3d-70aec7eaa397` was created at 13:46:02. Its first gateway request timed out after ten seconds; its second attempt received remote `OM26101313463365836913` at 13:46:33. The official console labels that cloud order **expired**.
+- Separate receipt `19ef56ed-31d2-4763-8103-40ee73c6f003` received remote `OM26101313464719968908` at 13:46:47. The official console records completion only at 13:48:40. This delayed cloud completion is not fresh user confirmation of physical output.
+- Both jobs captured the correct replacement SN. Public gateway status requests repeatedly returned 502 in about 4.4 seconds; logs show provider fetch aborts, including order-state queries. A direct official status query returned online in 271ms. The affected job snapshots, queues and remote IDs were not replayed or cleared.
+- An isolated, signed, read-only diagnostic compared default fetch, fresh HTTPS and TLS1.2 HTTPS in `hkg1`, all resolving `101.37.24.59`. Five diagnostic rounds over more than seven minutes succeeded, while the unchanged formal provider route still returned 502. This establishes an execution-path difference; it does not identify a provider firewall or hardware root cause. The diagnostic endpoint is absent from the proposed final source.
+
+A narrow candidate reuses the existing fresh-socket transport inside the authenticated gateway. It sends HTTP only after TLS succeeds and forwards proven pre-send failures as `unreachable`, enabling the existing safe reconnect path inside the unchanged 120-second window. Loss after sending or on the outer gateway hop remains unknown; known remote IDs are still query-only. No new scheduler, provider/account/node change, deadline extension or Android change. The candidate passed `npm run verify`: 155 tests, TypeScript and Next production build. Live validation remains open; do not declare stable recovery from a single successful query or test ticket.
 
 ## Previous printing deployment — 2026-09-27 Edge gateway
 

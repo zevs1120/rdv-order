@@ -5,7 +5,7 @@ import { afterAll, afterEach, beforeAll, beforeEach, expect, it, vi } from "vite
 const mocks = vi.hoisted(() => ({ query: vi.fn(), metadata: vi.fn(), enqueue: vi.fn() }));
 vi.mock("../../lib/db", () => ({ pool: { query: mocks.query }, printMetadataPool: { query: mocks.metadata } }));
 vi.mock("../../lib/permissions", () => ({ requirePermission: async () => ({ role: "manager" }) }));
-vi.mock("../../lib/printing/queue", () => ({ enqueueDelivery: mocks.enqueue }));
+vi.mock("../../lib/printing/records", () => ({ savePrint: mocks.enqueue }));
 import { GET as bill } from "../../app/api/tables/bill/route";
 import { GET as menu } from "../../app/api/menu/route";
 import { prepareReceiptDelivery } from "../../lib/printing/service";

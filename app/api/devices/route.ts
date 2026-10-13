@@ -1,3 +1,4 @@
+import { refreshPrints } from "../../../lib/printing/records";
 import { NextResponse } from "next/server";
 import { pool } from "../../../lib/db";
 import { requirePermission } from "../../../lib/permissions";
@@ -7,6 +8,7 @@ import { queryPrimaryPrinterStatus } from "../../../lib/printing/service";
 export async function GET(req: Request) {
   try {
     await requirePermission(req, "device.view");
+    await refreshPrints();
 
     const [devices, jobs, livePrinter] = await Promise.all([
       pool.query(

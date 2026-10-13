@@ -2,7 +2,7 @@
 
 ## Printing schema — 2026-09-23
 
-Migration 026 adds `print_deliveries` with immutable content/snapshot/target/key, durable attempt count, cloud ID, timestamps and a unique active sender per printer. It does not migrate or alter historical `print_jobs`. New order and receipt writes use this table with Vercel Workflow recovery. Existing databases require 026 before backend deployment; fresh databases receive the same definitions from `db/schema.sql`.
+Migration 026 remains the immutable print history table. Migration 027 drops its obsolete per-printer sending index so independent committed orders can directly call XPYUN. The per-intent atomic claim still prevents duplicate submissions. No rows, business data or historical print_jobs are migrated, deleted or replayed. See [official rewrite](printing-official-2026-10-13.md).
 
 
 ## Menu schema 024 (pending rollout)

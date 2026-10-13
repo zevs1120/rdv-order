@@ -4,8 +4,7 @@ const mocks = vi.hoisted(() => ({ auth: vi.fn(), connect: vi.fn(), prepare: vi.f
 vi.mock("../../lib/permissions", () => ({ requireOrderCreate: mocks.auth }));
 vi.mock("../../lib/db", () => ({ pool: { connect: mocks.connect } }));
 vi.mock("../../lib/printing/service", () => ({ prepareReceiptDelivery: mocks.prepare }));
-vi.mock("../../lib/printing/start", () => ({ startPrintDelivery: mocks.start }));
-vi.mock("../../lib/printing/queue", () => ({ drainDeliveryQueue: mocks.drain }));
+vi.mock("../../lib/printing/records", () => ({ sendPrint: mocks.start }));
 vi.mock("next/server", async original => ({ ...await original<typeof import("next/server")>(), after: mocks.after }));
 import { POST } from "../../app/api/tables/print-bill/route";
 
@@ -19,15 +18,17 @@ beforeEach(() => {
   mocks.auth.mockResolvedValue({ userId: "actor" });
   mocks.connect.mockResolvedValue({ query: vi.fn().mockResolvedValue({ rows: [] }), release: vi.fn() });
   mocks.prepare.mockResolvedValue({ id: "job-1", status: "queued" });
-  mocks.start.mockResolvedValue(undefined);
+  mocks.start.mockResolvedValue("accepted");
 });
 
-it("persists one receipt intent and returns promptly before provider delivery", async () => {
+it("commits the bill snapshot before awaiting direct provider delivery", async () => {
   const response = await POST(request());
   expect(response.status).toBe(202);
   expect(await response.json()).toMatchObject({ ok: true, queued: true, jobId: "job-1", requestId: "receipt-intent-1" });
   expect(mocks.prepare).toHaveBeenCalledWith(expect.anything(), "actor", "receipt-intent-1", "06", "session-06");
   expect(mocks.start).toHaveBeenCalledWith("job-1");
+  const tx = await mocks.connect.mock.results[0].value;
+  expect(tx.query.mock.invocationCallOrder[1]).toBeLessThan(mocks.start.mock.invocationCallOrder[0]);
   expect(mocks.drain).not.toHaveBeenCalled();
   expect(mocks.after).not.toHaveBeenCalled();
 });

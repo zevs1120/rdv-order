@@ -2,7 +2,7 @@
 
 ## Printing replacement — 2026-09-23
 
-Printing now uses `lib/printing/{tickets,transport,queue,service,start,workflow}.ts`. Each immutable `print_deliveries` task has one durable Workflow and a per-printer database sending lease. The workflow is started before its business transaction commits; an orphan workflow cannot see a rolled-back task. `after()` only accelerates sending. XPYUN handles short offline buffering (mode 1, expiry bounded by task creation +120 seconds). See [scope and evidence](print-rebuild-2026-09-23.md); earlier worker/fallback descriptions below are historical.
+Printing uses only `lib/printing/{xpyun,records,service,tickets}.ts`: save an immutable snapshot with the business transaction, commit, then await a direct official XPYUN JSON POST. There is no Workflow, internal relay or background resend. Each intent is claimed atomically once. Unknown outcomes are preserved. Existing paper formats remain, with only a kitchen copy on order submission and a separately requested bill. See [official rewrite](printing-official-2026-10-13.md).
 
 
 ## Configurable ordering (2026-09-08, pending rollout)

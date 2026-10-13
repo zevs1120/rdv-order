@@ -1,5 +1,11 @@
 # Changelog
 
+## Backend printing rewrite — 2026-10-13
+
+- Replace the complete Workflow/relay/transport/retry stack with a direct implementation of the official XPYUN JSON API.
+- Submit one kitchen copy immediately after the order transaction commits; keep the separate priced bill format.
+- Preserve historical print records and per-intent duplicate protection. No APK change. Physical acceptance remains pending.
+
 ## 1.2.0 — 2026-09-23
 
 - Rebuilt official XPYUN printing, including continuous kitchen/guest copies on the same printer and short offline cloud buffering.

@@ -38,7 +38,7 @@ cp .env.example .env.local
 Minimum required:
 - `DATABASE_URL`
 - `JWT_SECRET`
-- print provider config (one of cloud/agent/xpyun)
+- XPYUN_USER, XPYUN_USER_KEY, XPYUN_SN (official XPYUN cloud API)
 
 See `.env.example` and `/Users/qiao/Downloads/rdv-order/docs/printer-deploy.md`.
 
@@ -64,9 +64,10 @@ The project is deployed in the existing Vercel account and linked to `zevs1120/r
 
 The production deployment now runs new Vercel function invocations in `hkg1` (Hong Kong), confirmed in deployment `9ff3e3f` on 2026-09-27. Neon remains in Singapore, so this is a cross-region function/database path. Existing Workflows do not migrate when a new deployment changes region, and historical jobs are not replayed. No separate service or database migration is needed; there is no need to upgrade the Vercel plan. The `rdv-order` project remains linked to GitHub, production variables remain secrets, and Preview remains disabled until isolated data is configured. Production uses `https://order.resortdejavu.cn` with application login; Vercel standard protection remains on deployment-specific/preview URLs. See [the 2026-09-27 printing network record](docs/print-network-2026-09-27.md) for evidence and limits.
 
-New orders save a two-copy print snapshot and durably start a Vercel Workflow before committing. The workflow alone owns sending and recovery; the order request does not open a competing printer connection. XPYUN buffers a brief printer disconnect within the 120-second sending window. Accepted cloud orders are queried separately for up to ten minutes and never automatically resent. Apply migration 026 before deploying this version. The former print worker and dispatcher are removed; historical jobs are not replayed. See [printing rebuild](docs/print-rebuild-2026-09-23.md).
+New orders save one kitchen ticket with the order, commit, then directly await XPYUN's official JSON print API. Bill printing separately saves and submits the existing priced bill. The internal provider gateway, Workflow plugin/dependency and background retry engine are removed. Apply migrations 026 and 027 before deploying: 027 only drops the old per-printer sending index; historical print records are preserved. Mode 0 follows the official Node demo: an offline device is an explicit failure, not a locally scheduled retry. Unknown outcomes are retained without resending. See [official printing rewrite](docs/printing-official-2026-10-13.md).
 
-Provider requests use the internal `POST /api/print/provider` gateway in the same Vercel project. As of 2026-10-13 it runs on Node in `hkg1`: the previous Edge path repeatedly timed out, while a deployment with the same authorization and request logic on Node returned the new printer's online status in 680ms. The durable Workflow, queue, bounded same-key retry and query-only handling of known remote IDs are unchanged. The replacement XP-N260L uses Ethernet and 80mm paper; Production `XPYUN_SN` selects it and `XPYUN_LINE_WIDTH=48` sets receipt width. Android remains 1.2.0/code14. No XPYUN account/node change or historical replay is involved. See [printer deployment](docs/printer-deploy.md) for current evidence and [the September record](docs/print-network-2026-09-27.md) for the earlier Edge deployment.
+The replacement XP-N260L uses Ethernet and 80mm paper (`XPYUN_LINE_WIDTH=48`). The existing XPYUN account, China node and Android 1.2.0/code14 remain. Physical acceptance must be checked on the final production deployment through normal APP ordering and separate bill printing.
+
 
 ## Quality Baseline
 Follow the proportional checks in `CONTRIBUTING.md`; verify a completed web batch with:

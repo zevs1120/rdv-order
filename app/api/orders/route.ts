@@ -3,7 +3,7 @@ import { pool } from "../../../lib/db";
 import { requireOrderCreate, requirePermission } from "../../../lib/permissions";
 import { parseItems } from "../../../lib/orders-utils";
 import { prepareOrderDelivery } from "../../../lib/printing/service";
-import { startPrintDelivery } from "../../../lib/printing/start";
+import { sendPrint } from "../../../lib/printing/records";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
@@ -36,6 +36,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "请求幂等键格式错误" }, { status: 400 });
     }
 
+    let printId: string | undefined;
     const tx = await pool.connect();
     const { rows } = await (async () => {
       try {
@@ -99,7 +100,7 @@ export async function POST(req: Request) {
         const saved = result.rows[0];
         if (saved?.inserted && saved.order_id) {
           const delivery = await prepareOrderDelivery(tx, saved.order_id);
-          await startPrintDelivery(delivery.id);
+          printId = delivery.id;
         }
         await tx.query("COMMIT");
         return result;
@@ -120,9 +121,11 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "提交失败" }, { status: 500 });
     }
 
+    const printStatus = printId ? await sendPrint(printId) : undefined;
     const deduped = result.inserted === false;
     return NextResponse.json({
       orderId: result.order_id,
+      printStatus,
       deduped,
       dedupeReason: deduped ? "idempotency" : "none"
     });

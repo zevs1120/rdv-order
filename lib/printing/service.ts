@@ -1,31 +1,22 @@
 import { randomUUID } from "node:crypto";
 import type { PoolClient } from "pg";
 import { pool } from "../db";
-import { enqueueDelivery, type Delivery, type QueueDb } from "./queue";
+import { savePrint, type Delivery, type PrintDb } from "./records";
 import { renderOrderTicket, renderBillTicket, renderTestTicket, type BillTicketPayload } from "./tickets";
-import { XpyunTransport, type XpyunDiagnostic } from "./transport";
-import { recordConnectionFailure } from "./diagnostics";
+import { Xpyun } from "./xpyun";
 
 export function printerConfigured() {
-  try { XpyunTransport.fromEnvironment(); return true; } catch { return false; }
+  try { Xpyun.configured(); return true; } catch { return false; }
 }
 
 export async function queryPrimaryPrinterStatus() {
   const started = Date.now();
   let status: "online" | "offline" | "degraded" | "unknown" = "unknown";
-  let connection: XpyunDiagnostic | undefined;
-  let latencyMs: number | undefined;
-  try {
-    const transport = XpyunTransport.fromEnvironment();
-    status = await transport.printerStatus();
-    latencyMs = Date.now() - started;
-    connection = transport.lastDiagnostic || undefined;
-    if (status === "unknown" && connection) await recordConnectionFailure("queryPrinterStatus", connection);
-  } catch { /* Configuration shown separately. */ }
-  return { status, checkedAt: new Date().toISOString(), latencyMs: latencyMs ?? Date.now() - started, ...(connection ? { connection } : {}) };
+  try { status = await Xpyun.configured().printerStatus(); } catch { /* Configuration shown separately. */ }
+  return { status, checkedAt: new Date().toISOString(), latencyMs: Date.now() - started };
 }
 
-export async function prepareOrderDelivery(tx: QueueDb, orderId: string) {
+export async function prepareOrderDelivery(tx: PrintDb, orderId: string) {
   const { rows } = await tx.query<{
     table_no: string; created_at: string; waiter: string | null; name: string;
     price: number; qty: number; note: string | null;
@@ -39,11 +30,11 @@ export async function prepareOrderDelivery(tx: QueueDb, orderId: string) {
   if (!rows.length) throw new Error("打印订单不存在");
   const snapshot = { tableNo: rows[0].table_no, createdAt: rows[0].created_at, waiter: rows[0].waiter,
     items: rows.map(row => ({ name: row.name, unitPrice: Number(row.price), qty: Number(row.qty), note: row.note })) };
-  return enqueueDelivery(tx, { kind: "order", intentKey: orderId, orderId,
-    printerSn: XpyunTransport.fromEnvironment().sn, content: renderOrderTicket(snapshot), snapshot });
+  return savePrint(tx, { kind: "order", intentKey: orderId, orderId,
+    printerSn: Xpyun.configured().sn, content: renderOrderTicket(snapshot), snapshot });
 }
 
-export async function findReceiptDelivery(tx: QueueDb, actor: string, requestId: string) {
+export async function findReceiptDelivery(tx: PrintDb, actor: string, requestId: string) {
   const { rows } = await tx.query<Delivery>(
     `SELECT * FROM print_deliveries WHERE kind = 'receipt' AND intent_key = $1`, [`${actor}:${requestId}`]
   );
@@ -95,14 +86,14 @@ export async function prepareReceiptDelivery(tx: PoolClient, actor: string, requ
     openedAt: session.opened_at, printedAt: new Date().toISOString(), items,
     totalQty: items.reduce((sum, item) => sum + item.qty, 0), itemAmount, chargeAmount,
     totalAmount: itemAmount + chargeAmount, charges };
-  return enqueueDelivery(tx, { kind: "receipt", intentKey: `${actor}:${requestId}`,
-    printerSn: XpyunTransport.fromEnvironment().sn, content: renderBillTicket(snapshot), snapshot });
+  return savePrint(tx, { kind: "receipt", intentKey: `${actor}:${requestId}`,
+    printerSn: Xpyun.configured().sn, content: renderBillTicket(snapshot), snapshot });
 }
 
-export async function prepareTestDelivery(tx: QueueDb, intentKey = randomUUID()) {
+export async function prepareTestDelivery(tx: PrintDb, intentKey = randomUUID()) {
   const snapshot = { tableNo: "TEST", generatedAt: new Date().toISOString(),
     tickets: [{ target: "kitchen" as const, items: [{ name: "PRINTER TEST - DO NOT PREPARE FOOD", qty: 1, note: "RESORT DEJA VU" }] }] };
-  return enqueueDelivery(tx, { kind: "self_test", intentKey, printerSn: XpyunTransport.fromEnvironment().sn,
+  return savePrint(tx, { kind: "self_test", intentKey, printerSn: Xpyun.configured().sn,
     content: renderTestTicket(snapshot), snapshot });
 }
 

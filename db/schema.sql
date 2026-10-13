@@ -435,8 +435,6 @@ CREATE TABLE IF NOT EXISTS print_deliveries (
 
 CREATE UNIQUE INDEX IF NOT EXISTS print_deliveries_order_unique_idx
   ON print_deliveries(order_id) WHERE kind = 'order';
-CREATE UNIQUE INDEX IF NOT EXISTS print_deliveries_one_sender_per_sn_idx
-  ON print_deliveries(printer_sn) WHERE status = 'sending';
 CREATE INDEX IF NOT EXISTS print_deliveries_ready_idx
   ON print_deliveries(next_attempt_at, created_at) WHERE status = 'queued';
 CREATE INDEX IF NOT EXISTS print_deliveries_accepted_idx

@@ -5,5 +5,5 @@ const config = {
   userKey: Boolean(process.env.XPYUN_USER_KEY || process.env.XPYUN_USERKEY || process.env.USERKEY),
   sn: Boolean(process.env.XPYUN_SN || process.env.SN)
 };
-console.log(JSON.stringify({ provider: "xpyun", ...config, cloudBufferSeconds: 120, copies: 1, ok: Object.values(config).every(Boolean) }));
+console.log(JSON.stringify({ provider: "xpyun", ...config, mode: 0, implementation: "official-direct", copies: 1, ok: Object.values(config).every(Boolean) }));
 if (!Object.values(config).every(Boolean)) process.exitCode = 1;
