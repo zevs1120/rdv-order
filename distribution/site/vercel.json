@@ -7,7 +7,7 @@
   "rewrites": [
     {
       "source": "/rdv-order.apk",
-      "destination": "/releases/rdv-order-1.2.0.apk"
+      "destination": "/releases/rdv-order-1.3.0.apk"
     },
     {
       "source": "/rdv-team.apk",

@@ -34,3 +34,26 @@ The user explicitly confirmed: “打印成功 立刻出了厨房联 又点了�
 - Separate bill: `950830cc-80c7-47a3-b5d5-ea46bb0bec6a`, created14:25:41.477 GMT+8, accepted14:25:42.514, remote `OM26101314254240559935`. Snapshot contains only RDV GUEST COPY.
 
 This is physical confirmation of normal APP ordering and separate bill printing on live source8d92031, not a self-test or an inference from cloud completion. The earlier intermittent read-only status timeouts remain recorded; this successful pair does not prove long-term absence of connection failures. No new print, replay, queue mutation, APK build or deployment was performed to record acceptance. Keep the current live source unchanged. The old printer remains registered with its future role undecided.
+
+## Superseding Android LAN release — 2026-10-14
+
+After further cloud instability, the user explicitly authorized local printing.
+Official PrinterDemo discovered MAC `00:21:40:ff:2b:95` / observed IP
+`192.168.0.108`; the user confirmed the new printer connected and produced paper.
+Android source `be46b61` now uses SDK 3.2.0 LAN printing for both kitchen and bill,
+with existing templates translated to ESC/POS. No old-printer activation, schema
+migration, historical replay or hotel-side computer is involved.
+
+Release 1.3.0/code15 is signed with the existing certificate, Android 8+.
+APK: `distribution/site/public/releases/rdv-order-1.3.0.apk`, 1,658,201 bytes,
+SHA-256 `176b4d0da648e5272cbaf42fd1683d7f0dbba79956a4f86c808569bc1690b586`.
+Code14 delta: 1,327,944 bytes, exact reconstruction verified by staging.
+Checks: 147 backend tests, TypeScript/Next build, print-env; Android unit baseline
+plus 21 focused repository/local-send checks, release lint/build; API35 official
+SDK loopback send (1), signed-package/update-provider checks (2), actual signed
+upgrade from code4 to code15 successful. No production business/printing tests.
+
+Backend source was deployed first to `rdv-order-htahzv5fj-renfei-zhaos-projects.vercel.app`
+and the normal production domain. Download/update publication follows this backend.
+Physical RDV APP acceptance is still required: one real order kitchen ticket and
+one separately requested bill on the hotel LAN. Demo success does not replace it.
