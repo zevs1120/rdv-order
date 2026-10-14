@@ -1,3 +1,9 @@
+## 1.3.0 (2026-10-14)
+
+- Android: direct hotel LAN printing for kitchen tickets and bills on the new N260L; existing ticket formatting retained.
+- Local tickets are claimed once across phones, with no cloud fallback or automatic replay of uncertain sends.
+- Native printer page shows local pending tickets and safe retry. Mandatory in-app update retains existing signing and delta/full delivery.
+
 # Changelog
 
 ## Backend printing rewrite — 2026-10-13

@@ -7,7 +7,7 @@ export type PrintDb = { query<T extends QueryResultRow = any>(sql: string, param
 export type Delivery = { id: string; kind: string; order_id: string | null; printer_sn: string; content: string;
   snapshot: unknown; provider_key: string; status: string; remote_id: string | null; created_at: Date };
 type PrintInput = { kind: "order" | "receipt" | "self_test" | "reprint"; intentKey: string; orderId?: string;
-  printerSn: string; content: string; snapshot: object };
+  printerSn: string; content: string; snapshot: object; implementation?: string };
 export const PRINT_IMPLEMENTATION = "official-direct-20261013";
 
 // Retain the existing immutable history table, not the old scheduling code.
@@ -21,7 +21,7 @@ export async function savePrint(tx: PrintDb, input: PrintInput): Promise<Deliver
          AND print_deliveries.order_id IS NOT DISTINCT FROM EXCLUDED.order_id
          AND print_deliveries.snapshot = EXCLUDED.snapshot
      RETURNING *`, [input.kind, input.intentKey, input.orderId || null, input.printerSn, input.content,
-      JSON.stringify({ ...input.snapshot, implementation: PRINT_IMPLEMENTATION }),
+      JSON.stringify({ ...input.snapshot, implementation: input.implementation || PRINT_IMPLEMENTATION }),
       createHash("sha256").update(input.content).digest("hex"),
       createHash("sha256").update(`${input.kind}:${input.intentKey}`).digest("hex").slice(0, 48)]);
   if (!rows[0]) throw new Error("打印请求编号与原内容不匹配");

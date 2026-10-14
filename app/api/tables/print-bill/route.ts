@@ -1,3 +1,4 @@
+import { localTicket } from "../../../../lib/printing/lan";
 import { NextResponse } from "next/server";
 import { randomUUID } from "node:crypto";
 import { pool } from "../../../../lib/db";
@@ -11,7 +12,7 @@ export const maxDuration = 60;
 export async function POST(req: Request) {
   try {
     const auth = await requireOrderCreate(req);
-    const body = await req.json().catch(() => null) as { tableNo?: unknown; sessionId?: unknown } | null;
+    const body = await req.json().catch(() => null) as { tableNo?: unknown; sessionId?: unknown; printTransport?: unknown } | null;
     const tableNo = String(body?.tableNo || "").trim();
     const sessionId = typeof body?.sessionId === "string" ? body.sessionId : undefined;
     const requestId = req.headers.get("x-idempotency-key") || randomUUID();
@@ -20,15 +21,16 @@ export async function POST(req: Request) {
     let job;
     try {
       await tx.query("BEGIN");
-      job = await prepareReceiptDelivery(tx, auth.userId, requestId, tableNo, sessionId);
+      job = await prepareReceiptDelivery(tx, auth.userId, requestId, tableNo, sessionId, ...(body?.printTransport === "lan-v1" ? [auth.userId] : []));
       await tx.query("COMMIT");
     } catch (error) {
       await tx.query("ROLLBACK").catch(() => {});
       throw error;
     } finally { tx.release(); }
     const jobId = job.id;
-    const status = job.status === "queued" ? await sendPrint(jobId) : job.status;
-    return NextResponse.json({ ok: true, queued: true, jobId, requestId, status }, { status: 202 });
+    const localPrint = localTicket(job);
+    const status = !localPrint && job.status === "queued" ? await sendPrint(jobId) : job.status;
+    return NextResponse.json({ ok: true, queued: true, jobId, requestId, status, localPrint }, { status: 202 });
   } catch (error) {
     const message = error instanceof Error ? error.message : "打印暂时不可用，请重试";
     if (message === "UNAUTHORIZED") return NextResponse.json({ error: "未登录" }, { status: 401 });

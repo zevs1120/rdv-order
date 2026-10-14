@@ -30,6 +30,43 @@ private class RecordingTransport : Transport {
 }
 
 class RdvRepositoryTest {
+    @Test fun `lost local order response recovers ticket and sends without repeating order`() = runBlocking {
+        val api = RecordingTransport(); val store = MemoryStore(); var sends = 0
+        val printing = LocalPrinting(api, LocalConnector { object : LocalConnection {
+            override fun send(bytes: ByteArray): Boolean { sends++; return true }
+            override fun close() {}
+        } })
+        val repo = RdvRepository(api, store, { "https://fixture.invalid" }, localPrinting = printing)
+        repo.login("staff", "test")
+        api.handler = { call -> when (call.path) {
+            "/api/orders" -> throw IOException("lost after commit")
+            "/api/orders/request-status" -> """{"found":true,"orderId":"saved","localPrint":{"id":"job","status":"queued","mac":"fixture"}}"""
+            else -> """{"granted":true,"token":"claim","content":"VEVTVA=="}"""
+        } }
+        assertEquals("SENT", repo.submit(draft).localOutcome)
+        assertEquals(1, sends)
+        assertEquals(1, api.calls.count { it.path == "/api/orders" })
+        assertTrue(repo.loadDraft(TableInfo("01", guestCount = 2, openedAt = draft.openedAt)).lines.isEmpty())
+    }
+    @Test fun `disconnected local bill retries original ticket after reconnect`() = runBlocking {
+        val api = RecordingTransport(); val store = MemoryStore(); var connected = false; var sends = 0
+        val printing = LocalPrinting(api, LocalConnector {
+            if (!connected) throw IOException("no LAN")
+            object : LocalConnection {
+                override fun send(bytes: ByteArray): Boolean { sends++; return true }
+                override fun close() {}
+            }
+        })
+        val repo = RdvRepository(api, store, { "https://fixture.invalid" }, localPrinting = printing)
+        repo.login("staff", "test")
+        api.handler = { call -> if (call.path == "/api/print/local") """{"granted":true,"token":"claim","content":"VEVTVA=="}"""
+            else """{"found":true,"ok":true,"queued":true,"localPrint":{"id":"same-job","status":"queued","mac":"fixture"}}""" }
+        assertEquals(BillPrintResult.NOT_SENT, repo.printBill("01", "session"))
+        connected = true
+        assertEquals(BillPrintResult.QUEUED, repo.printBill("01", "session"))
+        assertEquals(1, sends)
+        assertEquals(1, api.calls.count { it.path == "/api/tables/print-bill" })
+    }
     @Test fun `bill printing preserves one intent across lost response and process restart`() = runBlocking {
         val api = RecordingTransport(); val store = MemoryStore()
         var next = 0

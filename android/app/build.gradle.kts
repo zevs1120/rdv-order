@@ -26,8 +26,8 @@ android {
         applicationId = "com.rdv.order"
         minSdk = 26
         targetSdk = 36
-        versionCode = 14
-        versionName = "1.2.0"
+        versionCode = 15
+        versionName = "1.3.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         buildConfigField("String", "API_BASE_URL", "\"$endpoint\"")
     }
@@ -60,7 +60,10 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
     kotlinOptions { jvmTarget = "17" }
-    packaging { resources.excludes += "/META-INF/{AL2.0,LGPL2.1}" }
+    packaging {
+        resources.excludes += "/META-INF/{AL2.0,LGPL2.1}"
+        jniLibs.excludes += "**/libprinter_serial_port.so" // LAN only; no serial-port native code.
+    }
     lint { abortOnError = true; checkReleaseBuilds = true }
 }
 
@@ -72,6 +75,7 @@ tasks.matching { it.name == "preReleaseBuild" }.configureEach {
 }
 
 dependencies {
+    implementation(files("libs/printer-lib-3.2.0.aar"))
     val composeBom = platform("androidx.compose:compose-bom:2025.04.01")
     implementation(composeBom)
     androidTestImplementation(composeBom)

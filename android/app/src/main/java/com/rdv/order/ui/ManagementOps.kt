@@ -75,78 +75,27 @@ import kotlinx.serialization.json.*
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable fun DevicesScreen(vm: RdvViewModel, state: UiState) {
-    var clearing by remember { mutableStateOf(false) }
-    var advanced by rememberSaveable { mutableStateOf(false) }
     val data = state.management
-    val health = data["health"] as? JsonObject ?: JsonObject(emptyMap())
-    val queue = data["printQueue"] as? JsonObject ?: JsonObject(emptyMap())
+    val jobs = data.rows("jobs")
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         if (state.loading) LinearProgressIndicator(Modifier.fillMaxWidth())
         RdvCard(Modifier.fillMaxWidth()) {
-            Text("${vm.text("devices.pendingJobs")}: ${queue.number("pending").toInt()} · ${vm.text("devices.failedJobs")}: ${queue.number("failed").toInt()}")
+            Text("RDV N260L", fontWeight = FontWeight.Bold)
+            Text(vm.either("局域网打印 · 厨房联和账单", "Local printing · Kitchen tickets and bills"))
+            Text(vm.either("手机需连接酒店内部 Wi-Fi", "Connect this phone to hotel Wi-Fi"), color = RdvColors.Secondary)
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                listOf("kitchen" to "devices.testKitchen", "bar" to "devices.testBar", "both" to "devices.testBoth").forEach { (target, label) ->
-                    RdvButton(vm.text(label), { vm.manageAction("/api/print/self-test", body = jsonBody("target" to target)) }, secondary = true, enabled = !state.busy)
-                }
-                RdvButton(vm.text("devices.retryPrint"), { vm.manageAction("/api/print/dispatch", body = jsonBody("limit" to 1)) }, secondary = true, enabled = !state.busy)
+                RdvButton(vm.either("测试打印", "Test print"), { vm.localPrinterAction(true) }, secondary = true, enabled = !state.busy)
+                RdvButton(vm.text("devices.retryPrint"), { vm.localPrinterAction(false) }, secondary = true, enabled = !state.busy)
             }
         }
-        if (data.rows("alerts").isNotEmpty()) RdvCard(Modifier.fillMaxWidth()) {
-            Text(vm.text("devices.alertTitle"), fontWeight = FontWeight.Bold)
-            data.rows("alerts").forEach { Text(it.text("message"), color = RdvColors.Danger) }
-            Text(vm.text("devices.alertHint"), color = RdvColors.Secondary)
-        }
-        data.rows("devices").forEach { device -> RdvCard(Modifier.fillMaxWidth()) {
-            Text(device.text("label"), fontWeight = FontWeight.Bold)
-            if (device.text("device_code") == "printer-primary") {
-                val live = health["livePrinter"] as? JsonObject
-                if (live != null) Text(vm.either("云端实时状态：", "Live cloud status: ") + when (live.text("status")) {
-                    "online" -> vm.either("在线", "Online")
-                    "offline" -> vm.either("离线，请检查打印机网络", "Offline — check printer network")
-                    "degraded" -> vm.either("打印机异常，请检查纸张和上盖", "Printer error — check paper and cover")
-                    else -> vm.either("暂时无法查询", "Query unavailable")
-                })
-            }
-            Text(vm.either("记录状态：", "Recorded status: ") + when (device.text("status")) { "online" -> vm.text("network.online"); "offline" -> vm.text("network.offline"); "degraded" -> vm.either("异常", "Degraded"); else -> vm.either("未知", "Unknown") })
-            if (advanced) Text("${device.text("device_code")} · ${device.text("device_type")}" + if (device.flag("is_backup")) vm.either(" · 备用", " · Backup") else "")
-            Text("${vm.either("故障次数", "Failures")}: ${device.number("fail_count").toInt()}")
-            Text("${vm.either("最近成功请求", "Last successful request")}: ${device.text("last_seen_at").ifBlank { "-" }}")
-            if (advanced && device.text("last_error").isNotBlank()) Text(device.text("last_error"), color = RdvColors.Danger)
-            if (advanced) FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                listOf("online" to vm.text("network.online"), "offline" to vm.text("network.offline"), "degraded" to vm.either("异常", "Degraded")).forEach { (status, label) ->
-                    RdvChip(label, device.text("status") == status, { vm.manageAction("/api/devices", "PATCH", jsonBody("deviceCode" to device.text("device_code"), "status" to status)) }, enabled = !state.busy)
-                }
-            }
+        Text(vm.either("待发送：", "Not sent: ") + jobs.count { it.text("status") == "queued" })
+        jobs.forEach { job -> RdvCard(Modifier.fillMaxWidth()) {
+            Text(vm.either("桌号 ", "Table ") + job.text("tableNo") + " · " +
+                if (job.text("kind") == "receipt") vm.either("账单", "Bill") else vm.either("厨房联", "Kitchen ticket"))
+            Text(if (job.text("status") == "queued") vm.either("未发送，可重试", "Not sent; safe to retry")
+                else vm.either("结果未确认，请核对纸张，不会自动重打", "Unconfirmed; check the paper. No automatic resend."), color = RdvColors.Secondary)
         } }
-        RdvButton(vm.either("高级诊断", "Advanced diagnostics") + if (advanced) " −" else " +", { advanced = !advanced }, secondary = true)
-        if (advanced) {
-        RdvCard(Modifier.fillMaxWidth()) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(vm.text("devices.deployReadiness"), Modifier.weight(1f), fontWeight = FontWeight.Bold)
-            }
-            run {
-                val provider = health["provider"] as? JsonObject
-                val config = health["config"] as? JsonObject ?: JsonObject(emptyMap())
-                val primary = config["primary"] as? JsonObject
-                val fallback = config["fallback"] as? JsonObject
-                val routes = health["routes"] as? JsonObject
-                fun ready(value: Boolean, missing: Boolean = false) = vm.text(if (value) "devices.ready" else if (missing) "devices.notSet" else "devices.notReady")
-                Text("${vm.text("devices.overall")}: ${ready(health.flag("ready"))}")
-                Text("Primary: ${provider?.text("primary").orEmpty().ifBlank { "-" }} · ${ready(primary?.flag("ready") == true)}")
-                Text("Fallback: ${provider?.text("fallback").orEmpty().ifBlank { "-" }} · ${ready(fallback?.flag("ready") == true, provider?.text("fallback").isNullOrBlank())}")
-                Text("PRINT_WORKER_KEY: ${ready(config.flag("workerKeySet"), true)}")
-                Text("DEVICE_HEARTBEAT_KEY: ${ready(config.flag("heartbeatKeySet"), true)}")
-                listOf("barCategories" to "devices.routeBarCategories", "barKeywords" to "devices.routeBarKeywords").forEach { (key, label) ->
-                    val values = (routes?.get(key) as? JsonArray)?.joinToString(", ") { it.jsonPrimitive.content }.orEmpty().ifBlank { "-" }
-                    Text("${vm.text(label)}: $values", color = RdvColors.Secondary)
-                }
-                (health["warnings"] as? JsonArray)?.forEach { Text(it.jsonPrimitive.content, color = RdvColors.Danger) }
-            }
-        }
-            RdvButton(vm.text("devices.clearQueue"), { clearing = true }, secondary = true, danger = true, enabled = !state.busy)
-        }
     }
-    if (clearing) ConfirmAction(vm.text("devices.clearQueueConfirm"), vm, { clearing = false }) { vm.manageAction("/api/print/queue", "DELETE"); clearing = false }
 }
 
 @Composable fun PermissionsScreen(vm: RdvViewModel, state: UiState) {

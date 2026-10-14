@@ -1,0 +1,5 @@
+printer-lib-3.2.0.aar is the unmodified Xprinter Android SDK 3.2.0 library.
+Source: https://www.xprintertech.com/sdk.html
+Download: https://www.xprintertech.com/android-sdk-3-2-0
+Retrieved 2026-10-13. The SDK's USB/Bluetooth/location manifest entries and
+serial-port native library are excluded by the app's LAN-only build configuration.

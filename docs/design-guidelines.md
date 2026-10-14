@@ -150,3 +150,11 @@ Both app panels show a muted Release date / 发布日期 line immediately below 
 ### 1.1.3 print connection feedback
 
 Native/web devices show read-only live cloud status separately from historical request state. Provider-query failure means unknown, not offline. Native last-contact copy identifies the last successful request. Receipt success copy says cloud accepted/check printout; it does not promise physical printing. The existing page layout is retained.
+
+### Android LAN printer page, 1.3.0
+
+The printer page shows the one N260L serving kitchen tickets and bills, hotel Wi-Fi
+requirement, Test print and Retry print. It lists unsent and unconfirmed local
+records without cloud status, inactive backup or legacy cloud diagnostics. Other
+ordering/checkout layouts are retained. Saved orders with local printing failure
+explicitly remain saved; unknown sends ask staff to check paper rather than reorder.

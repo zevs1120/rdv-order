@@ -1,3 +1,4 @@
+import { LAN_IMPLEMENTATION, LAN_SN } from "./lan";
 import { randomUUID } from "node:crypto";
 import type { PoolClient } from "pg";
 import { pool } from "../db";
@@ -16,7 +17,7 @@ export async function queryPrimaryPrinterStatus() {
   return { status, checkedAt: new Date().toISOString(), latencyMs: Date.now() - started };
 }
 
-export async function prepareOrderDelivery(tx: PrintDb, orderId: string) {
+export async function prepareOrderDelivery(tx: PrintDb, orderId: string, localActor?: string) {
   const { rows } = await tx.query<{
     table_no: string; created_at: string; waiter: string | null; name: string;
     price: number; qty: number; note: string | null;
@@ -31,7 +32,8 @@ export async function prepareOrderDelivery(tx: PrintDb, orderId: string) {
   const snapshot = { tableNo: rows[0].table_no, createdAt: rows[0].created_at, waiter: rows[0].waiter,
     items: rows.map(row => ({ name: row.name, unitPrice: Number(row.price), qty: Number(row.qty), note: row.note })) };
   return savePrint(tx, { kind: "order", intentKey: orderId, orderId,
-    printerSn: Xpyun.configured().sn, content: renderOrderTicket(snapshot), snapshot });
+    printerSn: localActor ? LAN_SN : Xpyun.configured().sn, content: renderOrderTicket(snapshot),
+    snapshot: localActor ? { ...snapshot, localActor } : snapshot, implementation: localActor ? LAN_IMPLEMENTATION : undefined });
 }
 
 export async function findReceiptDelivery(tx: PrintDb, actor: string, requestId: string) {
@@ -41,7 +43,7 @@ export async function findReceiptDelivery(tx: PrintDb, actor: string, requestId:
   return rows[0] || null;
 }
 
-export async function prepareReceiptDelivery(tx: PoolClient, actor: string, requestId: string, tableNo: string, sessionId?: string) {
+export async function prepareReceiptDelivery(tx: PoolClient, actor: string, requestId: string, tableNo: string, sessionId?: string, localActor?: string) {
   // Serialize duplicate requests before taking a new bill snapshot. Later menu
   // changes, new orders and the receipt's timestamp must not alter an old intent.
   await tx.query(`SELECT pg_advisory_xact_lock(hashtextextended($1, 0))`, [`receipt:${actor}:${requestId}`]);
@@ -87,14 +89,16 @@ export async function prepareReceiptDelivery(tx: PoolClient, actor: string, requ
     totalQty: items.reduce((sum, item) => sum + item.qty, 0), itemAmount, chargeAmount,
     totalAmount: itemAmount + chargeAmount, charges };
   return savePrint(tx, { kind: "receipt", intentKey: `${actor}:${requestId}`,
-    printerSn: Xpyun.configured().sn, content: renderBillTicket(snapshot), snapshot });
+    printerSn: localActor ? LAN_SN : Xpyun.configured().sn, content: renderBillTicket(snapshot),
+    snapshot: localActor ? { ...snapshot, localActor } : snapshot, implementation: localActor ? LAN_IMPLEMENTATION : undefined });
 }
 
-export async function prepareTestDelivery(tx: PrintDb, intentKey = randomUUID()) {
+export async function prepareTestDelivery(tx: PrintDb, intentKey = randomUUID(), localActor?: string) {
   const snapshot = { tableNo: "TEST", generatedAt: new Date().toISOString(),
     tickets: [{ target: "kitchen" as const, items: [{ name: "PRINTER TEST - DO NOT PREPARE FOOD", qty: 1, note: "RESORT DEJA VU" }] }] };
-  return savePrint(tx, { kind: "self_test", intentKey, printerSn: Xpyun.configured().sn,
-    content: renderTestTicket(snapshot), snapshot });
+  return savePrint(tx, { kind: "self_test", intentKey, printerSn: localActor ? LAN_SN : Xpyun.configured().sn,
+    content: renderTestTicket(snapshot), snapshot: localActor ? { ...snapshot, localActor } : snapshot,
+    implementation: localActor ? LAN_IMPLEMENTATION : undefined });
 }
 
 export async function deliveryState(id: string) {

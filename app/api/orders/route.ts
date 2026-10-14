@@ -1,3 +1,4 @@
+import { localTicket, orderLocalTicket } from "../../../lib/printing/lan";
 import { NextResponse } from "next/server";
 import { pool } from "../../../lib/db";
 import { requireOrderCreate, requirePermission } from "../../../lib/permissions";
@@ -11,6 +12,7 @@ export const maxDuration = 120;
 type OrderBody = {
   tableNo?: unknown;
   items?: unknown;
+  printTransport?: unknown;
 };
 
 const IDEMPOTENCY_KEY = /^[a-zA-Z0-9_-]{8,80}$/;
@@ -37,6 +39,8 @@ export async function POST(req: Request) {
     }
 
     let printId: string | undefined;
+    let localPrint: ReturnType<typeof localTicket>;
+    const wantsLocal = body?.printTransport === "lan-v1";
     const tx = await pool.connect();
     const { rows } = await (async () => {
       try {
@@ -99,8 +103,9 @@ export async function POST(req: Request) {
     );
         const saved = result.rows[0];
         if (saved?.inserted && saved.order_id) {
-          const delivery = await prepareOrderDelivery(tx, saved.order_id);
-          printId = delivery.id;
+          const delivery = await prepareOrderDelivery(tx, saved.order_id, ...(wantsLocal ? [auth.userId] : []));
+          localPrint = localTicket(delivery);
+          if (!localPrint) printId = delivery.id;
         }
         await tx.query("COMMIT");
         return result;
@@ -123,9 +128,11 @@ export async function POST(req: Request) {
 
     const printStatus = printId ? await sendPrint(printId) : undefined;
     const deduped = result.inserted === false;
+    if (deduped && wantsLocal) localPrint = await orderLocalTicket(pool, result.order_id);
     return NextResponse.json({
       orderId: result.order_id,
       printStatus,
+      localPrint,
       deduped,
       dedupeReason: deduped ? "idempotency" : "none"
     });

@@ -1,3 +1,4 @@
+import { orderLocalTicket } from "../../../../lib/printing/lan";
 import { NextResponse } from "next/server";
 import { pool } from "../../../../lib/db";
 import { requireOrderCreate } from "../../../../lib/permissions";
@@ -21,7 +22,7 @@ export async function GET(req: Request) {
       [auth.userId, key]
     );
     return NextResponse.json(
-      rows[0] ? { found: true, orderId: rows[0].id } : { found: false },
+      rows[0] ? { found: true, orderId: rows[0].id, localPrint: await orderLocalTicket(pool, rows[0].id) } : { found: false },
       { headers }
     );
   } catch (error: unknown) {

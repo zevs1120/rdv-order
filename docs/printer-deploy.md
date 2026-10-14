@@ -1,6 +1,6 @@
 # Current printing deployment — official direct rewrite, 2026-10-13
 
-The user rejected further patches after the first real order failed. The complete connection/relay/workflow implementation is replaced. Current scope and verification are in [the rewrite record](printing-official-2026-10-13.md). Earlier successful self-tests do **not** establish real-order acceptance.
+The user rejected further patches after the first real order failed. The complete connection/relay/workflow implementation is replaced. Current scope and verification are in [the rewrite record](printing-official-2026-10-13.md). Earlier successful self-tests do **not** establish real-order acceptance. Source8d92031 is LIVE, but direct production status queries still alternate between online and timeout. Subsequently the user confirmed immediate kitchen and separate bill output for table04 on live source8d92031. Both new records target the replacement printer with one attempt and no error. This verifies that normal APP pair; earlier intermittent query timeouts remain evidence. See the rewrite record for exact IDs and timings.
 
 # Printer Deploy Checklist
 
@@ -169,3 +169,18 @@ Best-effort device status and print audit use a separate lazy max-1 pool: connec
 ## 2026-09-21 两联与回执修正
 
 当天下单要求取代历史厨房单单联策略。详情见 [两联恢复](print-two-copies-2026-09-21.md)。同一云任务包含两种内容，`copies=1`，不是厨房单重复两份。去重1013只确认已识别同一请求，不计设备失败、不重发；没有云订单号时仍不宣称出纸。取得云订单号后，后台通过官方 queryOrderState 最多三次确认并记录 `print.delivery`，不阻塞手机响应、不重放任务。该记录是厂家报告，不能覆盖现场无纸事实。
+
+## Android 1.3.0 LAN path (2026-10-14)
+
+New Android orders and bills use official Xprinter Android SDK 3.2.0 to discover the
+new N260L by MAC `00:21:40:ff:2b:95` and send over Ethernet. Observed IP was
+`192.168.0.108`; it is not hardcoded as a printing destination. The existing template
+is translated to ESC/POS/GB18030 centrally. Both ticket types target this one device;
+the old printer is not activated. No new environment secret, migration, bridge,
+worker or always-on computer is needed. Phones require hotel LAN access; cloud
+order storage still requires Internet. Backend support must precede APK publication.
+
+The native printer page lists local unsent/unconfirmed records and offers a single
+test and safe-unsent retry. It no longer displays XPYUN online status as local status.
+SDK Demo physical acceptance establishes hardware compatibility only. RDV APK
+kitchen/bill physical acceptance remains a separate on-site check after release.

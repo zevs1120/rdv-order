@@ -110,3 +110,7 @@ Print connection repair (1.1.3): XPYUN uses a minimum 10-second request deadline
 Backend maintenance (2026-09-19): query/print-state optimizations require no APK or schema migration. Default database idle reuse is 30 seconds (`DB_IDLE_TIMEOUT_MS` overrides it); print metadata uses one additional bounded connection per warm process. See [scope and verification](docs/backend-maintenance-2026-09-19.md).
 
 芯烨云后台接入和配置约束：[2026-09-20 接入重整](docs/xpyun-integration-2026-09-20.md)。
+
+Android 1.3.0 sends kitchen tickets and bills directly to the hotel's N260L over LAN
+using the official Xprinter SDK. Deploy the matching backend before publishing the
+APK. See `docs/printer-deploy.md`; no local server or new secret is required.

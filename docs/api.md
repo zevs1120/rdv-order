@@ -210,3 +210,20 @@ The internal provider gateway has been removed. All printer requests use the dir
 ### 两联与完成查询（2026-09-21，取代上节1013处理）
 
 XPYUN自动下单恢复厨房联及前台联；同一云订单一次提交两联内容。API请求格式不变。1013去重回执按请求已识别返回接受，不再误报设备失败，`remoteJobId` 可能为null，不能用它证明已打印。厨房worker及账单/自检的after阶段对有ID的云订单查询完成状态，写入 `print.delivery` 审计（completed/pending/unknown）；false或查询失败不会触发重发或增加打印失败次数。手机响应不等待这些查询。无ID时记录unknown，不查询虚构ID。
+
+### Android LAN printing (1.3.0)
+
+`POST /api/orders`, `/api/tables/print-bill` and `/api/print/self-test` accept
+`printTransport: "lan-v1"`. Their immutable delivery is local-only and the response
+includes `localPrint: {id,status,mac}`. Existing clients retain their original cloud
+transport; a replay cannot switch an existing delivery. Order request-status and
+receipt print-status return the same saved local ticket for lost-response recovery.
+
+`GET /api/print/local` returns the actor's active local tickets (managers may see all).
+`POST` with `{action:"claim",id}` grants one send with token/base64 ESC/POS content.
+A short DB transaction serializes claims across phones; busy claims send nothing.
+The client must start within 5 seconds of its request and bound writing to 5 seconds.
+Sending records older than 30 seconds become unknown, never queued again.
+`POST` with `{action:"report",id,token,status:"accepted"|"unknown"}` records that send.
+Accepted means bytes were sent, not physical paper confirmation. Only unsent queued
+local records can be retried; no cloud fallback or automatic unknown-result replay.

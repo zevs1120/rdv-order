@@ -61,10 +61,10 @@ val RdvJson = Json { ignoreUnknownKeys = true; encodeDefaults = true; explicitNu
     val updatedAt: Long = 0,
 )
 @Serializable data class SubmitItem(val menuItemId: String, val qty: Int, val note: String? = null, val choices: Map<String, String> = emptyMap())
-@Serializable data class SubmitPayload(val tableNo: String, val guestCount: Int, val shift: String, val items: List<SubmitItem>)
+@Serializable data class SubmitPayload(val tableNo: String, val guestCount: Int, val shift: String, val items: List<SubmitItem>, val printTransport: String = "lan-v1")
 @Serializable data class PendingSubmission(val key: String, val payload: SubmitPayload, val createdAt: Long, val openedAt: String? = null)
-@Serializable data class SubmissionResult(val orderId: String, val deduped: Boolean = false)
-@Serializable data class SubmissionStatus(val found: Boolean, val orderId: String? = null)
+@Serializable data class SubmissionResult(val orderId: String, val deduped: Boolean = false, val localPrint: LocalTicket? = null, val localOutcome: String? = null)
+@Serializable data class SubmissionStatus(val found: Boolean, val orderId: String? = null, val localPrint: LocalTicket? = null)
 @Serializable data class CheckoutResult(val orderCount: Int, val totalAmount: Long)
 @Serializable data class BillItem(
     @SerialName("menu_item_id") val menuItemId: String,

@@ -344,9 +344,13 @@ class RdvViewModel(val repository: RdvRepository, val strings: Strings, private 
         if (signature == lastSubmitted && System.currentTimeMillis() - lastSubmittedAt < 12_000) {
             message(text("order.duplicateBlocked")); return@action
         }
-        repository.submit(draft)
+        val submission = repository.submit(draft)
         lastSubmitted = signature; lastSubmittedAt = System.currentTimeMillis()
         mutable.update { it.copy(draft = draft.copy(lines = emptyList()), bill = null, sheet = "bill") }
+        when (submission.localOutcome) {
+            "NOT_SENT" -> error(either("订单已保存，厨房联未发送。请连接酒店 Wi-Fi，并在打印机页重试。", "Order saved; kitchen ticket not sent. Connect to hotel Wi-Fi and retry on the Printers page."))
+            "UNKNOWN" -> error(either("订单已保存，厨房联结果未确认。请核对纸张，不要重复下单。", "Order saved; kitchen print unconfirmed. Check the paper; do not submit the order again."))
+        }
         // A bill-read failure must never resurrect a successfully submitted basket.
         try { val bill = repository.bill(draft.tableNo); mutable.update { it.copy(bill = bill) } }
         catch (e: Exception) {
@@ -383,7 +387,8 @@ class RdvViewModel(val repository: RdvRepository, val strings: Strings, private 
         if (sessionId.isNullOrBlank()) { error(either("请刷新账单后重试", "Refresh the bill and try again.")); return@action }
         when (repository.printBill(draft.tableNo, sessionId)) {
             BillPrintResult.QUEUED -> message(either("正在打印", "Printing…"))
-            BillPrintResult.PENDING -> message(either("正在处理，请稍后重试", "Still processing. Try again shortly."))
+            BillPrintResult.PENDING -> error(either("打印结果未确认，请核对纸张；系统不会自动重打。", "Print unconfirmed. Check the paper; it will not be resent automatically."))
+            BillPrintResult.NOT_SENT -> error(either("账单未发送，请连接酒店 Wi-Fi 后重试。", "Bill not sent. Connect to hotel Wi-Fi and retry."))
             BillPrintResult.FAILED -> error(either("打印失败，请重试", "Printing failed. Try again."))
         }
     }
@@ -429,19 +434,27 @@ class RdvViewModel(val repository: RdvRepository, val strings: Strings, private 
             Screen.INCOME -> "/api/manage/income"
             Screen.HOT -> "/api/manage/hot-items"
             Screen.FEES -> "/api/pricing/rules"
-            Screen.DEVICES -> "/api/devices"
+            Screen.DEVICES -> "/api/print/local"
             Screen.RBAC -> "/api/admin/permissions"
             Screen.MENU -> "/api/admin/menu-items"
             Screen.SUMMARY -> "/api/summary"
             else -> return JsonObject(emptyMap())
         }
         val related = when (screen) {
-            Screen.DEVICES -> mapOf("health" to "/api/print/health")
             Screen.MENU -> mapOf("majorData" to "/api/admin/menu-categories", "subData" to "/api/admin/menu-subcategories")
             else -> emptyMap()
         }
         return repository.management(path,
                 query = if (screen in setOf(Screen.ORDERS, Screen.INCOME, Screen.HOT, Screen.SUMMARY)) query else emptyMap(), related = related)
+    }
+    fun localPrinterAction(test: Boolean) = action {
+        when (if (test) repository.testLocalPrinter() else repository.retryLocalPrinter()) {
+            LocalPrintResult.SENT -> message(either("已发送到打印机，请确认出纸。", "Sent to printer. Please check the paper."))
+            LocalPrintResult.NOT_SENT -> error(either("未发送，请检查酒店 Wi-Fi 和打印机连接后重试。", "Not sent. Check hotel Wi-Fi and printer connection, then retry."))
+            LocalPrintResult.UNKNOWN -> error(either("结果未确认，请核对纸张；不会自动重打。", "Print unconfirmed. Check the paper; no automatic resend."))
+            null -> message(either("没有可安全重试的待打印票据。", "No unsent tickets to retry."))
+        }
+        loadManagement()
     }
     fun manageAction(path: String, method: String = "POST", body: JsonElement? = null) = action {
         repository.requestObject(path, method, body, timeoutMs = if (path.startsWith("/api/print/")) 45_000 else 8_000, retries = 0)

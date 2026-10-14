@@ -30,7 +30,7 @@ class RdvApplication : Application() {
     }
     val connection: ConnectionMonitor by lazy { ConnectionMonitor(connectionScope) { api.checkConnectivity() } }
     val repository: RdvRepository by lazy {
-        RdvRepository(api, store, { endpoint }).also { repositoryReady = it }
+        RdvRepository(api, store, { endpoint }, localPrinting = LocalPrinting(api, XprinterLocalConnector(this))).also { repositoryReady = it }
     }
     private lateinit var repositoryReady: RdvRepository
     override fun onCreate() {

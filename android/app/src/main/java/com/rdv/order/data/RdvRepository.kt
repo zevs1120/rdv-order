@@ -17,10 +17,11 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.*
 
 @Serializable data class Workspace(val draft: Draft, val pending: List<PendingSubmission> = emptyList())
-enum class BillPrintResult { QUEUED, PENDING, FAILED }
+enum class BillPrintResult { QUEUED, PENDING, FAILED, NOT_SENT }
 
 class RdvRepository(val api: Transport, private val store: KeyValueStore, private val origin: () -> String,
-    private val clock: () -> Long = System::currentTimeMillis, private val newKey: () -> String = { UUID.randomUUID().toString() }) {
+    private val clock: () -> Long = System::currentTimeMillis, private val newKey: () -> String = { UUID.randomUUID().toString() },
+    private val localPrinting: LocalPrinting? = null) {
     private val workspaceMutex = Mutex()
     private val billPrintMutex = Mutex()
     private val menuMemory = java.util.Collections.synchronizedMap(LinkedHashMap<String, CachedMenu>())
@@ -142,7 +143,7 @@ class RdvRepository(val api: Transport, private val store: KeyValueStore, privat
         val known = if (reused) {
             try {
                 val status = RdvJson.decodeFromString<SubmissionStatus>(api.request("/api/orders/request-status", query = mapOf("key" to pending.key)).text)
-                status.orderId?.takeIf { status.found }?.let { SubmissionResult(it, true) }
+                status.orderId?.takeIf { status.found }?.let { SubmissionResult(it, true, status.localPrint) }
             } catch (error: ApiException) {
                 // Existing deployments can be used before the additive status endpoint is deployed.
                 if (error.status != 404) throw error
@@ -159,7 +160,7 @@ class RdvRepository(val api: Transport, private val store: KeyValueStore, privat
             val recovered = try {
                 val status = RdvJson.decodeFromString<SubmissionStatus>(api.request("/api/orders/request-status",
                     query = mapOf("key" to pending.key), timeoutMs = 4_500, retries = 0).text)
-                status.orderId?.takeIf { status.found && it.isNotBlank() }?.let { SubmissionResult(it, true) }
+                status.orderId?.takeIf { status.found && it.isNotBlank() }?.let { SubmissionResult(it, true, status.localPrint) }
             } catch (recoveryError: Exception) {
                 currentCoroutineContext().ensureActive()
                 null
@@ -173,7 +174,17 @@ class RdvRepository(val api: Transport, private val store: KeyValueStore, privat
             writeWorkspace(current.copy(draft = if (sameDraft) current.draft.copy(lines = emptyList()) else current.draft,
                 pending = current.pending.filterNot { it.key == pending.key }))
         } }
-        return result
+        val outcome = result.localPrint?.let { printLocal(it).name }
+        return result.copy(localOutcome = outcome)
+    }
+    private suspend fun printLocal(ticket: LocalTicket) = localPrinting?.print(ticket) ?: LocalPrintResult.NOT_SENT
+    private suspend fun localBill(body: JsonObject): BillPrintResult? {
+        val ticket = body["localPrint"]?.takeIf { it is JsonObject } ?: return null
+        return when (printLocal(RdvJson.decodeFromJsonElement<LocalTicket>(ticket))) {
+            LocalPrintResult.SENT -> BillPrintResult.QUEUED
+            LocalPrintResult.NOT_SENT -> BillPrintResult.NOT_SENT
+            LocalPrintResult.UNKNOWN -> BillPrintResult.PENDING
+        }
     }
     suspend fun bill(table: String): Bill = decodeResponse<Bill>(api.request("/api/tables/bill", query = mapOf("tableNo" to table), timeoutMs = 6_000).text)
     suspend fun printBill(table: String, sessionId: String): BillPrintResult = billPrintMutex.withLock {
@@ -188,6 +199,7 @@ class RdvRepository(val api: Transport, private val store: KeyValueStore, privat
             val body = RdvJson.parseToJsonElement(api.request("/api/print/status",
                 query = mapOf("requestId" to requestId), timeoutMs = 4_500, retries = 0).text).jsonObject
             if (!body.flag("found")) return null
+            localBill(body)?.let { return it }
             return when (body.text("status")) {
                 "failed", "expired", "cancelled" -> BillPrintResult.FAILED
                 "queued", "sending", "accepted", "completed" -> BillPrintResult.QUEUED
@@ -201,14 +213,14 @@ class RdvRepository(val api: Transport, private val store: KeyValueStore, privat
                 return@withLock BillPrintResult.PENDING
             }
             if (known != null) {
-                if (known != BillPrintResult.PENDING) withContext(Dispatchers.IO) { runCatching { store.remove(storageKey) } }
+                if (known !in setOf(BillPrintResult.PENDING, BillPrintResult.NOT_SENT)) withContext(Dispatchers.IO) { runCatching { store.remove(storageKey) } }
                 return@withLock known
             }
         }
         val outcome = try {
             val body = RdvJson.parseToJsonElement(api.request("/api/tables/print-bill", "POST",
-                jsonBody("tableNo" to table, "sessionId" to sessionId), idempotencyKey = requestId, timeoutMs = 8_000, retries = 0).text).jsonObject
-            if (body.flag("ok") && body.flag("queued")) when (body.text("status")) {
+                jsonBody("tableNo" to table, "sessionId" to sessionId, "printTransport" to "lan-v1"), idempotencyKey = requestId, timeoutMs = 8_000, retries = 0).text).jsonObject
+            localBill(body) ?: if (body.flag("ok") && body.flag("queued")) when (body.text("status")) {
                 "unknown" -> BillPrintResult.PENDING
                 "failed", "expired", "cancelled" -> BillPrintResult.FAILED
                 else -> BillPrintResult.QUEUED
@@ -225,8 +237,18 @@ class RdvRepository(val api: Transport, private val store: KeyValueStore, privat
             known ?: if (error is ApiException && error.status < 500 && error.status != 408 && error.status != 409) BillPrintResult.FAILED
             else BillPrintResult.PENDING
         }
-        if (outcome != BillPrintResult.PENDING) withContext(Dispatchers.IO) { runCatching { store.remove(storageKey) } }
+        if (outcome !in setOf(BillPrintResult.PENDING, BillPrintResult.NOT_SENT)) withContext(Dispatchers.IO) { runCatching { store.remove(storageKey) } }
         outcome
+    }
+    suspend fun testLocalPrinter(): LocalPrintResult {
+        val body = requestObject("/api/print/self-test", "POST", jsonBody("printTransport" to "lan-v1"))
+        val ticket = body["localPrint"] ?: return LocalPrintResult.UNKNOWN
+        return printLocal(RdvJson.decodeFromJsonElement(ticket))
+    }
+    suspend fun retryLocalPrinter(): LocalPrintResult? {
+        val body = requestObject("/api/print/local")
+        val ticket = body.rows("jobs").firstOrNull { it.text("status") == "queued" } ?: return null
+        return printLocal(RdvJson.decodeFromJsonElement(ticket))
     }
     suspend fun checkout(table: String, expectedSessionId: String? = null, expectedTotalAmount: Long? = null): CheckoutResult = RdvJson.decodeFromString<CheckoutResult>(api.request("/api/tables/checkout", "POST", jsonBody("tableNo" to table, "expectedSessionId" to expectedSessionId, "expectedTotalAmount" to expectedTotalAmount), timeoutMs = 8_000, retries = 1).text)
     suspend fun close(table: String) { api.request("/api/tables/close", "POST", jsonBody("tableNo" to table), timeoutMs = 7_000, retries = 1) }
