@@ -227,3 +227,20 @@ Sending records older than 30 seconds become unknown, never queued again.
 `POST` with `{action:"report",id,token,status:"accepted"|"unknown"}` records that send.
 Accepted means bytes were sent, not physical paper confirmation. Only unsent queued
 local records can be retried; no cloud fallback or automatic unknown-result replay.
+
+### Unpublished LAN recovery correction (2026-10-14)
+
+`GET /api/print/local?tableNo=04` limits records to that active table before the
+50-row cap, retaining actor/manager access rules. It is a read and cannot print.
+Updated Android clients use it to restore unresolved kitchen notices when a table
+or bill is opened, including after an app restart.
+
+Claim accepts an optional UUID `claimToken`. Repeating the same token while that
+claim is still sending returns the original grant without increasing attempts;
+different tokens, acknowledged sends and expired claims are never regranted.
+Legacy clients without the token keep the original behavior. Android generates a
+fresh token per print invocation, retries the HTTP claim at most once before any
+paper write, and starts the bounded 5-second write within 15 seconds of the current
+claim request (inside the existing 30-second server guard). The token is never
+reused for another tap or process restart. Reports may also retry once with the
+same token; they send no paper. Ship this compatible server change before the APK.

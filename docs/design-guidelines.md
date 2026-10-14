@@ -158,3 +158,12 @@ requirement, Test print and Retry print. It lists unsent and unconfirmed local
 records without cloud status, inactive backup or legacy cloud diagnostics. Other
 ordering/checkout layouts are retained. Saved orders with local printing failure
 explicitly remain saved; unknown sends ask staff to check paper rather than reorder.
+
+The unpublished LAN correction no longer assumes every unsent ticket is a Wi-Fi
+problem. The order screen and bill show a persistent kitchen notice with a retry
+button only for unsent original tickets. Staff can recover their own ticket without
+creating another order or opening manager settings. Bill/menu refreshes do not
+clear the notice; re-entering a table restores it from existing server records.
+Uncertain sends show a check-paper message with no resend button. Normal screens
+without unresolved kitchen tickets retain their layout. Unsent bills retain their
+original bill intent on retry.

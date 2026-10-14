@@ -24,6 +24,7 @@ data class UiState(
     val draft: Draft? = null,
     val menu: MenuResponse? = null,
     val bill: Bill? = null,
+    val kitchenTickets: List<LocalTicket> = emptyList(),
     val sheet: String = "",
     val noteItem: MenuItem? = null,
     val noteChoices: Map<String, String> = emptyMap(),
@@ -45,6 +46,7 @@ class RdvViewModel(val repository: RdvRepository, val strings: Strings, private 
     private var loadJob: Job? = null
     private var menuJob: Job? = null
     private var connectionReadJob: Job? = null
+    private var kitchenReadJob: Job? = null
     private var readError: String? = null
     private var lastSubmitted = ""
     private var lastSubmittedAt = 0L
@@ -195,6 +197,7 @@ class RdvViewModel(val repository: RdvRepository, val strings: Strings, private 
     fun action(block: suspend () -> Unit) {
         if (state.value.busy || expiringSession) return
         connectionReadJob?.cancel()
+        kitchenReadJob?.cancel()
         readError = null
         mutable.update { it.copy(busy = true, error = "") }
         viewModelScope.launch {
@@ -232,8 +235,9 @@ class RdvViewModel(val repository: RdvRepository, val strings: Strings, private 
         persistError = null
         epoch++
         loadJob?.cancel()
-        mutable.update { it.copy(screen = Screen.ORDER, draft = draft, menu = null, bill = null, error = "", sheet = "", selectMode = false, selectedTables = emptyList()) }
+        mutable.update { it.copy(screen = Screen.ORDER, draft = draft, menu = null, bill = null, kitchenTickets = emptyList(), error = "", sheet = "", selectMode = false, selectedTables = emptyList()) }
         selectShift(draft.shift)
+        refreshKitchenTickets()
     }
     fun editDraft(transform: (Draft) -> Draft) {
         if (state.value.busy) return
@@ -311,7 +315,39 @@ class RdvViewModel(val repository: RdvRepository, val strings: Strings, private 
     fun sheet(value: String) { if (!state.value.busy) mutable.update { it.copy(sheet = value) } }
     fun showBill() {
         mutable.update { it.copy(sheet = "bill") }
+        refreshKitchenTickets()
         load { val result = repository.bill(state.value.draft!!.tableNo); mutable.update { it.copy(bill = result) } }
+    }
+    private fun refreshKitchenTickets() {
+        val table = state.value.draft?.tableNo ?: return
+        val currentEpoch = epoch
+        kitchenReadJob?.cancel()
+        kitchenReadJob = viewModelScope.launch {
+            try {
+                val tickets = repository.kitchenTickets(table)
+                if (epoch == currentEpoch && state.value.draft?.tableNo == table)
+                    mutable.update { it.copy(kitchenTickets = tickets) }
+            } catch (e: Exception) {
+                if (e is CancellationException) throw e
+                // A failed read cannot erase an already known unsent ticket.
+                if (epoch == currentEpoch) fail(e)
+            }
+        }
+    }
+    fun retryKitchenTickets() = action {
+        val unsent = state.value.kitchenTickets.filter { it.status == "queued" }
+        for (ticket in unsent) {
+            val result = repository.retryKitchenTicket(ticket)
+            mutable.update { state -> state.copy(kitchenTickets = state.kitchenTickets.mapNotNull {
+                if (it.id != ticket.id) it else when (result) {
+                    LocalPrintResult.SENT -> null
+                    LocalPrintResult.NOT_SENT -> ticket
+                    LocalPrintResult.UNKNOWN -> ticket.copy(status = "unknown")
+                }
+            }) }
+            if (result != LocalPrintResult.SENT) return@action
+        }
+        if (unsent.isNotEmpty()) message(either("厨房联已发送，请确认出纸。", "Kitchen ticket sent. Please check the paper."))
     }
     fun showSessionOrders() {
         val bill = state.value.bill ?: return
@@ -347,9 +383,9 @@ class RdvViewModel(val repository: RdvRepository, val strings: Strings, private 
         val submission = repository.submit(draft)
         lastSubmitted = signature; lastSubmittedAt = System.currentTimeMillis()
         mutable.update { it.copy(draft = draft.copy(lines = emptyList()), bill = null, sheet = "bill") }
-        when (submission.localOutcome) {
-            "NOT_SENT" -> error(either("订单已保存，厨房联未发送。请连接酒店 Wi-Fi，并在打印机页重试。", "Order saved; kitchen ticket not sent. Connect to hotel Wi-Fi and retry on the Printers page."))
-            "UNKNOWN" -> error(either("订单已保存，厨房联结果未确认。请核对纸张，不要重复下单。", "Order saved; kitchen print unconfirmed. Check the paper; do not submit the order again."))
+        submission.localPrint?.takeIf { submission.localOutcome in setOf("NOT_SENT", "UNKNOWN") }?.let { ticket ->
+            val pending = ticket.copy(status = if (submission.localOutcome == "NOT_SENT") "queued" else "unknown")
+            mutable.update { it.copy(kitchenTickets = it.kitchenTickets.filterNot { old -> old.id == ticket.id } + pending) }
         }
         // A bill-read failure must never resurrect a successfully submitted basket.
         try { val bill = repository.bill(draft.tableNo); mutable.update { it.copy(bill = bill) } }
@@ -388,7 +424,7 @@ class RdvViewModel(val repository: RdvRepository, val strings: Strings, private 
         when (repository.printBill(draft.tableNo, sessionId)) {
             BillPrintResult.QUEUED -> message(either("正在打印", "Printing…"))
             BillPrintResult.PENDING -> error(either("打印结果未确认，请核对纸张；系统不会自动重打。", "Print unconfirmed. Check the paper; it will not be resent automatically."))
-            BillPrintResult.NOT_SENT -> error(either("账单未发送，请连接酒店 Wi-Fi 后重试。", "Bill not sent. Connect to hotel Wi-Fi and retry."))
+            BillPrintResult.NOT_SENT -> error(either("账单未发送，可重试打印，无需重新下单。", "Bill not sent. Retry printing; do not submit the order again."))
             BillPrintResult.FAILED -> error(either("打印失败，请重试", "Printing failed. Try again."))
         }
     }
@@ -450,7 +486,7 @@ class RdvViewModel(val repository: RdvRepository, val strings: Strings, private 
     fun localPrinterAction(test: Boolean) = action {
         when (if (test) repository.testLocalPrinter() else repository.retryLocalPrinter()) {
             LocalPrintResult.SENT -> message(either("已发送到打印机，请确认出纸。", "Sent to printer. Please check the paper."))
-            LocalPrintResult.NOT_SENT -> error(either("未发送，请检查酒店 Wi-Fi 和打印机连接后重试。", "Not sent. Check hotel Wi-Fi and printer connection, then retry."))
+            LocalPrintResult.NOT_SENT -> error(either("票据未发送，可重试打印；无需重新下单。", "Ticket not sent. Retry printing; do not submit the order again."))
             LocalPrintResult.UNKNOWN -> error(either("结果未确认，请核对纸张；不会自动重打。", "Print unconfirmed. Check the paper; no automatic resend."))
             null -> message(either("没有可安全重试的待打印票据。", "No unsent tickets to retry."))
         }

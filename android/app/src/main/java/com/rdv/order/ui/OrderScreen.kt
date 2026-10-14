@@ -71,6 +71,7 @@ import kotlin.math.roundToLong
                     }
                 })
         }
+        KitchenPrintNotice(vm, state)
         Surface(color = RdvColors.OrderSection, shape = RectangleShape) {
             Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 menu?.majorCategories.orEmpty().forEach { category ->
@@ -304,6 +305,7 @@ import kotlin.math.roundToLong
         RdvButton(vm.text("order.printReceipt"), vm::printBill, Modifier.weight(1f), secondary = true, enabled = !state.loading && (bill?.items?.isNotEmpty() == true), loading = state.busy)
         RdvButton(vm.text("order.checkout"), checkout, Modifier.weight(1f), enabled = !state.busy)
     }) {
+        KitchenPrintNotice(vm, state)
         if (state.loading) CircularProgressIndicator(Modifier.size(24.dp))
         if (bill == null || bill.items.isEmpty()) Text(vm.text("order.billEmpty"))
         bill?.items?.forEach { item ->
@@ -343,5 +345,21 @@ import kotlin.math.roundToLong
             text = { RdvField(vm.either("${vm.localized(item.name)} 退菜数量（最多 ${item.qty}）", "Return qty for ${vm.localized(item.name)} (max ${item.qty})"), qty, { qty = it }, numeric = true) },
             confirmButton = { TextButton(enabled = !state.busy && qty.toIntOrNull()?.let { it in 1..item.qty } == true, onClick = { val count = qty.toIntOrNull(); if (count != null && count in 1..item.qty) { vm.returnItem(order, item, count); returning = null } }) { Text(vm.either("确认退菜", "Confirm return")) } },
             dismissButton = { TextButton(onClick = { returning = null }) { Text(vm.text("common.cancel")) } })
+    }
+}
+
+@Composable private fun KitchenPrintNotice(vm: RdvViewModel, state: UiState) {
+    if (state.kitchenTickets.isEmpty()) return
+    val unsent = state.kitchenTickets.count { it.status == "queued" }
+    Surface(color = RdvColors.Danger.copy(alpha = 0.06f), modifier = Modifier.fillMaxWidth().testTag("kitchen-print-notice")) {
+        Column(Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            if (unsent > 0) {
+                Text(vm.either("$unsent 张厨房联未发送，订单已保存。", "$unsent kitchen ticket(s) not sent. Orders are saved."), color = RdvColors.Danger)
+                RdvButton(vm.either("补打未发送厨房联", "Retry unsent kitchen tickets"), vm::retryKitchenTickets,
+                    secondary = true, enabled = !state.busy, loading = state.busy)
+            }
+            if (state.kitchenTickets.size > unsent) Text(vm.either("厨房联结果未确认，请核对纸张，不要重复下单。",
+                "Kitchen print unconfirmed. Check the paper; do not submit the order again."), color = RdvColors.Danger)
+        }
     }
 }

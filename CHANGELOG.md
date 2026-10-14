@@ -1,3 +1,12 @@
+## 1.3.1 — LAN kitchen printing correction (2026-10-14)
+
+- Keep the LAN discovery callback alive in optimized release APKs; memory collection can no longer discard the callback while the app waits for the printer.
+- Correct unsent-ticket messages so they do not assume the phone is disconnected from Wi-Fi. Ticket formatting and one-send protection are unchanged.
+- Reconnect once before any claim or paper write; release the printer connection before reporting its result.
+- Recover a lost claim/report response with the same invocation token; never repeat a paper send after an uncertain outcome.
+- Keep unsent kitchen tickets visible on their table and allow staff to retry the original ticket without placing another order.
+
+
 ## 1.3.0 (2026-10-14)
 
 - Android: direct hotel LAN printing for kitchen tickets and bills on the new N260L; existing ticket formatting retained.

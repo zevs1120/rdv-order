@@ -60,10 +60,39 @@ it("claims once, serializes two phones, does not regrant an expired or acknowled
   await db.query("UPDATE print_deliveries SET sending_started_at = now() - INTERVAL '1 minute' WHERE id = $1", [b.id]);
   expect((await (await POST(request({ action: "claim", id: b.id }))).json()).status).toBe("unknown");
 });
+it("recovers a lost claim response with the same invocation token but never regrants a later send", async () => {
+  const job = await save("lost-http-reply");
+  const claimToken = "33333333-3333-4333-8333-333333333333";
+  const body = { action: "claim", id: job.id, claimToken };
+  const first = await (await POST(request(body))).json();
+  expect(first.granted).toBe(true);
+  expect(await (await POST(request(body))).json()).toEqual(first);
+  expect((await db.query<{ attempt_count: number }>("SELECT attempt_count FROM print_deliveries WHERE id=$1", [job.id])).rows[0].attempt_count).toBe(1);
+  expect((await (await POST(request({ ...body, claimToken: "44444444-4444-4444-8444-444444444444" }))).json()).granted).toBe(false);
+  await POST(request({ action: "report", id: job.id, token: claimToken, status: "accepted" }));
+  await POST(request({ action: "report", id: job.id, token: claimToken, status: "accepted" }));
+  expect((await (await POST(request(body))).json()).granted).toBe(false);
+  const expired = await save("expired-reply");
+  await POST(request({ ...body, id: expired.id }));
+  await db.query("UPDATE print_deliveries SET sending_started_at=now()-INTERVAL '1 minute' WHERE id=$1", [expired.id]);
+  expect((await (await POST(request({ ...body, id: expired.id }))).json()).status).toBe("unknown");
+});
 it("does not expose or grant another waiter's ticket", async () => {
   const a = await save("a"); mocks.auth.mockResolvedValue({ userId: "other", role: "waiter" });
   expect((await POST(request({ action: "claim", id: a.id }))).status).toBe(404);
   expect((await (await GET(new Request("http://fixture/api/print/local"))).json()).jobs).toEqual([]);
+});
+it("filters table recovery before limiting rows and excludes closed sessions", async () => {
+  for (let index = 0; index < 50; index++) await save(`older-${index}`);
+  const req = new Request("http://fixture/api/orders", { method: "POST",
+    headers: { "x-idempotency-key": "recovery-table-05" },
+    body: JSON.stringify({ tableNo: "05", printTransport: "lan-v1", items: [{ menuItemId: dish, qty: 1 }] }) });
+  const created = await (await order(req)).json();
+  const read = () => GET(new Request("http://fixture/api/print/local?tableNo=05"));
+  expect((await (await read()).json()).jobs.map((job: { id: string }) => job.id)).toEqual([created.localPrint.id]);
+  await db.query("UPDATE table_sessions SET closed_at = now() WHERE table_no = '05'");
+  expect((await (await read()).json()).jobs).toEqual([]);
+  expect((await (await POST(request({ action: "claim", id: created.localPrint.id }))).json()).granted).toBe(false);
 });
 it("retains both existing ticket formats and strips user control bytes", () => {
   const kitchen = renderOrderTicket({ tableNo: "05", createdAt: "2026-10-14T04:00:00Z", waiter: "Staff",

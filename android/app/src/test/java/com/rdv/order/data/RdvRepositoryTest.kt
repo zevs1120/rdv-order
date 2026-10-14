@@ -30,6 +30,55 @@ private class RecordingTransport : Transport {
 }
 
 class RdvRepositoryTest {
+    @Test fun `kitchen notice reads only this tables kitchen tickets without printing`() = runBlocking {
+        val api = RecordingTransport()
+        val repo = RdvRepository(api, MemoryStore(), { "https://fixture.invalid" })
+        api.handler = { call ->
+            assertEquals("GET", call.method)
+            assertEquals("04", call.query["tableNo"])
+            """{"jobs":[
+                {"id":"unsent","tableNo":"04","kind":"order","status":"queued","mac":"fixture"},
+                {"id":"uncertain","tableNo":"04","kind":"order","status":"unknown","mac":"fixture"},
+                {"id":"bill","tableNo":"04","kind":"receipt","status":"queued","mac":"fixture"},
+                {"id":"other","tableNo":"05","kind":"order","status":"queued","mac":"fixture"},
+                {"id":"sent","tableNo":"04","kind":"order","status":"accepted","mac":"fixture"}
+            ]}"""
+        }
+        assertEquals(listOf("unsent", "uncertain"), repo.kitchenTickets("04").map { it.id })
+        assertEquals(1, api.calls.size)
+    }
+    @Test fun `unsent kitchen can recover after restart using saved ticket without another order`() = runBlocking {
+        val api = RecordingTransport(); val store = MemoryStore(); var connected = false; var sends = 0
+        var claimed = false
+        val printing = LocalPrinting(api, LocalConnector {
+            if (!connected) throw IOException("no connection")
+            object : LocalConnection {
+                override fun send(bytes: ByteArray): Boolean { sends++; return true }
+                override fun close() {}
+            }
+        })
+        val repo = RdvRepository(api, store, { "https://fixture.invalid" }, localPrinting = printing)
+        repo.login("staff", "test")
+        val saved = """{"id":"original-ticket","status":"queued","mac":"fixture","tableNo":"01","kind":"order"}"""
+        api.handler = { call -> when {
+            call.path == "/api/orders" -> """{"orderId":"saved-order","localPrint":$saved}"""
+            call.method == "GET" -> """{"jobs":[$saved]}"""
+            call.body!!.jsonObject.text("action") == "report" -> "{}"
+            claimed -> """{"granted":false,"status":"accepted"}"""
+            else -> { claimed = true; """{"granted":true,"token":"claim","content":"VEVTVA=="}""" }
+        } }
+        assertEquals("NOT_SENT", repo.submit(draft).localOutcome)
+        val restored = RdvRepository(api, store, { "https://fixture.invalid" }, localPrinting = printing)
+        restored.restoreSession()
+        val ticket = restored.kitchenTickets("01").single()
+        connected = true
+        assertEquals(LocalPrintResult.SENT, restored.retryKitchenTicket(ticket))
+        assertEquals(LocalPrintResult.SENT, restored.retryKitchenTicket(ticket))
+        assertEquals(1, sends)
+        assertEquals(1, api.calls.count { it.path == "/api/orders" })
+        assertTrue(api.calls.filter { it.body?.jsonObject?.text("action") == "claim" }
+            .all { it.body!!.jsonObject.text("id") == "original-ticket" })
+    }
     @Test fun `lost local order response recovers ticket and sends without repeating order`() = runBlocking {
         val api = RecordingTransport(); val store = MemoryStore(); var sends = 0
         val printing = LocalPrinting(api, LocalConnector { object : LocalConnection {

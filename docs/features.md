@@ -82,3 +82,8 @@ RDV is a mobile-first ordering and table-service system for waiter/manager use.
 Print connection recovery (1.1.3): bounded provider-deduplicated retry, synchronous receipt acceptance for updated clients, explicit receipt failures, and live cloud printer status. No physical printer connectivity guarantee is implied by cloud acceptance; see `print-connection-reliability.md`.
 
 - 2026-09-21：现有芯烨云打印机下单自动输出厨房联＋前台联（各一联，前台联含价格）；手动 Print Receipt 仍输出当前全桌账单。
+
+- Unpublished LAN recovery correction (2026-10-14): Android staff can retry only
+  their own unsent kitchen tickets from the active table/bill notice. Managers
+  retain existing visibility. This uses the existing `order.create` permission;
+  it grants no new access to other staff's records or unknown/accepted reprints.

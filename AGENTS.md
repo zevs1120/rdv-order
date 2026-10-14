@@ -1,9 +1,21 @@
-## Android 局域网接入发布中（2026-10-14）
+## 当前：完成厨房联局域网修正并交付（2026-10-14）
+
+- 用户在暂停打包后再次明确要求“搞好，一次性搞好”，对恢复发布询问回应“每一次下单打印机就能打印……要求必须做到”。继续完成修正和交付，验收以酒店正常下单的实际厨房出纸为准，不再反复询问技术步骤。不得承诺局域网绝无故障，隔离测试不能代替实物验收。
+- 用户已确认最新APP、餐厅Wi-Fi，账单实际出纸但厨房联未出。不要再确认Wi-Fi/版本或归咎于操作。只读核实4号桌14:05:08厨房37164403-c4fb-40f3-98f2-b1214cb9c7ae queued/attempt0；14:05:55账单ae6da2cf-0da6-4b56-a507-5d5933cf83ff accepted/attempt1。没有重放历史或代建营业订单。
+- 已发布1.3.0 APK的R8移除了强持有discoveryCallback，官方SDK仅WeakReference；API35实包GC回归已复现，窄范围keep规则修正。连接前最多自动重连一次；领取请求使用单次调用UUID恢复丢失响应；发送一次后先关闭打印机再幂等上报；未知发送绝不重发。现有票面不变。
+- 未发送厨房原票在桌台和账单页持续可见，员工可补打自己的queued原票，不需要重复下单或经理账号；重新进桌台从后台恢复。新增领取令牌兼容后台必须先于新APK上线。无迁移、后台调度或旧机接入。
+- 当前源码检查：25针对JVM用例、debug lint/compile、149 Web测试+TypeScript+Next build、print-env通过。API35真实Compose下单流程通过：首次发现失败自动恢复只发送一票、未发送告警不被账单读取失败覆盖、原票补打不新增订单/不重复发送、账单另发。正式包及部署证据见docs/printing-official-2026-10-13.md后续记录。
+- 先前未发布1.3.1候选已归档忽略目录artifacts/local-print-fix-2026-10-14/paused-candidate，不能当作本次最终包。当前线上基线仍cd93f49/1.3.0，完成正式包与部署后更新此条。
+
+## Android 局域网打印 1.3.0 已发布（2026-10-14，正式 APP 现场验收待回）
 
 - 用户明确授权实现、极简针对性测试后发布新版并通过 APP 内更新。范围仅新机厨房联+账单，旧机以后再接；保留票面，避免重复打印。
 - 1.3.0/code15 使用官方 Android SDK 3.2.0，按已验收 MAC 搜索，再同步局域网发送。后台保留现有模板并转 ESC/POS；本地票据标记 local-escpos-20261014，云发送器无法领取。兼容旧 APK/网页的原云记录，重放不切换通道。
 - 每票只领取一次，短事务协调多手机；发送结果未知不重发，未连接成功的 queued 原票可人工重试。不引入定时器调度/后台 worker/本地电脑，不迁移数据库。记录 accepted 仅表示写入连接，不等于实物确认。
-- 当前后台147测试/TypeScript/生产构建通过（清理了上一版遗留的忽略目录生成物后重跑构建）；Android核心21用例、release lint/build通过，API35官方 SDK 本地 socket 隔离测试1项通过。签名最终包的2项API35包/更新读取检查通过，隔离模拟器由原签名code4实际覆盖到code15成功。APK 1,658,201 bytes，SHA256 176b4d0da648e5272cbaf42fd1683d7f0dbba79956a4f86c808569bc1690b586；code14增量1,327,944 bytes。源码be46b61后台已先部署至rdv-order-htahzv5fj-renfei-zhaos-projects.vercel.app及正式域名，下载更新发布中；正式APP现场厨房联/账单验收尚未完成。
+- 当前后台147测试/TypeScript/生产构建通过（清理了上一版遗留的忽略目录生成物后重跑构建）；Android核心21用例、release lint/build通过，API35官方 SDK 本地 socket 隔离测试1项通过。签名最终包的2项API35包/更新读取检查通过，隔离模拟器由原签名code4实际覆盖到code15成功。APK 1,658,201 bytes，SHA256 176b4d0da648e5272cbaf42fd1683d7f0dbba79956a4f86c808569bc1690b586；code14增量1,327,944 bytes。源码be46b61后台已先部署至rdv-order-htahzv5fj-renfei-zhaos-projects.vercel.app及正式域名，下载更新已发布；正式APP现场厨房联/账单验收尚未完成。
+
+- 发布提交cd93f49与源码be46b61已通过GitHub Desktop推送，origin/main一致。下载站dpl_FbujmLBK5qvpJTnXBKC1sPhHYJF5为READY。公网release.json、稳定APK入口完整SHA、增量包SHA及重建、正式/api/app-release均确认1.3.0/code15。后台预先上线dpl_2ejXRUDB3cje6Z8XKuAiBjamuwCX，正式/api/print/local认证只读返回200、配置匹配、待处理0；Git自动后端部署dpl_F3gELmhg9LTCiXeVeebXDsk9abKo也已READY，源码相同。
+- 证据在忽略目录artifacts/local-print-release-2026-10-14/。没有代建营业订单、发现场票或重放历史。后续只需用户升级后真实下单/账单各确认一次，不要为记录回执反复部署。此前临时空项目rdv-lan-backend-release-20261014已删除（204），与正式项目无关。
 
 ## 局域网打印调查（2026-10-14，新机官方 Demo 实际出纸已确认）
 

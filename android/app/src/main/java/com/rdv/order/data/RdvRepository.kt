@@ -178,6 +178,12 @@ class RdvRepository(val api: Transport, private val store: KeyValueStore, privat
         return result.copy(localOutcome = outcome)
     }
     private suspend fun printLocal(ticket: LocalTicket) = localPrinting?.print(ticket) ?: LocalPrintResult.NOT_SENT
+    suspend fun kitchenTickets(table: String): List<LocalTicket> = requestObject("/api/print/local",
+        query = mapOf("tableNo" to table)).rows("jobs")
+        .filter { it.text("tableNo") == table && it.text("kind") == "order" &&
+            it.text("status") in setOf("queued", "sending", "unknown") }
+        .map { RdvJson.decodeFromJsonElement(it) }
+    suspend fun retryKitchenTicket(ticket: LocalTicket): LocalPrintResult = printLocal(ticket)
     private suspend fun localBill(body: JsonObject): BillPrintResult? {
         val ticket = body["localPrint"]?.takeIf { it is JsonObject } ?: return null
         return when (printLocal(RdvJson.decodeFromJsonElement<LocalTicket>(ticket))) {

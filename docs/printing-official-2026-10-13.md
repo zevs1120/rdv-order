@@ -57,3 +57,95 @@ Backend source was deployed first to `rdv-order-htahzv5fj-renfei-zhaos-projects.
 and the normal production domain. Download/update publication follows this backend.
 Physical RDV APP acceptance is still required: one real order kitchen ticket and
 one separately requested bill on the hotel LAN. Demo success does not replace it.
+
+Final publication: release commit `cd93f49` pushed with source `be46b61`.
+Backend `dpl_F3gELmhg9LTCiXeVeebXDsk9abKo` and downloads
+`dpl_FbujmLBK5qvpJTnXBKC1sPhHYJF5` both READY. Direct public manifest, stable APK
+SHA, downloaded delta reconstruction and in-app release API verified 1.3.0/code15.
+The production local-print GET returned 200 with the expected MAC and no pending
+local tickets. Evidence: `artifacts/local-print-release-2026-10-14/` (ignored).
+These delivery notes do not trigger another deployment; physical APP confirmation
+is still pending. The isolated emulator was shut down after checks.
+
+## 1.3.0 LAN incident and release callback fix — 2026-10-14
+
+The user confirmed the current APK and restaurant Wi-Fi, but reported no kitchen
+paper while the separately requested bill printed. Read-only production evidence:
+table04 kitchen `37164403-c4fb-40f3-98f2-b1214cb9c7ae`, created14:05:08 GMT+8,
+remains queued/attempt0 with no claim; bill
+`ae6da2cf-0da6-4b56-a507-5d5933cf83ff`, created14:05:55, was accepted locally
+at14:05:56 with attempt1. This places the kitchen failure before sending; it is
+not evidence that the phone was disconnected from Wi-Fi. No history was replayed.
+
+The exact published 1.3.0 APK and its R8 mapping/usage reports show that R8 removed
+`XprinterLocalConnector.discoveryCallback` as write-only. The official SDK only
+keeps a WeakReference. An API35 isolated test loaded that signed APK with a separate
+class loader and reproduced callback loss after GC while discovery was waiting.
+Earlier checks exercised SDK TCP sending, not optimized APK discovery, and missed
+this defect. The hotel phone has no captured runtime trace, so reproduction proves
+a matching release defect rather than every possible cause of connection failure.
+
+The unpublished candidate adds one narrowly scoped R8 field-retention rule. No new dispatcher, retry
+loop, connection path, backend change or historical replay is added. Existing
+ticket templates, MAC matching and one-claim/one-send behavior stay unchanged.
+Feedback no longer attributes every unsent ticket to Wi-Fi. The artifact regression
+test runs discovery under GC in the actual optimized APK and responds over local
+UDP before accepting the resulting TCP connection, twice on one connector.
+
+The candidate passed 21 focused JVM checks, release lint/build, and the actual
+minified-APK discovery/GC/loopback regression (one API35 test, two connections).
+Staging verified the original signature, APK metadata and exact delta reconstruction;
+unchanged backend tests/build were reused. The initial print-env invocation lacked
+loaded configuration; rerunning with the existing .env.local passed presence checks.
+
+**Publication stopped at the user's explicit request.** Before that message, a local
+1.3.1/code16 candidate had been built and staged, but never committed, pushed or
+deployed. Its files have been moved out of the public release folder into ignored
+`artifacts/local-print-fix-2026-10-14/paused-candidate/`; tracked version/manifest/links
+are restored to 1.3.0. This was the paused state before the user again required completion and delivery;
+see the follow-through below. The archived candidate is not the final artifact.
+
+Full-path review also confirms that LAN describes the phone-to-printer leg, not
+offline ordering: order storage, the one-time claim/content request, and reporting
+still contact the existing backend. The observed kitchen failure preceded claiming.
+A pre-send connection failure leaves the original ticket queued; current recovery is
+manual through the manager page, not an automatic retry. Once a send is claimed or
+uncertain it is never automatically replayed. A successful socket write is not a
+per-ticket paper acknowledgement. These are current boundaries, not proof of a
+second cause of this incident, and cannot be erased by a successful loopback test.
+
+
+## 1.3.1 follow-through — 2026-10-14
+
+The user subsequently required the normal-order printing result and completion,
+after being asked about resuming delivery. Proceed with the complete fix and delivery;
+physical kitchen paper from a normal hotel order remains the acceptance criterion.
+
+The final change keeps the official SDK and receipt templates. Discovery/connection
+may retry once before any claim or paper bytes. A fresh UUID per print invocation
+lets one lost HTTP claim response be recovered without granting another send to
+another tap, process, or phone. Accepted/unknown/expired sends remain non-replayable.
+The printer socket closes before HTTP reporting; an idempotent report retry never
+resends paper. The maximum grant-to-write start age is 15 seconds, bounded below
+the 30-second server guard together with the five-second send deadline.
+
+Unsent kitchen tickets remain visible in the current table and bill, including
+when the subsequent bill read fails. Staff can retry their own queued original
+kitchen ticket without placing a second order; reopening the table restores its
+unresolved records. Unknown sends require checking paper, not an automatic resend.
+Table filtering occurs before the server's 50-row limit. No schema, worker, cloud
+fallback, ticket layout or old-printer changes. Deploy the compatible claim API
+before publishing the Android client that uses it.
+
+Checks for this completed source batch: 25 focused JVM tests (including real HTTP
+connection loss after claim/report requests, one send only), debug lint/compile;
+149 backend tests, TypeScript, Next build and print-env. One isolated API35 Compose
+workflow passed normal submission with first discovery failure/automatic recovery,
+persistent kitchen warning despite bill-read failure, same-ticket retry without a
+new order or duplicate send, and a separately requested bill. The release-package
+SDK discovery test is run separately against the final optimized signed APK. All
+fixtures are isolated; no production order or queued ticket was exercised.
+
+Final 1.3.1/code16 release lint/build passed. The actual final signed, optimized APK
+passed the API35 discovery regression with GC and two UDP-discovery/TCP-connect
+cycles. Source checks above are reused; no unrelated full-suite repetition.
