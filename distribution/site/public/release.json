@@ -1,26 +1,26 @@
 {
   "name": "RDV Order",
-  "version": "1.3.0",
-  "versionCode": 15,
+  "version": "1.3.1",
+  "versionCode": 16,
   "minAndroid": "8.0",
   "apiOrigin": "https://order.resortdejavu.cn",
-  "file": "/releases/rdv-order-1.3.0.apk",
-  "bytes": 1658201,
-  "sha256": "176b4d0da648e5272cbaf42fd1683d7f0dbba79956a4f86c808569bc1690b586",
+  "file": "/releases/rdv-order-1.3.1.apk",
+  "bytes": 1674585,
+  "sha256": "024f08991b7da4320a5a7f0b8f46723b7eca9a385658e96e0f1f930c8999d02a",
   "notes": {
-    "zh": "新增酒店局域网打印，厨房联和账单由手机直接发送到新打印机；保留小票格式，避免重复发送。",
-    "en": "Print kitchen tickets and bills directly over the hotel network. Receipt layouts are preserved and duplicate sends are prevented."
+    "zh": "修复厨房联局域网连接与漏打提示，支持补打未发送厨房联，避免重复打印。",
+    "en": "Fix LAN kitchen printer connection and missed-ticket notices. Retry unsent kitchen tickets without duplicating orders or prints."
   },
   "deltas": [
     {
       "format": "rdv-copy-add-v1",
-      "baseVersionCode": 14,
-      "baseSha256": "cf9628b0bf625578c7ebe4c32b622295eb7bafec1c8107a4dfaa0a1d72fa82bc",
-      "file": "/releases/rdv-order-1.3.0-from-14.rdvdelta",
-      "bytes": 1327944,
-      "sha256": "8446fcbf2a779d2420443a75e5b64f979435034442fde23e4c9d5487b5e768de"
+      "baseVersionCode": 15,
+      "baseSha256": "176b4d0da648e5272cbaf42fd1683d7f0dbba79956a4f86c808569bc1690b586",
+      "file": "/releases/rdv-order-1.3.1-from-15.rdvdelta",
+      "bytes": 1324919,
+      "sha256": "2d0687da979cc8b9bc63c7ae80ed6e83f1caacc53721ca7843da49ea84bbc8a9"
     }
   ],
   "releaseDate": "2026-10-14",
-  "releaseDateSha256": "176b4d0da648e5272cbaf42fd1683d7f0dbba79956a4f86c808569bc1690b586"
+  "releaseDateSha256": "024f08991b7da4320a5a7f0b8f46723b7eca9a385658e96e0f1f930c8999d02a"
 }

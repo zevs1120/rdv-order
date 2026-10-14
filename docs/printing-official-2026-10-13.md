@@ -149,3 +149,14 @@ fixtures are isolated; no production order or queued ticket was exercised.
 Final 1.3.1/code16 release lint/build passed. The actual final signed, optimized APK
 passed the API35 discovery regression with GC and two UDP-discovery/TCP-connect
 cycles. Source checks above are reused; no unrelated full-suite repetition.
+
+Signed final artifact: 1.3.1/code16, Android 8+, original certificate.
+`distribution/site/public/releases/rdv-order-1.3.1.apk`, 1,674,585 bytes, SHA-256
+`024f08991b7da4320a5a7f0b8f46723b7eca9a385658e96e0f1f930c8999d02a`.
+Code15 delta: 1,324,919 bytes. Staging verified certificate, alignment, identity,
+exact delta reconstruction and public manifest/stable-link consistency. Source
+commit `441912d`. Backend rollout must complete before the release is published.
+
+Compatible backend `441912d` deployed first: `dpl_5fTAL3NKa8VZ5kbuqmGmrE2L3qqo`,
+READY and aliased to `order.resortdejavu.cn`. The release commit publishes the
+final APK, code15 delta and bilingual mandatory-update notes together.

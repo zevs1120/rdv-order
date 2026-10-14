@@ -228,7 +228,7 @@ Sending records older than 30 seconds become unknown, never queued again.
 Accepted means bytes were sent, not physical paper confirmation. Only unsent queued
 local records can be retried; no cloud fallback or automatic unknown-result replay.
 
-### Unpublished LAN recovery correction (2026-10-14)
+### LAN recovery correction, 1.3.1 (2026-10-14)
 
 `GET /api/print/local?tableNo=04` limits records to that active table before the
 50-row cap, retaining actor/manager access rules. It is a read and cannot print.

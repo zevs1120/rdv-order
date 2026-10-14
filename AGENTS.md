@@ -5,7 +5,7 @@
 - 已发布1.3.0 APK的R8移除了强持有discoveryCallback，官方SDK仅WeakReference；API35实包GC回归已复现，窄范围keep规则修正。连接前最多自动重连一次；领取请求使用单次调用UUID恢复丢失响应；发送一次后先关闭打印机再幂等上报；未知发送绝不重发。现有票面不变。
 - 未发送厨房原票在桌台和账单页持续可见，员工可补打自己的queued原票，不需要重复下单或经理账号；重新进桌台从后台恢复。新增领取令牌兼容后台必须先于新APK上线。无迁移、后台调度或旧机接入。
 - 当前源码检查：25针对JVM用例、debug lint/compile、149 Web测试+TypeScript+Next build、print-env通过。API35真实Compose下单流程通过：首次发现失败自动恢复只发送一票、未发送告警不被账单读取失败覆盖、原票补打不新增订单/不重复发送、账单另发。正式包及部署证据见docs/printing-official-2026-10-13.md后续记录。
-- 先前未发布1.3.1候选已归档忽略目录artifacts/local-print-fix-2026-10-14/paused-candidate，不能当作本次最终包。当前线上基线仍cd93f49/1.3.0，完成正式包与部署后更新此条。
+- 先前未发布1.3.1候选已归档忽略目录artifacts/local-print-fix-2026-10-14/paused-candidate，不能当作本次最终包。修正源码441912d已先部署正式后台dpl_5fTAL3NKa8VZ5kbuqmGmrE2L3qqo并绑定order.resortdejavu.cn；正式1.3.1/code16已通过release lint/build与实包GC+UDP/TCP回归，原签名APK 1,674,585字节、SHA256 024f08991b7da4320a5a7f0b8f46723b7eca9a385658e96e0f1f930c8999d02a。本次release提交发布APP内更新+code15增量和完整APK，发布后核对公网清单。实物验收尚未完成。
 
 ## Android 局域网打印 1.3.0 已发布（2026-10-14，正式 APP 现场验收待回）
 
