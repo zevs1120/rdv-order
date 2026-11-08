@@ -1,17 +1,17 @@
 {
   "name": "RDV Team",
   "status": "available",
-  "version": "2.1.14",
-  "versionCode": 27,
+  "version": "2.1.15",
+  "versionCode": 28,
   "minAndroid": "8.0",
   "packageName": "com.rdv.staff",
-  "file": "/releases/rdv-team-2.1.14.apk",
-  "bytes": 3391028,
-  "sha256": "325b65b618929fb8069084885c650def5462a14e955f4ab8f477d6085789fd77",
+  "file": "/releases/rdv-team-2.1.15.apk",
+  "bytes": 3391524,
+  "sha256": "a64b4cc837b5191b9057735f561c294b4249c4208b72ae4e802046167a27942f",
   "notes": {
-    "zh": "简化上班、下班打卡；重复点击和失败重试由 App 处理，保留现有考勤记录。",
-    "en": "Simpler clock-in and clock-out. The app handles repeated taps and retries while keeping existing attendance records."
+    "zh": "改进签到定位。打卡时如果班次已变，App 会显示最新记录，不会把刚才的点击变成另一笔打卡。",
+    "en": "Improved clock-in location checks. If your shift has changed, the app shows the latest punches instead of recording a different action."
   },
-  "releaseDate": "2026-10-18",
-  "releaseDateSha256": "325b65b618929fb8069084885c650def5462a14e955f4ab8f477d6085789fd77"
+  "releaseDate": "2026-11-08",
+  "releaseDateSha256": "a64b4cc837b5191b9057735f561c294b4249c4208b72ae4e802046167a27942f"
 }

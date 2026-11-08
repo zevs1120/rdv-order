@@ -11,7 +11,7 @@
     },
     {
       "source": "/rdv-team.apk",
-      "destination": "/releases/rdv-team-2.1.14.apk"
+      "destination": "/releases/rdv-team-2.1.15.apk"
     }
   ],
   "headers": [
@@ -79,7 +79,7 @@
         },
         {
           "key": "Content-Disposition",
-          "value": "attachment; filename=\"rdv-team-2.1.14.apk\""
+          "value": "attachment; filename=\"rdv-team-2.1.15.apk\""
         },
         {
           "key": "Cache-Control",
