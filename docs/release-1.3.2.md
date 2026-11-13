@@ -39,3 +39,6 @@ Backend diagnostic support must be READY before the new download manifest is
 published. Publication IDs and final public readbacks are recorded below after
 deployment. Hotel physical paper acceptance follows the normal upgraded workflow;
 no live test tickets or historical resends are authorized by this release procedure.
+
+- Backend source `a7232be` deployed first via the existing project and CLI authentication: `dpl_B9ePvEHC5a7o4kyxTUb9qVhUJBTf`, production URL `rdv-order-czupd6mfp-renfei-zhaos-projects.vercel.app`; deployment completed successfully.
+- Two signed-package API 35 checks passed. The isolated emulator also actually installed the original-signed code 16 and then upgraded in place to code 17 successfully (no production app launch or business operation).
