@@ -38,6 +38,17 @@ export async function POST(req: Request) {
     if (!uuid.test(body?.id || "")) return NextResponse.json({ error: "打印编号无效" }, { status: 400 });
     if (body.action === "claim" && body.claimToken != null && !uuid.test(body.claimToken))
       return NextResponse.json({ error: "打印请求编号无效" }, { status: 400 });
+    if (body.action === "diagnostic") {
+      if (!["network", "discovery", "tcp_connect"].includes(body.stage) ||
+          !["no_local_network", "network_lost", "port_busy", "timeout", "refused", "network_io"].includes(body.reason))
+        return NextResponse.json({ error: "诊断类型无效" }, { status: 400, headers });
+      // Metadata only: never claim, release, resend or alter a ticket snapshot.
+      await pool.query(`UPDATE print_deliveries SET last_error = $5, updated_at = now()
+        WHERE id = $1 AND ${access} AND snapshot->>'implementation' = $4
+        AND status = 'queued' AND attempt_count = 0`,
+        [body.id, auth.userId, auth.role, LAN_IMPLEMENTATION, `LAN ${body.stage}: ${body.reason}`]);
+      return NextResponse.json({ ok: true }, { headers });
+    }
     const tx = await pool.connect();
     try {
       await tx.query("BEGIN");

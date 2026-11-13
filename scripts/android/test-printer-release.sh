@@ -7,15 +7,18 @@ mkdir -p "$fixtures"
 cp "$repo_dir/android/app/build/outputs/apk/release/app-release.apk" "$fixtures/printer-release.apk"
 python3 - "$repo_dir/android/app/build/outputs/mapping/release/mapping.txt" "$fixtures/printer-symbols.json" <<'PY'
 import json, re, sys
-mapping = dict(re.findall(r'^([^ #].*?) -> (.*?):$', open(sys.argv[1]).read(), re.M))
-symbols = {
-    'connector': 'com.rdv.order.data.XprinterLocalConnector',
-    'continuation': 'kotlin.coroutines.Continuation',
-    'emptyContext': 'kotlin.coroutines.EmptyCoroutineContext',
-    'connectContinuation': 'com.rdv.order.data.XprinterLocalConnector$connect$1',
-}
+lines = open(sys.argv[1]).read().splitlines()
+owner = None
+for line in lines:
+    match = re.match(r'^([^ #].*?) -> (.*?):$', line)
+    if match: owner = match.group(2)
+    if 'com.rdv.order.data.LanDiscovery.discover(' in line:
+        symbols = {'discovery': owner, 'method': line.split(' -> ')[1]}
+        break
+else:
+    raise RuntimeError('Missing release discovery method')
 with open(sys.argv[2], 'w') as output:
-    json.dump({key: mapping[value] for key, value in symbols.items()}, output)
+    json.dump(symbols, output)
 PY
 exec "$repo_dir/scripts/android/gradle.sh" :app:connectedDebugAndroidTest \
   -Pandroid.testInstrumentationRunnerArguments.class=com.rdv.order.ReleasePrinterDiscoveryTest

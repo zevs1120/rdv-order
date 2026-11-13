@@ -244,3 +244,15 @@ paper write, and starts the bounded 5-second write within 15 seconds of the curr
 claim request (inside the existing 30-second server guard). The token is never
 reused for another tap or process restart. Reports may also retry once with the
 same token; they send no paper. Ship this compatible server change before the APK.
+
+### LAN connection diagnostics, 1.3.2 (2026-11-13)
+
+`POST /api/print/local` accepts `{action:"diagnostic",id,stage,reason}` from the
+original actor or a manager. Allowed stages are `network`, `discovery`, and
+`tcp_connect`; reasons are `no_local_network`, `network_lost`, `port_busy`,
+`timeout`, `refused`, and `network_io`. Invalid values return 400. Only queued,
+attempt-zero LAN records receive `last_error = "LAN <stage>: <reason>"` and an
+updated timestamp. No claim, send, snapshot, order, or other record is changed.
+The client reports the final pre-send connection failure once with a two-second
+best-effort deadline; failure to report never retries a paper send. Deploy this
+additive route before publishing code 17. Existing claim/report contracts remain.

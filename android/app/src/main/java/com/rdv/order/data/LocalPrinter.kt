@@ -4,71 +4,80 @@ import android.content.Context
 import java.io.Closeable
 import java.util.Base64
 import java.util.UUID
-import java.util.concurrent.Executors
-import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.*
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.*
-import net.posprinter.IConnectListener
-import net.posprinter.IDeviceConnection
-import net.posprinter.POSConnect
-import net.posprinter.esc.PosUdpNet
-import net.posprinter.posprinterface.UdpCallback
 
 @Serializable data class LocalTicket(val id: String, val status: String, val mac: String)
 enum class LocalPrintResult { SENT, NOT_SENT, UNKNOWN }
 interface LocalConnection : Closeable { fun send(bytes: ByteArray): Boolean }
 fun interface LocalConnector { suspend fun connect(mac: String): LocalConnection }
 
-/** The same official discovery + Ethernet connection used by PrinterDemo.
- * Resolve by MAC every time; DHCP changes cannot redirect a bill to another host. */
+/** Select the local network explicitly, even when Android uses cellular for Internet. */
 class XprinterLocalConnector(context: Context) : LocalConnector {
-    init { POSConnect.init(context.applicationContext) }
-    private val discovery = PosUdpNet()
-    // Kept by proguard-rules.pro: this strong owner is required even though
-    // application code never reads it (the SDK reads its own WeakReference).
-    private var discoveryCallback: UdpCallback? = null
-    override suspend fun connect(mac: String): LocalConnection {
-        val found = CompletableDeferred<String>()
-        val callback = UdpCallback { device ->
-            if (device.macStr.equals(mac, ignoreCase = true)) found.complete(device.ipStr)
-        }
-        discoveryCallback = callback // SDK holds only a WeakReference.
-        val ip = try {
-            discovery.searchNetDevice(callback)
-            withTimeout(5_000) { found.await() }
-        } finally { discoveryCallback = null }
-        return withContext(Dispatchers.IO) {
-            val connection = POSConnect.createDevice(POSConnect.DEVICE_TYPE_ETHERNET)
+    private val connectivity = context.applicationContext.getSystemService(android.net.ConnectivityManager::class.java)
+    override suspend fun connect(mac: String): LocalConnection = withContext(Dispatchers.IO) {
+        val network = connectivity.allNetworks.firstOrNull { network ->
+            connectivity.getNetworkCapabilities(network)?.let {
+                it.hasTransport(android.net.NetworkCapabilities.TRANSPORT_WIFI) &&
+                    !it.hasTransport(android.net.NetworkCapabilities.TRANSPORT_VPN)
+            } == true
+        } ?: connectivity.allNetworks.firstOrNull { network ->
+            connectivity.getNetworkCapabilities(network)?.hasTransport(android.net.NetworkCapabilities.TRANSPORT_ETHERNET) == true
+        } ?: throw LanConnectionException("network", "no_local_network")
+        val links = connectivity.getLinkProperties(network)
+            ?: throw LanConnectionException("network", "network_lost")
+        val broadcasts = links.linkAddresses.filter { it.address is java.net.Inet4Address && it.prefixLength in 1..30 }.map {
+            val address = it.address.address
+            val hostMask = -1 ushr it.prefixLength
+            val value = address.fold(0) { acc, byte -> (acc shl 8) or (byte.toInt() and 255) } or hostMask
+            java.net.InetAddress.getByAddress(byteArrayOf((value ushr 24).toByte(), (value ushr 16).toByte(), (value ushr 8).toByte(), value.toByte()))
+        }.distinct() + java.net.InetAddress.getByName("255.255.255.255")
+        var stage = "discovery"
+        try {
+            val ip = java.net.DatagramSocket(null).use { socket ->
+                // Bind before connecting; never change the process-wide Internet route.
+                network.bindSocket(socket)
+                socket.reuseAddress = false
+                socket.bind(java.net.InetSocketAddress(9000))
+                LanDiscovery.discover(socket, broadcasts, mac)
+            }
+            currentCoroutineContext().ensureActive()
+            stage = "tcp_connect"
+            val socket = network.socketFactory.createSocket()
             try {
-                check(connection.connectSync(ip, IConnectListener { _, _, _ -> })) { "Printer unavailable" }
-                SdkConnection(connection)
-            } catch (error: Exception) { connection.closeSync(); throw error }
+                socket.connect(java.net.InetSocketAddress(ip, 9100), 2500)
+                currentCoroutineContext().ensureActive()
+                LanSocketConnection(socket)
+            } catch (error: Exception) { socket.close(); throw error }
+        } catch (error: Exception) {
+            currentCoroutineContext().ensureActive()
+            if (error is LanConnectionException) throw error
+            throw LanConnectionException(stage, when (error) {
+                is java.net.BindException -> "port_busy"
+                is java.net.SocketTimeoutException -> "timeout"
+                is java.net.ConnectException -> "refused"
+                else -> "network_io"
+            })
         }
     }
-    private class SdkConnection(private val connection: IDeviceConnection) : LocalConnection {
-        override fun send(bytes: ByteArray): Boolean {
-            // One synchronous send. Closing the socket bounds a blocked write;
-            // neither timeout nor partial write is retried.
-            val deadline = timer.schedule({ connection.closeSync() }, 5, TimeUnit.SECONDS)
-            return try { connection.sendSync(bytes) == bytes.size } finally { deadline.cancel(false) }
-        }
-        override fun close() = connection.closeSync()
-    }
-    companion object { private val timer = Executors.newSingleThreadScheduledExecutor() }
 }
 
 class LocalPrinting(private val api: Transport, private val connector: LocalConnector) {
     private val mutex = Mutex()
-    private suspend fun connectUnsent(mac: String): LocalConnection? {
+    private suspend fun connectUnsent(ticket: LocalTicket): LocalConnection? {
         // Connection attempts send no ticket bytes and hold no server claim.
         // A missed discovery response/failed TCP handshake can safely reconnect.
         repeat(2) { attempt ->
-            try { return connector.connect(mac) } catch (error: Exception) {
+            try { return connector.connect(ticket.mac) } catch (error: Exception) {
                 currentCoroutineContext().ensureActive()
                 if (attempt == 0) delay(250)
+                else if (error is LanConnectionException) runCatching {
+                    api.request("/api/print/local", "POST", jsonBody("action" to "diagnostic", "id" to ticket.id,
+                        "stage" to error.stage, "reason" to error.reason), timeoutMs = 2_000, retries = 0)
+                }
             }
         }
         return null
@@ -78,7 +87,7 @@ class LocalPrinting(private val api: Transport, private val connector: LocalConn
         if (ticket.status != "queued") return@withLock LocalPrintResult.UNKNOWN
         // Keep the order saved and retryable when discovery/connection fails:
         // no claim or paper bytes have been sent at this point.
-        val connection = connectUnsent(ticket.mac) ?: return@withLock LocalPrintResult.NOT_SENT
+        val connection = connectUnsent(ticket) ?: return@withLock LocalPrintResult.NOT_SENT
         val claimToken = UUID.randomUUID().toString()
         var reportToken: String? = null
         var reportStatus: String? = null

@@ -121,4 +121,17 @@ class LocalPrintingTest {
             assertEquals(if (loseClaim) 0 else 1, sends)
         }
     }
+    @Test fun `diagnostic failure cannot claim or send a ticket`() = runBlocking {
+        var calls = 0
+        val api = object : Transport {
+            override suspend fun request(path: String, method: String, body: JsonElement?, query: Map<String,String>,
+                idempotencyKey: String?, timeoutMs: Long, retries: Int, authenticated: Boolean): ApiResponse {
+                calls++; assertEquals("diagnostic", body!!.jsonObject.text("action")); assertEquals(0, retries)
+                throw IOException("offline metadata")
+            }
+        }
+        val printer = LocalPrinting(api, LocalConnector { throw LanConnectionException("discovery", "timeout") })
+        assertEquals(LocalPrintResult.NOT_SENT, printer.print(ticket))
+        assertEquals(1, calls)
+    }
 }

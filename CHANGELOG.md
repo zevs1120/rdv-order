@@ -1,3 +1,10 @@
+## 1.3.2 — LAN connection reliability (2026-11-13)
+
+- Bind printer discovery and TCP to the local Wi-Fi network independently of Internet routing.
+- Use fresh, bounded discovery sockets with repeated safe probes; release all search resources between tickets.
+- Record specific pre-send failure stages without changing orders or replaying historical tickets.
+- Preserve ticket layout, same-key claim recovery, one send per claim, and no automatic resend after uncertain writes.
+
 ## 1.3.1 — LAN kitchen printing correction (2026-10-14)
 
 - Keep the LAN discovery callback alive in optimized release APKs; memory collection can no longer discard the callback while the app waits for the printer.

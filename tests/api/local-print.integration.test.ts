@@ -108,3 +108,21 @@ it("retains both existing ticket formats and strips user control bytes", () => {
   expect(escpos(guest).toString()).toContain("TOTAL     : PHP 50");
   expect(escpos(kitchen).toString()).toContain("No salt @");
 });
+
+it("records bounded unsent diagnostics without claiming or changing another user's or sent ticket", async () => {
+  const job = await save("diagnostic");
+  const body = {action: "diagnostic", id: job.id, stage: "discovery", reason: "timeout"};
+  expect((await POST(request({...body, reason: "arbitrary payload"}))).status).toBe(400);
+  mocks.auth.mockResolvedValue({userId: "other", role: "waiter"});
+  await POST(request(body));
+  const read = async () => (await db.query<{status: string; attempt_count: number; last_error: string | null; content: string}>("SELECT status,attempt_count,last_error,content FROM print_deliveries WHERE id=$1", [job.id])).rows[0];
+  expect((await read()).last_error).toBeNull();
+  mocks.auth.mockResolvedValue({userId: actor, role: "waiter"});
+  await POST(request(body));
+  expect(await read()).toMatchObject({status: "queued", attempt_count: 0, last_error: "LAN discovery: timeout", content: job.content});
+  const grant = await (await POST(request({action: "claim", id: job.id}))).json();
+  await POST(request({action: "report", id: job.id, token: grant.token, status: "accepted"}));
+  const accepted = await read();
+  await POST(request(body));
+  expect(await read()).toEqual(accepted);
+});

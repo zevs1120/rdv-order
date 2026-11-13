@@ -184,3 +184,30 @@ The native printer page lists local unsent/unconfirmed records and offers a sing
 test and safe-unsent retry. It no longer displays XPYUN online status as local status.
 SDK Demo physical acceptance establishes hardware compatibility only. RDV APK
 kitchen/bill physical acceptance remains a separate on-site check after release.
+
+
+## Android 1.3.2 connection correction (2026-11-13)
+
+This supersedes the SDK-managed socket lifecycle described for 1.3.0 above.
+The app uses the same Xprinter UDP discovery protocol (`XP0001FIND`/`XP0001FOUND`,
+port 9000), matching the registered MAC and the responding IP, then writes the
+unchanged ESC/POS bytes to TCP 9100. Fresh sockets are bound explicitly to Android's
+Wi-Fi Network (Ethernet if no Wi-Fi is available); no process-wide network switch
+or saved-IP shortcut is used. Internet API requests keep their normal routing.
+[Android's Network API](https://developer.android.com/reference/android/net/Network)
+supports per-socket routing without changing the process network.
+
+Each connection attempt sends up to four discovery probes spaced by 750 ms using
+the subnet broadcast and limited broadcast. A missed reply may recover within that
+attempt. The socket closes on all outcomes; no SDK weak callback, background reader,
+or delayed close remains between tickets. TCP connect is bounded to 2.5 seconds.
+There are at most two pre-send connection attempts; writing remains one bounded
+five-second operation after the existing server claim. Partial/uncertain writes
+are never replayed. Startup, updates and table reads do not drain old tickets.
+Only existing explicit unsent-ticket retry remains available to staff.
+
+Failure diagnostics record the pre-send stage without credentials or ticket text.
+The two-day production evidence establishes intermittent pre-claim failures, not
+which phone/network condition caused each historical failure. Emulator validation
+covers routing, discovery recovery and no-repeat behavior; hotel paper acceptance
+remains a normal-order check after installation.
